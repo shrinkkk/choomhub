@@ -34,15 +34,19 @@ What exists **today**:
 - **Sign-in and pairing** (with Firebase configured): Google sign-in, then one of you starts a
   space and the other joins with a single-use, 48-hour invite code. At most two people.
 - **Naming**: you name your partner; they name you. Synced through Firestore; editable in Settings.
-- **Meetup countdown** at the top of Home: live days/hrs/min/sec with a moon face that goes from
-  teary (nothing planned) to sad, happy and excited as the day gets closer. Synced between phones.
+- **Meetup countdown** at the top of Home: live days/hrs/min/sec with the shared black cat, whose
+  face goes through seven moods from crying (nothing planned) to ecstatic. Synced between phones.
+- **Good Boy / Good Girl** roles chosen during setup.
+- **Push notifications** (once the free Cloudflare Worker is deployed; see
+  [docs/NOTIFICATIONS_SETUP.md](docs/NOTIFICATIONS_SETUP.md)): your partner hears when you set or
+  clear the meetup, join, or rename them; per-category switches and a test button in Settings.
 - A **home screen** with your partner's real name and **sample** mood, latest snap, gesture
   buttons, Good Boy / Good Girl points and the shared cat, clearly labelled as sample data.
 - Bottom navigation between Home, Messages, Activities, Our World and Settings. Non-home tabs are
   honest "coming soon" screens.
 - Unit tests plus Robolectric UI tests (onboarding, renaming, navigation, screenshot capture).
 
-What does **not** exist yet: real moods, snaps, messages, points, notifications or widgets. The
+What does **not** exist yet: real moods, snaps, messages, points or widgets. The
 gesture buttons say so when tapped. Without Firebase config the app runs in device-only mode.
 
 ## Technology stack
@@ -92,8 +96,9 @@ From a terminal:
 After `testDebugUnitTest`, rendered screenshots of every screen (and the motif gallery) are
 written to `app/build/outputs/screenshots/`.
 
-Backend config goes in your git-ignored `local.properties` (four Firebase values; see
-[docs/ARCHITECTURE.md § Configuration](docs/ARCHITECTURE.md#9-configuration)). Without it the app
+Backend config goes in your git-ignored `local.properties` (four Firebase values, plus the push
+Worker URL once it's deployed; see [docs/ARCHITECTURE.md § Configuration](docs/ARCHITECTURE.md#9-configuration)
+and [docs/NOTIFICATIONS_SETUP.md](docs/NOTIFICATIONS_SETUP.md)). Without it the app
 builds and runs in device-only mode. Firestore security rules live in `firebase/firestore.rules`;
 test them with `cd firebase && npm install && npm run test:rules` (needs Java).
 
@@ -105,6 +110,7 @@ Everything is designed to stay on free tiers with no card on file (see ADR-020).
   security, widget.
 - [docs/ROADMAP.md](docs/ROADMAP.md): milestones and status.
 - [docs/DECISIONS.md](docs/DECISIONS.md): architectural decision log.
+- [docs/NOTIFICATIONS_SETUP.md](docs/NOTIFICATIONS_SETUP.md): one-time push setup (Cloudflare + Firebase key).
 
 ## Licences
 

@@ -6,6 +6,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * Live document as a Flow. Emits the cached copy first (works offline), then
@@ -23,3 +24,11 @@ internal fun DocumentReference.observe(): Flow<DocumentSnapshot?> = callbackFlow
     }
     awaitClose { registration.remove() }
 }
+
+/** The signed-in Firebase user's uid, or null when signed out. */
+internal fun firebaseUid(): Flow<String?> = callbackFlow {
+    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { trySend(it.currentUser?.uid) }
+    auth.addAuthStateListener(listener)
+    awaitClose { auth.removeAuthStateListener(listener) }
+}.distinctUntilChanged()

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Only colours needed outside Compose (window, launcher icon). -->
+    <!-- Only colours needed outside Compose (window, launcher icon, notifications). -->
     <color name="choomhub_night">#FF09090B</color>
+    <!-- Tint of the small raven in notifications (bone). -->
+    <color name="notification_accent">#FFEDE6D6</color>
 </resources>

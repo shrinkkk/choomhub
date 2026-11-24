@@ -36,17 +36,22 @@ com.choomhub.app
 │   ├── common/                    TimeLabels, SecondTicker, Clock provider
 │   ├── datastore/                 DataStore<Preferences> provider
 │   ├── firebase/                  FirebaseConfig (BuildConfig), FirebaseInitializer
+│   ├── notifications/             AppNotifications: channels, showing pushes while the app is open
 │   ├── designsystem/              theme, components, illustrations, icons
 │   └── navigation/                TopLevelDestination, ChoomHubBottomBar
 ├── domain/
-│   ├── model/                     SpaceState + InviteCodes, CoupleNames + NameRules, Meetup + MeetupCountdown, ...
-│   └── repository/                SpaceRepository, ProfileRepository, MeetupRepository, HomeRepository
+│   ├── model/                     SpaceState + InviteCodes, CoupleNames + NameRules, Meetup + MeetupCountdown,
+│   │                              NotificationCategory, PushEvent, ...
+│   └── repository/                SpaceRepository, ProfileRepository, MeetupRepository, HomeRepository,
+│                                  NotificationRepository, Notifier
 ├── data/
-│   ├── firebase/                  FirebaseSpaceRepository, FirestoreProfileRepository, FirestoreMeetupRepository
+│   ├── firebase/                  FirebaseSpaceRepository, FirestoreProfileRepository, FirestoreMeetupRepository,
+│   │                              FirestoreNotificationRepository
+│   ├── push/                      PushRegistrar, ChoomHubMessagingService, PushApi, PushWorker, WorkManagerNotifier
 │   ├── space/                     DeviceOnlySpaceRepository
 │   ├── profile/, meetup/          DataStore implementations (device-only mode)
 │   ├── sample/                    SampleHomeRepository (real names + sample mood/snap/points)
-│   └── di/                        DataModule, SpaceModule, ProfileModule, MeetupModule
+│   └── di/                        DataModule, SpaceModule, ProfileModule, MeetupModule, PushModule, PushClientModule
 └── feature/
     ├── account/                   sign-in and pairing screens + AccountViewModel
     ├── onboarding/                "What do you call them?"
@@ -54,6 +59,7 @@ com.choomhub.app
     ├── messages/, activities/, world/   placeholders
     └── settings/                  names, space status / invite code, sign out
 firebase/                          firestore.rules, emulator config, rules tests (Node)
+push-worker/                       Cloudflare Worker that sends pushes (JS, unit + emulator tests)
 ```
 
 ## 2. MVVM and repositories (implemented)
@@ -105,6 +111,9 @@ that must be read without the Firestore SDK).
 | `invites/{code}` | `coupleId`, `createdBy`, `expiresAt` (≤ 3 days, app uses 48 h), `usedBy` | any signed-in user can *get* by code (no listing); consumed once, not by its creator, only together with joining |
 | `couples/{id}/names/{namerUid}` | `nameForPartner` (1–24 chars), `updatedAt` | members read; only `namerUid` writes |
 | `couples/{id}/shared/meetup` | `at` (timestamp or null), `updatedBy`, `updatedAt` | members read/write, signed as themselves |
+| `couples/{id}/shared/roles` | `goodBoy`, `goodGirl` (uids), `updatedAt` | members read; each can only place themself |
+| `users/{uid}/devices/{fid}` | `platform`, `updatedAt` (doc id = FCM installation id) | only that user; the push Worker reads with server credentials |
+| `users/{uid}/settings/notifications` | `meetup`, `space` (booleans), `updatedAt` | only that user; the Worker reads it before sending |
 
 **Pairing** (no Cloud Functions needed): the first person writes the couple, the invite and their
 user record in one batch. The second person reads the invite by code, then in one batch marks it used,
@@ -123,26 +132,47 @@ you wrote and "your name" is the one they wrote. This works before the partner h
 - Moods, gestures, messages (text only, no voice notes, ADR-023), achievements and an append-only
   points ledger, the shared cat.
 
-## 6. Notifications (planned, ADR-020)
+## 6. Notifications (implemented, ADR-020, ADR-028)
 
-1. A phone writes an event (e.g. a new snap) to Firestore.
-2. It calls the **Cloudflare Worker** with its Firebase ID token.
-3. The Worker verifies the token, reads the partner's FCM token and notification preferences, and
-   sends a push via the **FCM HTTP v1 API** using a service-account key stored only as a Worker secret.
-4. The phone shows it on the matching notification channel and refreshes from Firestore.
+**Registration.** The app opts into FCM's installation-id targeting. When FCM registers the phone,
+`ChoomHubMessagingService.onRegistered(fid)` hands the id to `PushRegistrar`, which keeps it in
+DataStore and writes `users/{uid}/devices/{fid}` for whoever is signed in. Signing out deletes that
+document first, so the old account stops getting pushes on this phone.
 
-If the Worker is unreachable, nothing breaks: data still syncs while the app is open, plus a periodic
-background check. Free limits are far above two people's needs (100,000 requests/day).
+**Sending.** A ViewModel calls `Notifier.notifyPartner(event)` after a change (meetup set/cleared,
+joined, renamed). `WorkManagerNotifier` queues a `PushWorker` with a network constraint and
+exponential backoff; events with the same collapse key replace each other while queued. The worker
+POSTs `{event, detail}` to the Worker with the Firebase **ID token**, refreshing it once on 401.
+
+**The Worker** (`push-worker/`, Cloudflare free plan):
+1. verifies the ID token (RS256 against Google's securetoken keys, audience/issuer/expiry);
+2. finds the caller's couple and partner in Firestore (the `test` event goes to the caller instead);
+3. stops if the partner turned that category off;
+4. builds the text itself, using the name the *recipient* gave the sender; only the meetup time comes
+   from the app, capped at 80 characters;
+5. sends an FCM HTTP v1 message per registered phone (`fid` target, channel, tag, raven icon) and
+   deletes registrations FCM reports as `UNREGISTERED`.
+It authenticates to Google with the service-account key held only as the Worker secret
+`SERVICE_ACCOUNT_JSON`, and never logs request contents.
+
+**Showing.** In the background Android displays the notification on its channel (`meetup`, `space`,
+`general`). While the app is open, `onMessageReceived` shows the same notification. Android 13+
+permission is asked once on reaching the main app; Settings has the switches, a shortcut to the
+system screen and a **Send a test** button.
+
+If the Worker is unreachable, nothing breaks: data still syncs and queued sends retry for a while.
+Setup steps: [NOTIFICATIONS_SETUP.md](NOTIFICATIONS_SETUP.md).
 
 ## 7. Security principles
 
 - Firestore security rules on every path; default deny. Rules are tested on the emulator
-  (`firebase/test/rules.test.mjs`, 17 cases).
+  (`firebase/test/rules.test.mjs`, 22 cases).
 - Exactly two members per space, enforced by rules. Invite codes are random, single-use, expire, and
   only work together with an authenticated join. They aren't the only gate: auth, rules and the
   two-member limit apply too.
-- The app ships only public client identifiers. The FCM service-account key will live only in the
-  Worker's secrets.
+- The app ships only public client identifiers. The FCM service-account key lives only in the
+  Worker's secrets; the Worker accepts nothing but a verified ID token and a known event name, and
+  only ever notifies the caller's partner (or the caller, for the test).
 - No sensitive logging (no messages, captions, image data or tokens).
 - `allowBackup="false"` plus data-extraction rules exclude app data from Android backups.
 - End-to-end encryption is not a current requirement.
@@ -166,7 +196,11 @@ choomhub.firebase.projectId=your-project-id
 choomhub.firebase.appId=1:…:android:…          # mobilesdk_app_id in google-services.json
 choomhub.firebase.apiKey=AIza…                  # current_key in google-services.json
 choomhub.firebase.webClientId=….apps.googleusercontent.com  # Auth → Google → Web SDK configuration
+choomhub.push.workerUrl=https://choomhub-push.<subdomain>.workers.dev   # optional; enables pushes
 ```
+
+The FCM sender id is derived from the app id, so it needs no setting. Without `workerUrl` the app
+works normally and Settings says pushes aren't set up.
 
 If any value is missing, the app runs in **device-only mode** (no sign-in; names and meetup stay on
 the phone). Google sign-in also needs the debug (and later release) **SHA-1** registered on the
@@ -185,8 +219,13 @@ Publish, or `cd firebase && npm install && npx firebase deploy --only firestore:
 - **Screenshot capture**: every screen, countdown moods, sign-in/pairing, motif gallery →
   `app/build/outputs/screenshots/`.
 - **Security rules**: `cd firebase && npm install && npm run test:rules` (needs Java for the emulator).
+- **Push Worker**: `cd push-worker && npm test` (token verification, service-account signing, message
+  building) and `npm run test:integration` (the whole handler against the Firestore emulator with FCM
+  faked: partner-only delivery, muting, non-members refused, dead registrations removed).
+- **Push client**: request/response handling, retry decisions, token refresh, Settings notifications
+  (Robolectric) and the ViewModels that send events.
 - **Not yet covered automatically**: the Firebase repositories against a live or emulated backend,
-  and Google sign-in. Those are verified on a device.
+  Google sign-in, and real FCM delivery. Those are verified on a device.
 
 ## 11. Future extensibility
 

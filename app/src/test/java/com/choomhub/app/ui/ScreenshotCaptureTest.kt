@@ -26,6 +26,11 @@ import com.choomhub.app.testing.DisableAmbientAnimationsRule
 import com.choomhub.app.testing.FakeMeetupRepository
 import com.choomhub.app.testing.FakeProfileRepository
 import dagger.hilt.android.testing.BindValue
+import com.choomhub.app.data.di.PushModule
+import com.choomhub.app.domain.repository.NotificationRepository
+import com.choomhub.app.domain.repository.Notifier
+import com.choomhub.app.testing.FakeNotificationRepository
+import com.choomhub.app.testing.FakeNotifier
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
@@ -46,9 +51,17 @@ import java.io.File
  */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreenshotCaptureTest {
+
+    @BindValue
+    @JvmField
+    val notifier: Notifier = FakeNotifier()
+
+    @BindValue
+    @JvmField
+    val notificationRepository: NotificationRepository = FakeNotificationRepository()
 
     private val fake = FakeProfileRepository(CoupleNames(partnerName = "Wren", myName = null, myRole = PointsRole.GoodBoy))
 

@@ -3,13 +3,23 @@ package com.choomhub.app.data.di
 import com.choomhub.app.core.firebase.FirebaseConfig
 import com.choomhub.app.data.firebase.FirebaseSpaceRepository
 import com.choomhub.app.data.firebase.FirestoreMeetupRepository
+import com.choomhub.app.data.firebase.FirestoreNotificationRepository
 import com.choomhub.app.data.firebase.FirestoreProfileRepository
 import com.choomhub.app.data.meetup.LocalMeetupRepository
 import com.choomhub.app.data.profile.DataStoreProfileRepository
+import com.choomhub.app.data.push.FirebaseIdTokenSource
+import com.choomhub.app.data.push.IdTokenSource
+import com.choomhub.app.data.push.InMemoryNotificationRepository
+import com.choomhub.app.data.push.NoopNotifier
+import com.choomhub.app.data.push.PushEndpoint
+import com.choomhub.app.data.push.WorkManagerNotifier
 import com.choomhub.app.data.sample.SampleHomeRepository
 import com.choomhub.app.data.space.DeviceOnlySpaceRepository
 import com.choomhub.app.domain.repository.HomeRepository
+import com.choomhub.app.domain.model.PushAvailability
 import com.choomhub.app.domain.repository.MeetupRepository
+import com.choomhub.app.domain.repository.NotificationRepository
+import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.domain.repository.ProfileRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import dagger.Binds
@@ -65,4 +75,34 @@ object MeetupModule {
         firestore: Provider<FirestoreMeetupRepository>,
         local: Provider<LocalMeetupRepository>,
     ): MeetupRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object PushModule {
+    @Provides
+    @Singleton
+    fun provideNotifier(workManager: Provider<WorkManagerNotifier>): Notifier = when {
+        !FirebaseConfig.isConfigured -> NoopNotifier(PushAvailability.DeviceOnly)
+        FirebaseConfig.notifyEndpoint() == null -> NoopNotifier(PushAvailability.NotSetUp)
+        else -> workManager.get()
+    }
+
+    @Provides
+    @Singleton
+    fun provideNotificationRepository(
+        firestore: Provider<FirestoreNotificationRepository>,
+        local: Provider<InMemoryNotificationRepository>,
+    ): NotificationRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+}
+
+/** What the push Worker client needs; kept separate so tests can swap [PushModule] alone. */
+@Module
+@InstallIn(SingletonComponent::class)
+object PushClientModule {
+    @Provides
+    fun providePushEndpoint(): PushEndpoint = PushEndpoint(FirebaseConfig.notifyEndpoint())
+
+    @Provides
+    fun provideIdTokenSource(impl: FirebaseIdTokenSource): IdTokenSource = impl
 }

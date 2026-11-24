@@ -1,5 +1,9 @@
 package com.choomhub.app.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -7,9 +11,11 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -20,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import com.choomhub.app.core.designsystem.component.NightSkyBackground
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.core.navigation.ChoomHubBottomBar
+import com.choomhub.app.core.notifications.AppNotifications
 import com.choomhub.app.core.navigation.TopLevelDestination
 import com.choomhub.app.feature.account.PairingScreen
 import com.choomhub.app.feature.account.SignInScreen
@@ -45,9 +52,26 @@ fun ChoomHubApp(appViewModel: AppViewModel = hiltViewModel()) {
                 AppGate.SignIn -> SignInScreen()
                 AppGate.Pairing -> PairingScreen()
                 AppGate.Onboarding -> OnboardingScreen()
-                AppGate.Main -> MainScaffold()
+                AppGate.Main -> {
+                    MainScaffold()
+                    NotificationPermissionOnce(appViewModel)
+                }
             }
         }
+    }
+}
+
+/** Asks for the Android 13+ notification permission the first time the main app shows. */
+@Composable
+private fun NotificationPermissionOnce(appViewModel: AppViewModel) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    val shouldAsk by appViewModel.shouldAskForNotifications.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(shouldAsk) {
+        if (!shouldAsk) return@LaunchedEffect
+        appViewModel.onNotificationsAsked()
+        if (!AppNotifications.canPost(context)) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 

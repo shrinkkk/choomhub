@@ -12,7 +12,7 @@ plugins {
  * Backend configuration is read from the (git-ignored) local.properties file so
  * that no project identifiers land in the repository. Only values that are
  * safe to ship inside a public mobile app belong here (Firebase project id,
- * app id, API key, Google web client id); access is enforced by Firestore
+ * app id, API key, Google web client id, push Worker URL); access is enforced by Firestore
  * security rules. The Firebase service-account key must NEVER be placed here;
  * it lives only in the push Worker's secrets. See docs/ARCHITECTURE.md ->
  * "Configuration".
@@ -46,6 +46,7 @@ android {
         buildConfigField("String", "FIREBASE_APP_ID", "\"${localConfig("choomhub.firebase.appId")}\"")
         buildConfigField("String", "FIREBASE_API_KEY", "\"${localConfig("choomhub.firebase.apiKey")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localConfig("choomhub.firebase.webClientId")}\"")
+        buildConfigField("String", "PUSH_WORKER_URL", "\"${localConfig("choomhub.push.workerUrl")}\"")
     }
 
     buildTypes {
@@ -89,6 +90,10 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.messaging)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.choomhub.app.domain.model.NameRules
 import com.choomhub.app.domain.model.PointsRole
+import com.choomhub.app.domain.model.PushEvent
+import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,14 +33,19 @@ data class OnboardingUiState(
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
+    private val notifier: Notifier,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(OnboardingUiState())
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
 
+    /** The name already saved for your partner, to tell whether it changed. */
+    private var savedName: String? = null
+
     init {
         viewModelScope.launch {
             profileRepository.observeNames().collect { names ->
+                savedName = names.partnerName
                 _state.update { s ->
                     s.copy(
                         input = if (s.input.isEmpty()) names.partnerName.orEmpty() else s.input,
@@ -74,7 +81,10 @@ class OnboardingViewModel @Inject constructor(
         }
         _state.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
-            profileRepository.setPartnerName(name.name)
+            if (name.name != savedName) {
+                profileRepository.setPartnerName(name.name)
+                notifier.notifyPartner(PushEvent.Renamed)
+            }
             val claimed = s.lockedRole != null || profileRepository.setMyRole(role)
             if (!claimed) {
                 _state.update {

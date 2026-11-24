@@ -3,9 +3,12 @@ package com.choomhub.app.feature.home.meetup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.choomhub.app.core.common.SecondTicker
+import com.choomhub.app.core.common.TimeLabels
 import com.choomhub.app.domain.model.CountdownState
 import com.choomhub.app.domain.model.MeetupCountdown
+import com.choomhub.app.domain.model.PushEvent
 import com.choomhub.app.domain.repository.MeetupRepository
+import com.choomhub.app.domain.repository.Notifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +27,7 @@ class MeetupViewModel @Inject constructor(
     private val repository: MeetupRepository,
     private val clock: Clock,
     ticker: SecondTicker,
+    private val notifier: Notifier,
 ) : ViewModel() {
 
     /** Null until the stored meetup has been read, so the card doesn't flash "none". */
@@ -40,11 +44,17 @@ class MeetupViewModel @Inject constructor(
     fun schedule(date: LocalDate, time: LocalTime): String? {
         val at = date.atTime(time).atZone(clock.zone).toInstant()
         if (!at.isAfter(clock.instant())) return "Pick a time that hasn't happened yet."
-        viewModelScope.launch { repository.schedule(at) }
+        viewModelScope.launch {
+            repository.schedule(at)
+            notifier.notifyPartner(PushEvent.MeetupSet, TimeLabels.meetupMoment(at.atZone(clock.zone)))
+        }
         return null
     }
 
     fun clear() {
-        viewModelScope.launch { repository.clear() }
+        viewModelScope.launch {
+            repository.clear()
+            notifier.notifyPartner(PushEvent.MeetupCleared)
+        }
     }
 }

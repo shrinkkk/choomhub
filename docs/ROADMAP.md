@@ -51,11 +51,16 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ⬜ Hugs, kisses, head pats, tomato deliveries, thinking-of-you, comfort, custom gestures
 - ⬜ Daily check-ins, stay-with-me mode
 
-## Milestone 4: Notifications ⬜
+## Milestone 4: Notifications 🟡 (built; needs the one-time setup and a device check)
 
-- ⬜ FCM token registration, notification channels per category, preferences
-- ⬜ Cloudflare Worker (free) that verifies the sender and sends FCM HTTP v1 pushes
-- ⬜ Fallback: periodic background check when pushes can't be delivered
+- ✅ FCM registration by installation id, synced per phone; removed on sign-out
+- ✅ Channels per category (Meetup, Space, Other); Android 13+ permission asked once
+- ✅ Per-category switches in Settings, respected by the Worker; "Send a test" button
+- ✅ Cloudflare Worker (free) that verifies the sender and sends FCM HTTP v1 pushes (unit + emulator tests)
+- ✅ Queued sending with retries (WorkManager); meetup set/cleared, joined, renamed notify the partner
+- ⬜ Deploy the Worker and verify on both phones ([setup guide](NOTIFICATIONS_SETUP.md))
+- ⬜ New categories as features land (moods, gestures, snaps, messages)
+- ⬜ Fallback: periodic background check, only if pushes prove unreliable
 
 ## Milestone 5: Snaps and widget ⬜
 

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.choomhub.app.domain.model.InviteCodes
+import com.choomhub.app.domain.model.PushEvent
+import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.domain.repository.SpaceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +28,7 @@ data class AccountUiState(
 @HiltViewModel
 class AccountViewModel @Inject constructor(
     private val spaceRepository: SpaceRepository,
+    private val notifier: Notifier,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AccountUiState())
@@ -39,10 +42,15 @@ class AccountViewModel @Inject constructor(
         _state.update { it.copy(codeInput = InviteCodes.normalize(value).take(InviteCodes.LENGTH), error = null) }
     }
 
-    fun join() = run { spaceRepository.joinSpace(_state.value.codeInput) }
+    fun join() = run {
+        spaceRepository.joinSpace(_state.value.codeInput).onSuccess { notifier.notifyPartner(PushEvent.PartnerJoined) }
+    }
 
     fun signOut() {
-        viewModelScope.launch { spaceRepository.signOut() }
+        viewModelScope.launch {
+            notifier.forgetThisPhone()
+            spaceRepository.signOut()
+        }
     }
 
     private fun run(action: suspend () -> Result<Unit>) {

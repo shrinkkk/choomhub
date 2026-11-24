@@ -255,3 +255,23 @@ which finds each outline point's outward normal and grows short lit tufts away f
 of the uniform `scratchEdge` hairlines. The cobweb's spider sits on the web itself (no loose thread).
 Gesture icons for Hug and Forehead kiss show two simple people, matching the line-icon set. Art
 changes are shown to the owner as previews before they ship.
+
+## ADR-028: Push notifications via FCM installation ids, a queued sender and the Worker
+
+**Date:** 2026-11-25 · **Status:** Accepted
+
+- **Target phones by Firebase Installation ID (FID)**, not legacy registration tokens. Firebase now
+  marks the token API deprecated, and FCM HTTP v1 has a `fid` target. The app enables
+  `firebase_messaging_installation_id_enabled` and stores the id it gets in `onRegistered`.
+- **One document per phone** (`users/{uid}/devices/{fid}`), readable only by its owner. The Worker
+  reads it with server credentials; a phone switching accounts deletes its document on sign-out.
+- **The Worker writes the words.** The app sends only an event name (plus the meetup time). The Worker
+  picks the recipient (always the partner, from Firestore), checks their switches, and uses the name
+  the recipient chose for the sender. A modified app can't push arbitrary text or reach strangers.
+- **Queued with WorkManager**, so changes made offline still notify later; same-kind events replace
+  each other while waiting. Not expedited (it would need a foreground notification on older Android).
+- **Notification messages** (not data-only), so Android shows them even if the app was killed, on
+  per-category channels. While the app is open, the app shows them itself.
+- **Plain copy**, consistent with the rest of the app ("Shri set the next meetup", not "💕").
+- The periodic background check from ADR-020 is deferred: the queue plus Firestore sync on open cover
+  the two-person case; revisit if pushes prove unreliable on her phone's brand.

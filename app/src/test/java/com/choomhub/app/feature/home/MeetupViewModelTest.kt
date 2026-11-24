@@ -4,8 +4,10 @@ import com.choomhub.app.core.common.SecondTicker
 import com.choomhub.app.domain.model.CountdownMood
 import com.choomhub.app.domain.model.CountdownState
 import com.choomhub.app.domain.model.Meetup
+import com.choomhub.app.domain.model.PushEvent
 import com.choomhub.app.feature.home.meetup.MeetupViewModel
 import com.choomhub.app.testing.FakeMeetupRepository
+import com.choomhub.app.testing.FakeNotifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -47,7 +49,7 @@ class MeetupViewModelTest {
     @Test
     fun `countdown follows the stored meetup and the ticking clock`() = runTest {
         val repo = FakeMeetupRepository(Meetup(now.plus(Duration.ofDays(5))))
-        val vm = MeetupViewModel(repo, clock, ticker)
+        val vm = MeetupViewModel(repo, clock, ticker, FakeNotifier())
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.countdown.collect {} }
 
         assertEquals(CountdownMood.Happy, (vm.countdown.value as CountdownState.Upcoming).mood)
@@ -63,16 +65,20 @@ class MeetupViewModelTest {
     @Test
     fun `scheduling in the past is refused, the future is saved in local time`() {
         val repo = FakeMeetupRepository()
-        val vm = MeetupViewModel(repo, clock, ticker)
+        val notifier = FakeNotifier()
+        val vm = MeetupViewModel(repo, clock, ticker, notifier)
 
         val error = vm.schedule(LocalDate.of(2026, 11, 24), LocalTime.of(20, 0))
         assertEquals("Pick a time that hasn't happened yet.", error)
         assertNull(repo.meetup.value)
+        assertEquals(emptyList<Pair<PushEvent, String?>>(), notifier.sent)
 
         assertNull(vm.schedule(LocalDate.of(2026, 12, 13), LocalTime.of(19, 30)))
         assertEquals(Instant.parse("2026-12-13T14:00:00Z"), repo.meetup.value?.at)
+        assertEquals(PushEvent.MeetupSet to "Sun 13 Dec, 7:30 pm", notifier.sent.last())
 
         vm.clear()
         assertNull(repo.meetup.value)
+        assertEquals(PushEvent.MeetupCleared to null, notifier.sent.last())
     }
 }

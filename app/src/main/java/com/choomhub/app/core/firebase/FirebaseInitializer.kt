@@ -12,13 +12,12 @@ import com.google.firebase.FirebaseOptions
 object FirebaseInitializer {
     fun initialize(context: Context) {
         if (!FirebaseConfig.isConfigured || FirebaseApp.getApps(context).isNotEmpty()) return
-        FirebaseApp.initializeApp(
-            context,
-            FirebaseOptions.Builder()
-                .setProjectId(FirebaseConfig.projectId)
-                .setApplicationId(FirebaseConfig.appId)
-                .setApiKey(FirebaseConfig.apiKey)
-                .build(),
-        )
+        val options = FirebaseOptions.Builder()
+            .setProjectId(FirebaseConfig.projectId)
+            .setApplicationId(FirebaseConfig.appId)
+            .setApiKey(FirebaseConfig.apiKey)
+        // Push (FCM) needs the sender id; it is derived from the app id, so no extra setting.
+        FirebaseConfig.senderId?.let(options::setGcmSenderId)
+        FirebaseApp.initializeApp(context, options.build())
     }
 }

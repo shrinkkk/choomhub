@@ -1,6 +1,8 @@
 package com.choomhub.app.feature.account
 
 import com.choomhub.app.domain.model.SpaceState
+import com.choomhub.app.domain.model.PushEvent
+import com.choomhub.app.testing.FakeNotifier
 import com.choomhub.app.testing.FakeSpaceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,6 +20,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountViewModelTest {
     private val repo = FakeSpaceRepository(SpaceState.SignedOut)
+    private val notifier = FakeNotifier()
 
     @Before
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -27,14 +30,14 @@ class AccountViewModelTest {
 
     @Test
     fun `code input is normalised and capped`() {
-        val vm = AccountViewModel(repo)
+        val vm = AccountViewModel(repo, notifier)
         vm.onCodeChange("abcd-2345-extra")
         assertEquals("ABCD2345", vm.state.value.codeInput)
     }
 
     @Test
     fun `starting a space moves to waiting`() {
-        val vm = AccountViewModel(repo)
+        val vm = AccountViewModel(repo, notifier)
         vm.startSpace()
         assertTrue(repo.space.value is SpaceState.Waiting)
         assertFalse(vm.state.value.busy)
@@ -43,11 +46,24 @@ class AccountViewModelTest {
     @Test
     fun `join errors are shown and cleared on typing`() {
         repo.joinError = "That code has already been used."
-        val vm = AccountViewModel(repo)
+        val vm = AccountViewModel(repo, notifier)
         vm.onCodeChange("ABCD2345")
         vm.join()
         assertEquals("That code has already been used.", vm.state.value.error)
         vm.onCodeChange("ABCD2346")
         assertNull(vm.state.value.error)
+        assertTrue(notifier.sent.isEmpty())
+    }
+
+    @Test
+    fun `joining tells the partner, signing out forgets this phone first`() {
+        val vm = AccountViewModel(repo, notifier)
+        vm.onCodeChange("ABCD2345")
+        vm.join()
+        assertEquals(listOf(PushEvent.PartnerJoined to null), notifier.sent)
+
+        vm.signOut()
+        assertEquals(1, notifier.forgotten)
+        assertEquals(SpaceState.SignedOut, repo.space.value)
     }
 }

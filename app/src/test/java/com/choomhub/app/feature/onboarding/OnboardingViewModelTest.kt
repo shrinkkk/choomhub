@@ -1,6 +1,8 @@
 package com.choomhub.app.feature.onboarding
 
 import com.choomhub.app.domain.model.PointsRole
+import com.choomhub.app.domain.model.PushEvent
+import com.choomhub.app.testing.FakeNotifier
 import com.choomhub.app.testing.FakeProfileRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,6 +21,7 @@ import org.junit.Test
 class OnboardingViewModelTest {
 
     private val repository = FakeProfileRepository()
+    private val notifier = FakeNotifier()
 
     @Before
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -28,7 +31,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun `blank name shows an error and saves nothing`() {
-        val viewModel = OnboardingViewModel(repository)
+        val viewModel = OnboardingViewModel(repository, notifier)
         viewModel.onInputChange("   ")
         viewModel.onContinue()
 
@@ -39,7 +42,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun `typing clears the error`() {
-        val viewModel = OnboardingViewModel(repository)
+        val viewModel = OnboardingViewModel(repository, notifier)
         viewModel.onContinue()
         viewModel.onInputChange("W")
         assertNull(viewModel.state.value.error)
@@ -47,7 +50,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun `valid name is cleaned and saved`() {
-        val viewModel = OnboardingViewModel(repository)
+        val viewModel = OnboardingViewModel(repository, notifier)
         viewModel.onInputChange("  Wren   the  Bold ")
         viewModel.onContinue()
         assertEquals("Pick which one you are.", viewModel.state.value.error)
@@ -57,12 +60,23 @@ class OnboardingViewModelTest {
         assertTrue(viewModel.state.value.isSaving)
         assertEquals("Wren the Bold", repository.names.value.partnerName)
         assertEquals(PointsRole.GoodBoy, repository.names.value.myRole)
+        assertEquals(listOf(PushEvent.Renamed to null), notifier.sent)
+    }
+
+    @Test
+    fun `continuing with the same name doesn't tell them again`() {
+        repository.names.value = repository.names.value.copy(partnerName = "Wren")
+        val viewModel = OnboardingViewModel(repository, notifier)
+        viewModel.onRoleSelected(PointsRole.GoodBoy)
+        viewModel.onContinue()
+        assertEquals(PointsRole.GoodBoy, repository.names.value.myRole)
+        assertTrue(notifier.sent.isEmpty())
     }
 
     @Test
     fun `when the partner already picked, your role is decided`() {
         repository.names.value = repository.names.value.copy(myRole = PointsRole.GoodGirl, roleChosenByPartner = true)
-        val viewModel = OnboardingViewModel(repository)
+        val viewModel = OnboardingViewModel(repository, notifier)
         assertEquals(PointsRole.GoodGirl, viewModel.state.value.lockedRole)
         viewModel.onInputChange("Rook")
         viewModel.onContinue()

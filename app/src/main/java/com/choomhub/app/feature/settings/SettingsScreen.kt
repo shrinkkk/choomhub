@@ -1,5 +1,11 @@
 package com.choomhub.app.feature.settings
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -48,7 +57,10 @@ import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
+import com.choomhub.app.core.notifications.AppNotifications
 import com.choomhub.app.domain.model.InviteCodes
+import com.choomhub.app.domain.model.NotificationCategory
+import com.choomhub.app.domain.model.PushAvailability
 import com.choomhub.app.domain.model.SpaceState
 import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.CoupleNames
@@ -65,7 +77,21 @@ fun NavGraphBuilder.settingsScreen(contentPadding: PaddingValues) {
 fun SettingsScreen(contentPadding: PaddingValues, viewModel: SettingsViewModel = hiltViewModel()) {
     val names by viewModel.names.collectAsStateWithLifecycle()
     val space by viewModel.space.collectAsStateWithLifecycle()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Whether this phone lets the app post notifications; re-checked whenever you come back.
+    var canPost by remember { mutableStateOf(AppNotifications.canPost(context)) }
+    LifecycleResumeEffect(Unit) {
+        canPost = AppNotifications.canPost(context)
+        onPauseOrDispose { }
+    }
+    var deniedOnce by rememberSaveable { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        canPost = AppNotifications.canPost(context)
+        if (!granted) deniedOnce = true
+    }
+
     SettingsContent(
         names = names,
         space = space,
@@ -74,6 +100,21 @@ fun SettingsScreen(contentPadding: PaddingValues, viewModel: SettingsViewModel =
         onShareCode = { code -> context.shareInviteCode(code) },
         onNewCode = viewModel::newInviteCode,
         onSignOut = viewModel::signOut,
+        notifications = notifications,
+        canPostNotifications = canPost,
+        onNotificationPermission = {
+            val askable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !canPost && !deniedOnce
+            if (askable) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                // After a refusal (or to manage channels) only the system screen can change it.
+                context.startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                )
+            }
+        },
+        onCategoryToggle = viewModel::setNotificationsEnabled,
+        onSendTest = viewModel::sendTestNotification,
     )
 }
 
@@ -90,6 +131,11 @@ fun SettingsContent(
     onShareCode: (String) -> Unit = {},
     onNewCode: () -> Unit = {},
     onSignOut: () -> Unit = {},
+    notifications: NotificationsUi = NotificationsUi(),
+    canPostNotifications: Boolean = true,
+    onNotificationPermission: () -> Unit = {},
+    onCategoryToggle: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
+    onSendTest: () -> Unit = {},
 ) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
@@ -176,7 +222,13 @@ fun SettingsContent(
             }
 
             SettingsGroup("Notifications") {
-                SettingsRow("Categories", "Per-category controls arrive with push notifications", badge = "later", divider = false)
+                NotificationSettings(
+                    ui = notifications,
+                    canPost = canPostNotifications,
+                    onPermission = onNotificationPermission,
+                    onToggle = onCategoryToggle,
+                    onSendTest = onSendTest,
+                )
             }
 
             SettingsGroup("Appearance") {
@@ -190,6 +242,90 @@ fun SettingsContent(
                 SettingsRow("Fonts", "Cormorant Garamond and Space Mono, SIL Open Font License", divider = false)
             }
             Spacer(Modifier.height(spacing.lg))
+        }
+    }
+}
+
+/** Permission, per-category switches and the test button. */
+@Composable
+private fun NotificationSettings(
+    ui: NotificationsUi,
+    canPost: Boolean,
+    onPermission: () -> Unit,
+    onToggle: (NotificationCategory, Boolean) -> Unit,
+    onSendTest: () -> Unit,
+) {
+    val colors = ChoomHubTheme.colors
+    if (ui.availability == PushAvailability.DeviceOnly) {
+        SettingsRow(
+            title = "Notifications",
+            value = "Need the shared space \u00B7 this build keeps everything on this phone",
+            badge = "device",
+            badgeColor = colors.textSecondary,
+            divider = false,
+        )
+        return
+    }
+    SettingsRow(
+        title = if (canPost) "On for this phone" else "Off on this phone",
+        value = if (canPost) "Sounds and channels are in Android's settings" else "Turn them on to hear when they change something",
+        badge = if (canPost) "system" else "turn on",
+        badgeColor = if (canPost) colors.textSecondary else colors.lavender,
+        onClick = onPermission,
+        modifier = Modifier.testTag("notifications_permission"),
+    )
+    NotificationCategory.entries.forEach { category ->
+        val enabled = ui.prefs.isEnabled(category)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Switch) { onToggle(category, !enabled) }
+                .padding(vertical = ChoomHubTheme.spacing.md)
+                .testTag("notifications_${category.key}"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(category.label, style = MaterialTheme.typography.titleSmall, color = colors.textMain)
+                Text(category.description, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+            }
+            Spacer(Modifier.size(ChoomHubTheme.spacing.sm))
+            Switch(
+                checked = enabled,
+                onCheckedChange = null,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = colors.night,
+                    checkedTrackColor = colors.lavender,
+                    uncheckedThumbColor = colors.textSecondary,
+                    uncheckedTrackColor = colors.night,
+                    uncheckedBorderColor = colors.outline,
+                ),
+            )
+        }
+        HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
+    }
+    when (ui.availability) {
+        PushAvailability.NotSetUp -> SettingsRow(
+            title = "Push service",
+            value = "Not set up in this build yet \u00B7 see docs/NOTIFICATIONS_SETUP.md",
+            badge = "setup",
+            badgeColor = colors.textSecondary,
+            divider = false,
+        )
+        else -> {
+            val test = ui.test
+            SettingsRow(
+                title = "Send a test",
+                value = when (test) {
+                    TestSendState.Idle -> "Sends a notification to this phone"
+                    TestSendState.Sending -> "Sending\u2026"
+                    is TestSendState.Done -> test.message
+                },
+                badge = if (test == TestSendState.Sending) "\u2026" else "send",
+                badgeColor = if (test is TestSendState.Done && !test.ok) colors.pink else colors.lavender,
+                onClick = onSendTest.takeIf { test != TestSendState.Sending },
+                divider = false,
+                modifier = Modifier.testTag("notifications_test"),
+            )
         }
     }
 }

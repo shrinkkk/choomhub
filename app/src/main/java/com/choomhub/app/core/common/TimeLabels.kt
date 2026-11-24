@@ -34,6 +34,10 @@ object TimeLabels {
         return DateTimeFormatter.ofPattern(pattern, locale).format(time).lowercase(locale)
     }
 
+    /** e.g. "Sat 14 Dec, 7:30 pm": the meetup time as it appears in a notification. */
+    fun meetupMoment(time: ZonedDateTime, locale: Locale = Locale.getDefault()): String =
+        DateTimeFormatter.ofPattern("EEE d MMM", locale).format(time) + ", " + clockTime(time, use24Hour = false, locale = locale)
+
     /** Plain greeting for the hour. */
     fun greeting(time: LocalTime): String = when (time.hour) {
         in 5..11 -> "Morning"
