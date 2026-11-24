@@ -22,7 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
+import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 
@@ -41,13 +44,24 @@ fun ComingSoonScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     testTag: String = "screen_$title",
+    /** A small fixed piece of art in a corner of the screen (it doesn't scroll). */
+    cornerArt: CornerArt? = null,
     illustration: @Composable () -> Unit,
 ) {
     val spacing = ChoomHubTheme.spacing
+    Box(modifier.fillMaxSize().testTag(testTag)) {
+        if (cornerArt != null) {
+            GothicMotifArt(
+                cornerArt.motif,
+                Modifier
+                    .align(if (cornerArt.start) Alignment.TopStart else Alignment.TopEnd)
+                    .padding(top = contentPadding.calculateTopPadding() + cornerArt.inset, start = cornerArt.inset, end = cornerArt.inset)
+                    .size(cornerArt.size),
+            )
+        }
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .testTag(testTag)
             .verticalScroll(rememberScrollState())
             .padding(contentPadding)
             .padding(horizontal = spacing.screenGutter, vertical = spacing.xl),
@@ -97,4 +111,8 @@ fun ComingSoonScreen(
         }
         Spacer(Modifier.height(spacing.xxl))
     }
+    }
 }
+
+/** Which motif sits in which top corner, how big, and how far from the edges. */
+data class CornerArt(val motif: GothicMotif, val start: Boolean, val size: Dp, val inset: Dp)

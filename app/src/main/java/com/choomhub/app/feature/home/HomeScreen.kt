@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,8 +21,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.choomhub.app.core.designsystem.component.NightSkyBackground
-import com.choomhub.app.core.designsystem.illustration.GothicMotif
+import com.choomhub.app.core.designsystem.component.SkyBackground
+import com.choomhub.app.core.designsystem.illustration.HomeScenery
+import com.choomhub.app.core.designsystem.theme.skyColorsFor
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.AffectionKind
 import com.choomhub.app.domain.model.CountdownState
@@ -101,6 +104,16 @@ fun HomeContent(
         is HomeUiState.Ready -> {
             val spacing = ChoomHubTheme.spacing
             Box(modifier.fillMaxSize().testTag("screen_home"), contentAlignment = Alignment.TopCenter) {
+                // Fixed scene in the top-right corner, behind the scrolling content.
+                HomeScenery(
+                    phase = ChoomHubTheme.sky,
+                    sky = skyColorsFor(ChoomHubTheme.sky),
+                    modifier = Modifier
+                        .offset(y = contentPadding.calculateTopPadding() + spacing.lg - 22.dp)
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .testTag("home_scenery"),
+                )
                 LazyColumn(
                     // Cap width so the layout stays comfortable on tablets/foldables.
                     modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth().testTag("home_list"),
@@ -116,7 +129,6 @@ fun HomeContent(
                             dateLabel = state.dateLabel,
                             greeting = state.greeting,
                             viewerName = state.viewerName,
-                            motif = state.motif,
                             isSampleData = state.isSampleData,
                             modifier = gutter,
                         )
@@ -148,13 +160,12 @@ fun HomeContent(
 @Composable
 private fun HomeContentPreview() {
     ChoomHubTheme {
-        NightSkyBackground {
+        SkyBackground {
             HomeContent(
                 state = HomeUiState.Ready(
                     greeting = "Evening",
                     dateLabel = "Tuesday, 24 November",
                     viewerName = null,
-                    motif = GothicMotif.Raven,
                     partner = PartnerMoodUi("Wren", Mood.Sleepy, "headphones on, ignoring the rain", "12 min ago"),
                     snap = SnapUi("Wren", "the crows are back on the wire", ZonedDateTime.now(), "47 min ago", isNew = true),
                     points = PointBalances(goodBoy = 128, goodGirl = 142),

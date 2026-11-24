@@ -67,14 +67,10 @@ internal fun HomeHeader(
     dateLabel: String,
     greeting: String,
     viewerName: String?,
-    motif: GothicMotif,
     isSampleData: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = ChoomHubTheme.colors
-    // Narrow phones: smaller art so the title stays on one line.
-    val windowWidth = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() }
-    val motifSize = if (windowWidth < 360.dp) 68.dp else 96.dp
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(dateLabel.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
@@ -96,7 +92,6 @@ internal fun HomeHeader(
                 PillBadge(text = "sample data", color = colors.textSecondary)
             }
         }
-        GothicMotifArt(motif, Modifier.size(motifSize).testTag("header_motif_${motif.name}"))
     }
 }
 

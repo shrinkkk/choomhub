@@ -275,3 +275,22 @@ changes are shown to the owner as previews before they ship.
 - **Plain copy**, consistent with the rest of the app ("Shri set the next meetup", not "💕").
 - The periodic background check from ADR-020 is deferred: the queue plus Firestore sync on open cover
   the two-person case; revisit if pushes prove unreliable on her phone's brand.
+
+## ADR-029: Time-of-day sky, Home's branch scene, and the cat as the app icon
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner reviewed previews)
+
+- **Sky phases** with fixed local hours (dawn 05:00, day 08:00, dusk 17:00, night 19:30). Every phase
+  stays dark and muted: bruised violet, overcast violet, plum-to-wine, near-black. No blues. Surfaces
+  are tinted slightly per phase so cards don't look pasted on. Fixed hours rather than computed
+  sunrise/sunset keep it predictable; revisit if it feels off across seasons.
+- **No more rotating header art.** The motifs looked out of place up there; they now sit fixed on the
+  other screens. Home's top-right corner has a scene instead, drawn as background: a dead branch with
+  the sun high behind two ravens facing each other (dawn, day), or the sun/moon low behind two bats
+  hanging asleep (dusk, night) so they read as silhouettes. The bats follow the owner's reference
+  (one foot gripping, angular folded wings, head tucked at the bottom), in black ink.
+- **App icon** = the countdown cat, Bored, on the day sky's violet. Its foreground is rendered from
+  `CatFace` into PNGs by `LauncherIconRender` (the fur can't be a vector); the themed icon is a
+  vector silhouette. An icon that follows the cat's mood was considered and dropped for now:
+  Android has no supported way to change an app's icon, and the activity-alias workaround can remove
+  the icon from the home screen on many launchers each time it switches.

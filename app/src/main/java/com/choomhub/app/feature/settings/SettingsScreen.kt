@@ -233,7 +233,7 @@ fun SettingsContent(
 
             SettingsGroup("Appearance") {
                 SettingsRow("Theme", "Always dark, by design")
-                SettingsRow("Header art", "Changes every ${GothicMotif.DAYS_PER_MOTIF} days")
+                SettingsRow("Sky", "Follows the time of day: dawn, day, dusk, night")
                 SettingsRow("Motion", "Follows your system “remove animations” setting", divider = false)
             }
 

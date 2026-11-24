@@ -23,7 +23,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.choomhub.app.core.designsystem.component.NightSkyBackground
+import com.choomhub.app.core.designsystem.component.SkyBackground
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.core.navigation.ChoomHubBottomBar
 import com.choomhub.app.core.notifications.AppNotifications
@@ -45,7 +45,7 @@ import com.choomhub.app.feature.world.ourWorldScreen
 @Composable
 fun ChoomHubApp(appViewModel: AppViewModel = hiltViewModel()) {
     val gate by appViewModel.gate.collectAsStateWithLifecycle()
-    NightSkyBackground {
+    SkyBackground {
         Crossfade(targetState = gate, label = "appGate") { current ->
             when (current) {
                 AppGate.Loading -> Unit

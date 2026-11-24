@@ -26,9 +26,8 @@ import androidx.compose.ui.graphics.drawscope.scale
 import com.choomhub.app.core.designsystem.theme.ChoomHubColors
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.core.designsystem.theme.LocalAmbientMotionEnabled
-import java.time.LocalDate
 
-/** The rotating set of header motifs. */
+/** Small gothic pieces placed around the app (sign-in, settings, the empty tabs). */
 enum class GothicMotif {
     Raven,
     Moth,
@@ -36,16 +35,6 @@ enum class GothicMotif {
     SkeletonKey,
     MoonAndCrows,
     Cobweb,
-    ;
-
-    companion object {
-        /** How many days each motif stays before the next one takes over. */
-        const val DAYS_PER_MOTIF = 3
-
-        /** Deterministic: both phones show the same motif on the same day. */
-        fun forDate(date: LocalDate): GothicMotif =
-            entries[Math.floorMod(Math.floorDiv(date.toEpochDay(), DAYS_PER_MOTIF.toLong()), entries.size.toLong()).toInt()]
-    }
 }
 
 /** Draws a [GothicMotif] filling the given bounds. The candle flame flickers when ambient motion is on. */
@@ -102,6 +91,11 @@ private fun DrawScope.drawRavenOnBranch(colors: ChoomHubColors, withMoon: Boolea
     drawPath(branch, Ink)
     strokePath(svgPath("M0 85 C14 83 26 86 40 84 C56 82 70 87 86 83 C92 82 96 83 100 82"), Bone.copy(alpha = 0.22f), 0.4f)
     strokePath(svgPath("M74 86 C79 89 83 92 88 97"), Ink, 1.8f)
+    drawRavenFigure()
+}
+
+/** The perched raven alone (legs and talons included), on the 100 grid; its talons grip y ≈ 84.5 at x ≈ 54. */
+internal fun DrawScope.drawRavenFigure() {
     strokePath(MotifShapes.ravenLegs, Ink, 2.2f)
     // Talons hooking the branch.
     strokePath(svgPath("M50.5 84.5 L47.8 85.6 M50.5 84.5 L52.8 86 M57.5 84.5 L55 85.8 M57.5 84.5 L60 85.8"), Ink, 1f)

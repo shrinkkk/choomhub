@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
@@ -36,38 +37,38 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
 import com.choomhub.app.core.designsystem.illustration.StarField
+import com.choomhub.app.core.designsystem.theme.skyColorsFor
 import com.choomhub.app.core.designsystem.theme.ChoomHubRadii
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 
 /**
- * Full-screen backdrop: a near-black night gradient with a fine film grain and
- * a sparse, faint star field near the top.
+ * Full-screen backdrop that follows the time of day ([ChoomHubTheme.sky]):
+ * a dark gradient, stars at night (fading in at dusk and out at dawn) and a
+ * fine film grain. Home adds its own scene (branch, moon or sun) on top.
  */
 @Composable
-fun NightSkyBackground(
+fun SkyBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val colors = ChoomHubTheme.colors
+    val phase = ChoomHubTheme.sky
+    val sky = skyColorsFor(phase)
     Box(
         modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0f to colors.nightDeep,
-                    0.5f to colors.night,
-                    1f to Color(0xFF15121B),
-                ),
-            )
+            .background(Brush.verticalGradient(0f to sky.top, 0.5f to sky.middle, 1f to sky.bottom))
             .filmGrain(),
     ) {
-        StarField(
-            Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(fraction = 0.45f),
-            starCount = 34,
-        )
+        if (sky.starAlpha > 0f) {
+            StarField(
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(fraction = 0.45f)
+                    .alpha(sky.starAlpha),
+                starCount = 34,
+            )
+        }
         content()
     }
 }

@@ -5,13 +5,14 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 
 /**
- * Material 3 colour scheme mapped onto the ChoomHub palette. The app is
+ * Material 3 colour scheme mapped onto the ChoomHub palette (surfaces follow the [SkyPhase]). The app is
  * always dark by design, so there is intentionally no light scheme and no
  * dynamic (wallpaper) colour.
  */
-private val ChoomHubColorScheme = darkColorScheme(
+private fun colorSchemeFor(colors: ChoomHubColors) = darkColorScheme(
     primary = ChoomHubPalette.Purple,
     onPrimary = ChoomHubPalette.NightDeep,
     primaryContainer = ChoomHubPalette.PurpleDeep,
@@ -24,33 +25,36 @@ private val ChoomHubColorScheme = darkColorScheme(
     onTertiary = ChoomHubPalette.NightDeep,
     tertiaryContainer = ChoomHubPalette.TomatoDeep,
     onTertiaryContainer = ChoomHubPalette.Tomato,
-    background = ChoomHubPalette.Night,
+    background = colors.night,
     onBackground = ChoomHubPalette.TextMain,
-    surface = ChoomHubPalette.Surface,
+    surface = colors.surface,
     onSurface = ChoomHubPalette.TextMain,
-    surfaceVariant = ChoomHubPalette.SurfaceElevated,
+    surfaceVariant = colors.surfaceElevated,
     onSurfaceVariant = ChoomHubPalette.TextSecondary,
-    surfaceContainerLowest = ChoomHubPalette.NightDeep,
-    surfaceContainerLow = ChoomHubPalette.Night,
-    surfaceContainer = ChoomHubPalette.Surface,
-    surfaceContainerHigh = ChoomHubPalette.SurfaceElevated,
-    surfaceContainerHighest = ChoomHubPalette.SurfaceHighest,
-    outline = ChoomHubPalette.Outline,
-    outlineVariant = ChoomHubPalette.SurfaceHighest,
+    surfaceContainerLowest = colors.nightDeep,
+    surfaceContainerLow = colors.night,
+    surfaceContainer = colors.surface,
+    surfaceContainerHigh = colors.surfaceElevated,
+    surfaceContainerHighest = colors.surfaceHighest,
+    outline = colors.outline,
+    outlineVariant = colors.surfaceHighest,
     inverseSurface = ChoomHubPalette.TextMain,
-    inverseOnSurface = ChoomHubPalette.Night,
+    inverseOnSurface = colors.night,
     error = ChoomHubPalette.Tomato,
     onError = ChoomHubPalette.NightDeep,
 )
 
 @Composable
-fun ChoomHubTheme(content: @Composable () -> Unit) {
+fun ChoomHubTheme(phase: SkyPhase = SkyPhase.Night, content: @Composable () -> Unit) {
+    val colors = remember(phase) { choomHubColorsFor(phase) }
+    val scheme = remember(colors) { colorSchemeFor(colors) }
     CompositionLocalProvider(
-        LocalChoomHubColors provides DefaultChoomHubColors,
+        LocalChoomHubColors provides colors,
         LocalChoomHubSpacing provides ChoomHubSpacing(),
+        LocalSkyPhase provides phase,
     ) {
         MaterialTheme(
-            colorScheme = ChoomHubColorScheme,
+            colorScheme = scheme,
             typography = ChoomHubTypography,
             shapes = ChoomHubShapes,
             content = content,
@@ -63,6 +67,10 @@ object ChoomHubTheme {
     val colors: ChoomHubColors
         @Composable @ReadOnlyComposable
         get() = LocalChoomHubColors.current
+
+    val sky: SkyPhase
+        @Composable @ReadOnlyComposable
+        get() = LocalSkyPhase.current
 
     val spacing: ChoomHubSpacing
         @Composable @ReadOnlyComposable

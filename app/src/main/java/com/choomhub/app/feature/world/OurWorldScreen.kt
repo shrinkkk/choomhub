@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.choomhub.app.core.designsystem.component.ComingSoonScreen
+import com.choomhub.app.core.designsystem.component.CornerArt
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.illustration.PolaroidWall
 import kotlinx.serialization.Serializable
 
@@ -27,5 +30,6 @@ fun OurWorldScreen(contentPadding: PaddingValues) {
         planned = listOf("Shared room", "Photo wall", "The cat", "Memories", "Milestones", "Tomato garden", "Soundtrack"),
         contentPadding = contentPadding,
         testTag = "screen_our_world",
+        cornerArt = CornerArt(GothicMotif.Cobweb, start = true, size = 110.dp, inset = 0.dp),
     ) { PolaroidWall(Modifier.fillMaxSize()) }
 }

@@ -35,6 +35,13 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ "Forehead kiss" gesture
 - ✅ All art redrawn in the ink style from the owner's reference
 
+## Milestone 1.4: Time of day and the cat icon ✅
+
+- ✅ Dawn / day / dusk / night skies, all dark; surfaces tinted per phase
+- ✅ Home corner scene: branch with ravens (day) or sleeping bats (night) against the sun or moon
+- ✅ Header art no longer rotates; motifs placed on the other screens
+- ✅ App icon is the bored cat (plus a themed-icon silhouette)
+
 ## Milestone 2: Backend foundation and pairing 🚧
 
 - ✅ Firebase (Spark, free) wired from `local.properties`; device-only mode without it

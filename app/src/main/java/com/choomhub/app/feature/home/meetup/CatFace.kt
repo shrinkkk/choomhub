@@ -64,7 +64,7 @@ fun CatFace(expression: CatExpression, modifier: Modifier = Modifier) {
     }
 }
 
-private fun DrawScope.drawCatFace(e: CatExpression) {
+internal fun DrawScope.drawCatFace(e: CatExpression) {
     val ears = when (e) {
         CatExpression.Crying, CatExpression.Sad -> Ears.Flat
         CatExpression.Bored -> Ears.Tilted

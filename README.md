@@ -10,10 +10,12 @@ and crows. It is not a social network: no public profiles, feeds, ads or monetis
   <img src="docs/screenshots/onboarding.png" width="200" alt="First launch: naming your partner" />
   <img src="docs/screenshots/home.png" width="200" alt="Home screen" />
   <img src="docs/screenshots/settings.png" width="200" alt="Settings" />
-  <img src="docs/screenshots/motifs.png" width="230" alt="Rotating header motifs" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/sky.png" width="620" alt="Home's corner at dawn, day, dusk and night" />
 </p>
 
-<sub>Screenshots are rendered on the JVM by `ScreenshotCaptureTest` / `MotifGalleryCaptureTest`
+<sub>Screenshots are rendered on the JVM by `ScreenshotCaptureTest` / `SkyPhaseCaptureTest`
 (Robolectric), not taken on a device.</sub>
 
 ## Product vision
@@ -28,9 +30,11 @@ What exists **today**:
 
 - A buildable single-module Android project (`com.choomhub.app`).
 - A custom dark design system: muted palette, Cormorant Garamond + Space Mono (bundled, OFL),
-  film grain, line-art gesture icons, and hand-drawn Canvas illustrations: a set of six gothic
-  header motifs that rotate every three days, crows on a wire, the shared cat watching a crow
-  through a rainy window, a sealed letter, tarot cards, polaroids.
+  film grain, line-art gesture icons, and hand-drawn Canvas illustrations in one ink style.
+- A **sky that follows the time of day**: dawn, day, dusk and night each have their own dark
+  colours (violet, plum, wine, ink). Home's corner has a dead branch with two ravens facing
+  each other by day and two bats asleep upside down at dusk and night, against the sun or moon.
+- The **app icon** is the shared black cat, bored, on dark violet (themed-icon version included).
 - **Sign-in and pairing** (with Firebase configured): Google sign-in, then one of you starts a
   space and the other joins with a single-use, 48-hour invite code. At most two people.
 - **Naming**: you name your partner; they name you. Synced through Firestore; editable in Settings.

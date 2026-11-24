@@ -80,8 +80,13 @@ push-worker/                       Cloudflare Worker that sends pushes (JS, unit
 Always-dark custom Material 3 theme in ink-and-bone; Cormorant Garamond + Space Mono (bundled, OFL);
 film grain. Illustrations follow one ink style (ADR-027): shapes from SVG path data on a 100 × 100
 grid (`MotifPaths.kt`), drawn with the `Ink.kt` toolkit: solid ink fills, seeded scratchy fur edges,
-splatters, drips, sketchy lines. Six gothic header motifs rotate every 3 days by date; the meetup
-countdown uses the shared cat's face. `LocalAmbientMotionEnabled` respects "remove animations".
+splatters, drips, sketchy lines. The meetup countdown uses the shared cat's face.
+
+**Time of day (ADR-029).** `SkyPhase.at(LocalTime)` picks Dawn (05:00), Day (08:00), Dusk (17:00) or
+Night (19:30). `MainActivity` re-checks it every 30 s and passes it to `ChoomHubTheme(phase)`, which
+tints surfaces and exposes `ChoomHubTheme.sky`. `SkyBackground` draws that phase's gradient and stars;
+Home adds `HomeScenery` (branch, sun or moon, ravens or bats) fixed in its top-right corner. The small
+gothic motifs sit fixed on other screens (moth, key, cobweb, candle, raven on sign-in). `LocalAmbientMotionEnabled` respects "remove animations".
 
 ## 4. Offline-first (implemented via Firestore; ADR-021)
 
