@@ -123,3 +123,92 @@ internal fun DrawScope.sketchLine(from: Offset, to: Offset, color: Color, width:
         )
     }
 }
+
+/**
+ * Natural-looking fur along the edge of [path]: curved strands in uneven
+ * tufts that emerge from just inside the silhouette, catch light mostly from
+ * [light] (a direction), and drift with [flow] (gravity / grain). A sparse
+ * layer of faint strands inside the edge suggests texture without outlining.
+ */
+internal fun DrawScope.furEdge(
+    path: Path,
+    seed: Int,
+    color: Color = InkPalette.Bone,
+    density: Float = 45f,
+    length: ClosedFloatingPointRange<Float> = 2f..7f,
+    light: Offset = Offset(0.55f, -0.85f),
+    flow: Offset = Offset(0f, 1f),
+    width: Float = 0.32f,
+    ambient: Float = 0.18f,
+) {
+    val random = Random(seed)
+    val inside = insideTester(path)
+    val lightLen = kotlin.math.sqrt(light.x * light.x + light.y * light.y)
+    val lx = light.x / lightLen
+    val ly = light.y / lightLen
+    val measure = android.graphics.PathMeasure(path.asAndroidPath(), false)
+    val pos = FloatArray(2)
+    val tan = FloatArray(2)
+    val strand = Path()
+    do {
+        val total = measure.length
+        val count = (total / 100f * density).toInt().coerceAtLeast(1)
+        // Tufts: strands cluster around a few centres instead of being spread evenly.
+        repeat(count) {
+            val d = (random.nextFloat() * total)
+            measure.getPosTan(d, pos, tan)
+            var nx = -tan[1]
+            var ny = tan[0]
+            if (inside(pos[0] + nx * 1.2f, pos[1] + ny * 1.2f)) { nx = -nx; ny = -ny }
+            val lit = (nx * lx + ny * ly).coerceAtLeast(0f)
+            if (random.nextFloat() > ambient + (1f - ambient) * lit) return@repeat
+            val tuft = 1 + random.nextInt(3)
+            repeat(tuft) {
+                val len = (length.start + random.nextFloat() * (length.endInclusive - length.start)) * (0.55f + 0.75f * lit)
+                val jitter = (random.nextFloat() - 0.5f) * 0.7f
+                var dx = nx * 0.6f + flow.x * 0.45f + tan[0] * jitter
+                var dy = ny * 0.6f + flow.y * 0.45f + tan[1] * jitter
+                val dl = kotlin.math.sqrt(dx * dx + dy * dy)
+                dx /= dl; dy /= dl
+                val back = 0.5f + random.nextFloat() * 1.8f
+                val sx = pos[0] - nx * back + tan[0] * (random.nextFloat() - 0.5f) * 1.6f
+                val sy = pos[1] - ny * back + tan[1] * (random.nextFloat() - 0.5f) * 1.6f
+                val bend = (random.nextFloat() - 0.5f) * len * 0.5f
+                strand.reset()
+                strand.moveTo(sx, sy)
+                strand.quadraticTo(sx + dx * len * 0.5f - dy * bend, sy + dy * len * 0.5f + dx * bend, sx + dx * len, sy + dy * len)
+                drawPath(
+                    strand,
+                    color.copy(alpha = color.alpha * (0.25f + 0.7f * lit) * (0.5f + random.nextFloat() * 0.5f)),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = width * (0.5f + random.nextFloat() * 0.8f), cap = StrokeCap.Round),
+                )
+            }
+            // Faint texture strands just inside the edge.
+            if (random.nextFloat() < 0.35f) {
+                val depth = 1.5f + random.nextFloat() * 4f
+                val sx = pos[0] - nx * depth
+                val sy = pos[1] - ny * depth
+                val len = 2f + random.nextFloat() * 4f
+                drawLine(
+                    color.copy(alpha = color.alpha * 0.12f * (0.4f + lit)),
+                    Offset(sx, sy),
+                    Offset(sx + (flow.x * 0.8f + tan[0] * 0.3f) * len, sy + (flow.y * 0.8f + tan[1] * 0.3f) * len),
+                    width * 0.6f,
+                    StrokeCap.Round,
+                )
+            }
+        }
+    } while (measure.nextContour())
+}
+
+/** Point-in-shape test for a path, at 1/10-unit resolution. */
+private fun insideTester(path: Path): (Float, Float) -> Boolean {
+    val scaled = android.graphics.Path(path.asAndroidPath()).apply {
+        transform(android.graphics.Matrix().apply { setScale(10f, 10f) })
+    }
+    val bounds = android.graphics.RectF()
+    scaled.computeBounds(bounds, true)
+    val clip = android.graphics.Region(bounds.left.toInt() - 2, bounds.top.toInt() - 2, bounds.right.toInt() + 2, bounds.bottom.toInt() + 2)
+    val region = android.graphics.Region().apply { setPath(scaled, clip) }
+    return { x, y -> region.contains((x * 10f).toInt(), (y * 10f).toInt()) }
+}

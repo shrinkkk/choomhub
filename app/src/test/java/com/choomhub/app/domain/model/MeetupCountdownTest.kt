@@ -17,13 +17,19 @@ class MeetupCountdownTest {
     }
 
     @Test
-    fun `mood moves from sad to happy to excited as the day approaches`() {
-        assertEquals(CountdownMood.Sad, (stateIn(Duration.ofDays(30)) as CountdownState.Upcoming).mood)
-        assertEquals(CountdownMood.Sad, (stateIn(Duration.ofDays(14).plusSeconds(1)) as CountdownState.Upcoming).mood)
-        assertEquals(CountdownMood.Happy, (stateIn(Duration.ofDays(14)) as CountdownState.Upcoming).mood)
-        assertEquals(CountdownMood.Happy, (stateIn(Duration.ofDays(3).plusSeconds(1)) as CountdownState.Upcoming).mood)
-        assertEquals(CountdownMood.Excited, (stateIn(Duration.ofDays(3)) as CountdownState.Upcoming).mood)
-        assertEquals(CountdownMood.Excited, (stateIn(Duration.ofSeconds(1)) as CountdownState.Upcoming).mood)
+    fun `mood moves through seven phases as the day approaches`() {
+        fun mood(d: Duration) = (stateIn(d) as CountdownState.Upcoming).mood
+        assertEquals(CountdownMood.Sad, mood(Duration.ofDays(45)))
+        assertEquals(CountdownMood.Bored, mood(Duration.ofDays(30)))
+        assertEquals(CountdownMood.Bored, mood(Duration.ofDays(14).plusSeconds(1)))
+        assertEquals(CountdownMood.Hopeful, mood(Duration.ofDays(14)))
+        assertEquals(CountdownMood.Hopeful, mood(Duration.ofDays(7).plusSeconds(1)))
+        assertEquals(CountdownMood.Happy, mood(Duration.ofDays(7)))
+        assertEquals(CountdownMood.Happy, mood(Duration.ofDays(3).plusSeconds(1)))
+        assertEquals(CountdownMood.Excited, mood(Duration.ofDays(3)))
+        assertEquals(CountdownMood.Excited, mood(Duration.ofDays(1).plusSeconds(1)))
+        assertEquals(CountdownMood.Ecstatic, mood(Duration.ofDays(1)))
+        assertEquals(CountdownMood.Ecstatic, mood(Duration.ofSeconds(1)))
     }
 
     @Test

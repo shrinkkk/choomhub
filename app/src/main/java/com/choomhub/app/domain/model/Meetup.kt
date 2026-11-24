@@ -9,7 +9,7 @@ data class Meetup(
 )
 
 /** How the countdown should feel, from far away to "it's today". */
-enum class CountdownMood { Sad, Happy, Excited }
+enum class CountdownMood { Sad, Bored, Hopeful, Happy, Excited, Ecstatic }
 
 /** What the countdown section shows at a given moment. */
 sealed interface CountdownState {
@@ -25,11 +25,12 @@ sealed interface CountdownState {
 
 /** Pure countdown rules, kept separate from UI so they can be tested exactly. */
 object MeetupCountdown {
-    /** More than this far away still feels far: sad face. */
-    val HAPPY_WITHIN: Duration = Duration.ofDays(14)
-
-    /** Within this, it's close: excited face. */
+    /** Thresholds (time remaining, at most) for each mood; anything further away is [CountdownMood.Sad]. */
+    val BORED_WITHIN: Duration = Duration.ofDays(30)
+    val HOPEFUL_WITHIN: Duration = Duration.ofDays(14)
+    val HAPPY_WITHIN: Duration = Duration.ofDays(7)
     val EXCITED_WITHIN: Duration = Duration.ofDays(3)
+    val ECSTATIC_WITHIN: Duration = Duration.ofDays(1)
 
     /** After the meetup time, show "together" for this long before going back to "none scheduled". */
     val TOGETHER_FOR: Duration = Duration.ofHours(12)
@@ -45,8 +46,11 @@ object MeetupCountdown {
     }
 
     fun moodFor(remaining: Duration): CountdownMood = when {
+        remaining <= ECSTATIC_WITHIN -> CountdownMood.Ecstatic
         remaining <= EXCITED_WITHIN -> CountdownMood.Excited
         remaining <= HAPPY_WITHIN -> CountdownMood.Happy
+        remaining <= HOPEFUL_WITHIN -> CountdownMood.Hopeful
+        remaining <= BORED_WITHIN -> CountdownMood.Bored
         else -> CountdownMood.Sad
     }
 

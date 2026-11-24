@@ -231,9 +231,11 @@ caller to a one-member space while consuming the invite. Rules are covered by em
 
 **Date:** 2026-11-24 · **Status:** Accepted
 
-One shared "next meetup", last write wins. Mood: more than 14 days away → sad; 14 days to 3 days →
-happy; under 3 days → excited; after the meetup time, "It's today." for 12 hours, then back to
-"nothing planned" (teary moon). Thresholds live in `MeetupCountdown` and are unit-tested.
+One shared "next meetup", last write wins. The cat's mood steps up as the day gets closer: more than
+30 days away → sad; within 30 days → bored; within 14 → hopeful; within 7 → happy; within 3 →
+excited; within 1 day → ecstatic. After the meetup time it shows "It's today." (ecstatic) for 12
+hours, then goes back to "nothing planned" (crying cat). Thresholds live in `MeetupCountdown` and are
+unit-tested. (Revised 2026-11-25 from three moods to seven at the owner's request.)
 
 ## ADR-027: Ink illustration style (supersedes ADR-016's art direction)
 
@@ -246,3 +248,10 @@ solid ink silhouettes (`InkPalette.Ink`) with seeded hairline "fur" along their 
 instead of neat outlines, no glows or gradients. The palette shifted to ink-and-bone: primary actions
 are pale bone, violet and rose survive only as faint accents, and red is kept for tomatoes. The
 countdown face is the shared black cat (taller, not round), not a moon.
+
+Revision (2026-11-25, owner feedback on previews): the cat is skinny, with a long thin neck and narrow
+shoulders under a wider head, so the head and neck read as one silhouette. Fur is drawn by `furEdge`,
+which finds each outline point's outward normal and grows short lit tufts away from the body, instead
+of the uniform `scratchEdge` hairlines. The cobweb's spider sits on the web itself (no loose thread).
+Gesture icons for Hug and Forehead kiss show two simple people, matching the line-icon set. Art
+changes are shown to the owner as previews before they ship.

@@ -72,16 +72,19 @@ fun MeetupCountdownCard(
     var picking by rememberSaveable { mutableStateOf(false) }
     val expression = when (state) {
         null, CountdownState.NoneScheduled -> CatExpression.Crying
-        is CountdownState.Happening -> CatExpression.Excited
+        is CountdownState.Happening -> CatExpression.Ecstatic
         is CountdownState.Upcoming -> when (state.mood) {
             CountdownMood.Sad -> CatExpression.Sad
+            CountdownMood.Bored -> CatExpression.Bored
+            CountdownMood.Hopeful -> CatExpression.Hopeful
             CountdownMood.Happy -> CatExpression.Happy
             CountdownMood.Excited -> CatExpression.Excited
+            CountdownMood.Ecstatic -> CatExpression.Ecstatic
         }
     }
     ChoomHubCard(
         modifier = modifier.fillMaxWidth().testTag("meetup_card"),
-        tone = if (expression == CatExpression.Excited) CardTone.Glowing else CardTone.Raised,
+        tone = if (expression == CatExpression.Excited || expression == CatExpression.Ecstatic) CardTone.Glowing else CardTone.Raised,
         glowColor = colors.candle,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -155,9 +158,9 @@ private fun CountdownDigits(state: CountdownState.Upcoming) {
     val parts = MeetupCountdown.parts(state.remaining)
     val colors = ChoomHubTheme.colors
     val accent = when (state.mood) {
-        CountdownMood.Sad -> colors.lavender
-        CountdownMood.Happy -> colors.pink
-        CountdownMood.Excited -> colors.candle
+        CountdownMood.Sad, CountdownMood.Bored -> colors.textSecondary
+        CountdownMood.Hopeful, CountdownMood.Happy -> colors.textMain
+        CountdownMood.Excited, CountdownMood.Ecstatic -> colors.candle
     }
     Row(
         Modifier.fillMaxWidth().testTag("meetup_countdown"),

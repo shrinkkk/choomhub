@@ -27,7 +27,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 
 - ✅ Live countdown (days/hrs/min/sec) at the top of Home with a moon face: teary → sad → happy → excited
 - ✅ Schedule / reschedule / clear (date + time pickers)
-- ✅ Face is the shared black cat (crying, sad, happy, excited)
+- ✅ Face is the shared black cat, seven moods from crying to ecstatic as the meetup gets closer
 
 ## Milestone 1.3: Roles and ink style ✅
 

@@ -84,33 +84,42 @@ object ChoomHubIcons {
 
 /** Line icons for the gesture buttons on Home. */
 object GestureIcons {
+    /** Two people in a hug: heads tipped together, shoulders meeting, one arm around the other. */
     val Hug: ImageVector by lazy {
         lineIcon("Hug") {
-            moveTo(12f, 17.5f)
-            curveTo(8.5f, 15f, 6.5f, 12.8f, 6.5f, 10.6f)
-            curveTo(6.5f, 8.9f, 7.8f, 7.8f, 9.2f, 7.8f)
-            curveTo(10.4f, 7.8f, 11.4f, 8.5f, 12f, 9.5f)
-            curveTo(12.6f, 8.5f, 13.6f, 7.8f, 14.8f, 7.8f)
-            curveTo(16.2f, 7.8f, 17.5f, 8.9f, 17.5f, 10.6f)
-            curveTo(17.5f, 12.8f, 15.5f, 15f, 12f, 17.5f)
-            close()
-            moveTo(4f, 9f); curveTo(2.8f, 13.5f, 5f, 18.5f, 10f, 20.5f)
-            moveTo(20f, 9f); curveTo(21.2f, 13.5f, 19f, 18.5f, 14f, 20.5f)
+            circle(8.1f, 8.6f, 2.9f)
+            circle(15.9f, 8.6f, 2.9f)
+            // Shoulders meeting in the middle.
+            moveTo(2.8f, 21.5f)
+            curveTo(2.8f, 16.6f, 5f, 14f, 8.1f, 14f)
+            curveTo(9.6f, 14f, 10.9f, 14.6f, 12f, 15.6f)
+            curveTo(13.1f, 14.6f, 14.4f, 14f, 15.9f, 14f)
+            curveTo(19f, 14f, 21.2f, 16.6f, 21.2f, 21.5f)
+            // One arm wrapped around the other's back.
+            moveTo(6.2f, 19.2f)
+            curveTo(9.4f, 17.2f, 14.2f, 17.1f, 18.2f, 18.8f)
         }
     }
 
-    /** A head with closed eyes and a small kiss mark on the forehead. */
+    /** One person leaning in to kiss the other's forehead, with a small heart above. */
     val ForeheadKiss: ImageVector by lazy {
         lineIcon("Forehead kiss") {
-            circle(12f, 14.5f, 7f)
-            // Closed, content eyes.
-            moveTo(8.3f, 15f); quadTo(9.6f, 16.3f, 10.9f, 15f)
-            moveTo(13.1f, 15f); quadTo(14.4f, 16.3f, 15.7f, 15f)
-            // Lips pressed to the forehead.
-            moveTo(9.2f, 6.4f)
-            curveTo(10.1f, 5f, 11.2f, 5f, 12f, 5.9f)
-            curveTo(12.8f, 5f, 13.9f, 5f, 14.8f, 6.4f)
-            curveTo(13.4f, 8f, 10.6f, 8f, 9.2f, 6.4f)
+            // Taller person, head tipped toward the other.
+            circle(9.6f, 9.4f, 3.1f)
+            moveTo(3.2f, 21.5f)
+            curveTo(3.2f, 16.5f, 5.6f, 14.4f, 8.8f, 14.4f)
+            curveTo(10.2f, 14.4f, 11.3f, 14.8f, 12.1f, 15.5f)
+            // Shorter person, forehead to the other's lips.
+            circle(15.6f, 13.6f, 2.8f)
+            moveTo(10.8f, 21.5f)
+            curveTo(11f, 18.3f, 12.9f, 17.2f, 15.6f, 17.2f)
+            curveTo(18.3f, 17.2f, 20.3f, 18.3f, 20.6f, 21.5f)
+            // A small heart above where they meet.
+            moveTo(15.8f, 7.6f)
+            curveTo(14.3f, 6.6f, 13.8f, 5.6f, 14.5f, 4.9f)
+            curveTo(14.9f, 4.5f, 15.5f, 4.6f, 15.8f, 5.1f)
+            curveTo(16.1f, 4.6f, 16.7f, 4.5f, 17.1f, 4.9f)
+            curveTo(17.8f, 5.6f, 17.3f, 6.6f, 15.8f, 7.6f)
             close()
         }
     }

@@ -106,7 +106,7 @@ class ScreenshotCaptureTest {
     @Test
     @Config(qualifiers = "w411dp-h891dp-xxhdpi")
     fun countdownMoods() {
-        mapOf("sad" to 30L, "happy" to 9L, "excited" to 2L).forEach { (name, days) ->
+        mapOf("sad" to 40L, "bored" to 20L, "hopeful" to 10L, "happy" to 5L, "excited" to 2L).forEach { (name, days) ->
             meetups.meetup.value = Meetup(Instant.now().plus(Duration.ofDays(days)).plusSeconds(3 * 3600 + 25 * 60 + 7))
             capture("countdown_$name")
         }
