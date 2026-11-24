@@ -23,6 +23,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Lets the camera app write a photo into the app's cache (see CaptureFiles). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Push notifications (FCM). The Firebase installation id identifies this phone. -->
         <service
             android:name=".data.push.ChoomHubMessagingService"

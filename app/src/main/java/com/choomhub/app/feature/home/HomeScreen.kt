@@ -1,5 +1,17 @@
 package com.choomhub.app.feature.home
 
+import android.content.ActivityNotFoundException
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.choomhub.app.data.snap.CaptureFiles
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,12 +63,28 @@ fun HomeScreen(
     contentPadding: PaddingValues,
     showMessage: suspend (String) -> Unit,
     onSetMood: () -> Unit = {},
+    onComposeSnap: (Uri) -> Unit = {},
+    onOpenSnap: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     meetupViewModel: MeetupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val countdown by meetupViewModel.countdown.collectAsStateWithLifecycle()
     val notice by viewModel.pendingNotice.collectAsStateWithLifecycle()
+    val snapImage by viewModel.snapImage.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Photos: the system picker needs no permission; the camera app writes into a file we share with it.
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) onComposeSnap(uri)
+    }
+    var pendingCapture by rememberSaveable { mutableStateOf<String?>(null) }
+    val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        val uri = pendingCapture?.let(Uri::parse)
+        pendingCapture = null
+        if (saved && uri != null) onComposeSnap(uri)
+    }
 
     LaunchedEffect(notice) {
         val text = notice ?: return@LaunchedEffect
@@ -73,6 +101,19 @@ fun HomeScreen(
         onScheduleMeetup = meetupViewModel::schedule,
         onClearMeetup = meetupViewModel::clear,
         onSetMood = onSetMood,
+        snapImage = snapImage,
+        onOpenSnap = onOpenSnap,
+        onTakePhoto = {
+            val uri = CaptureFiles.newCaptureUri(context)
+            pendingCapture = uri.toString()
+            try {
+                takePhoto.launch(uri)
+            } catch (e: ActivityNotFoundException) {
+                pendingCapture = null
+                scope.launch { showMessage("No camera app found on this phone.") }
+            }
+        },
+        onPickPhoto = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
     )
 }
 
@@ -88,6 +129,10 @@ fun HomeContent(
     onScheduleMeetup: (LocalDate, LocalTime) -> String? = { _, _ -> null },
     onClearMeetup: () -> Unit = {},
     onSetMood: () -> Unit = {},
+    snapImage: ByteArray? = null,
+    onOpenSnap: (String) -> Unit = {},
+    onTakePhoto: () -> Unit = {},
+    onPickPhoto: () -> Unit = {},
 ) {
     when (state) {
         HomeUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -136,7 +181,18 @@ fun HomeContent(
                         )
                     }
                     item(key = "partner") { PartnerMoodCard(state.partner, state.myMood, state.partnerName, onSetMood, gutter) }
-                    item(key = "snap") { LatestSnapSection(state.snap, gutter) }
+                    item(key = "snap") {
+                        LatestSnapSection(
+                            snap = state.snap,
+                            image = snapImage,
+                            partnerName = state.partnerName,
+                            mySnapLabel = state.mySnapLabel,
+                            onOpen = onOpenSnap,
+                            onTakePhoto = onTakePhoto,
+                            onPickPhoto = onPickPhoto,
+                            modifier = gutter,
+                        )
+                    }
                     item(key = "gestures") { GestureSection(onAffection, state.lastReceived, state.lastSent, gutter) }
                     item(key = "points") { PointsSection(state.points, state.myRole, state.partnerName, gutter) }
                     item(key = "cat") { SharedCatSection(state.cat, gutter) }
@@ -160,7 +216,7 @@ private fun HomeContentPreview() {
                     dateLabel = "Tuesday, 24 November",
                     viewerName = null,
                     partner = PartnerMoodUi("Wren", Mood.Sleepy.option, "headphones on, ignoring the rain", "12 min ago"),
-                    snap = SnapUi("Wren", "the crows are back on the wire", ZonedDateTime.now(), "47 min ago", isNew = true),
+                    snap = SnapUi("s1", "Wren", "the crows are back on the wire", ZonedDateTime.now(), "47 min ago", isNew = true),
                     points = PointBalances(goodBoy = 128, goodGirl = 142),
                     myRole = PointsRole.GoodBoy,
                     partnerName = "Wren",

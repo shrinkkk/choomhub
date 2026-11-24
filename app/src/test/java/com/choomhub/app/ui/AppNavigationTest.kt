@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -31,6 +32,9 @@ import com.choomhub.app.testing.FakeProfileRepository
 import dagger.hilt.android.testing.BindValue
 import com.choomhub.app.data.di.PushModule
 import com.choomhub.app.data.di.MoodModule
+import com.choomhub.app.data.di.SnapModule
+import com.choomhub.app.domain.repository.SnapRepository
+import com.choomhub.app.testing.FakeSnapRepository
 import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.MoodRepository
 import com.choomhub.app.testing.FakeGestureRepository
@@ -55,12 +59,17 @@ import org.robolectric.annotation.Config
  */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, PushModule::class, MoodModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, PushModule::class, MoodModule::class, SnapModule::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class AppNavigationTest {
 
     private val fakeMoods = FakeMoodRepository()
     private val fakeGestures = FakeGestureRepository()
+    private val fakeSnaps = FakeSnapRepository()
+
+    @BindValue
+    @JvmField
+    val snapRepository: SnapRepository = fakeSnaps
 
     @BindValue
     @JvmField
@@ -96,6 +105,8 @@ class AppNavigationTest {
 
     @Test
     fun appLaunchesOnHomeWithAllSections() {
+        // Home waits for its first data (names, moods, gestures, snaps) before drawing.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag("screen_home").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithTag("screen_home").assertIsDisplayed()
         composeRule.onNodeWithText("ChoomHub").assertIsDisplayed()
         composeRule.onNodeWithText("WREN").assertIsDisplayed()

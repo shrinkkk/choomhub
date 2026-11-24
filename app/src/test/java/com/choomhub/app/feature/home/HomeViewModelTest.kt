@@ -5,13 +5,14 @@ import com.choomhub.app.domain.model.Gesture
 import com.choomhub.app.domain.model.PushEvent
 import com.choomhub.app.testing.FakeGestureRepository
 import com.choomhub.app.testing.FakeNotifier
+import com.choomhub.app.testing.FakeSnapRepository
+import com.choomhub.app.domain.model.SnapInfo
 import com.choomhub.app.domain.model.HomeSnapshot
 import com.choomhub.app.domain.model.Member
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.PartnerMood
 import com.choomhub.app.domain.model.PointBalances
 import com.choomhub.app.domain.model.SharedCatStatus
-import com.choomhub.app.domain.model.Snap
 import com.choomhub.app.domain.repository.HomeRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,7 +47,8 @@ class HomeViewModelTest {
     private val snapshot = HomeSnapshot(
         viewerName = "Rook",
         partnerMood = PartnerMood(partner, Mood.Cozy.option, note = "  ", updatedAt = now.minus(Duration.ofMinutes(5))),
-        latestSnap = Snap("s1", partner, "rain again", now.minus(Duration.ofHours(2)), isUnseen = true),
+        partnerSnap = SnapInfo("s1", fromMe = false, caption = "rain again", sentAt = now.minus(Duration.ofHours(2)), width = 4, height = 3, thumb = null, collections = emptyList()),
+        seenSnapId = null,
         points = PointBalances(goodBoy = 3, goodGirl = 9),
         cat = SharedCatStatus(isAdopted = false, name = null),
         isSampleData = false,
@@ -65,7 +67,7 @@ class HomeViewModelTest {
 
     @Test
     fun `maps repository data into ready state`() = runTest {
-        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), notifier, clock)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
 
         val state = viewModel.uiState.value as HomeUiState.Ready
@@ -77,13 +79,14 @@ class HomeViewModelTest {
         assertEquals("5 min ago", state.partner?.updatedLabel)
         assertEquals("2 h ago", state.snap?.relativeLabel)
         assertTrue(state.snap!!.isNew)
+        assertEquals("s1", state.snap!!.id)
         assertEquals(9, state.points.goodGirl)
     }
 
     @Test
     fun `newer repository data replaces older state`() = runTest {
         val repository = FakeHomeRepository(snapshot)
-        val viewModel = HomeViewModel(repository, gestures, notifier, clock)
+        val viewModel = HomeViewModel(repository, gestures, FakeSnapRepository(), notifier, clock)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
 
         repository.data.value = snapshot.copy(
@@ -97,7 +100,7 @@ class HomeViewModelTest {
 
     @Test
     fun `a gesture is sent, the partner is notified, and repeat taps are ignored`() {
-        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), notifier, clock)
         viewModel.onAffectionTapped(AffectionKind.Hug)
         assertEquals("Hug sent.", viewModel.pendingNotice.value)
         assertEquals(listOf<Pair<PushEvent, String?>>(PushEvent.Gesture to null), notifier.sent)
@@ -115,7 +118,7 @@ class HomeViewModelTest {
     @Test
     fun `a refused gesture says why and notifies no one`() {
         gestures.refusal = "They haven't joined your space yet. Gestures go out once they do."
-        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), notifier, clock)
         viewModel.onAffectionTapped(AffectionKind.ForeheadKiss)
         assertEquals(gestures.refusal, viewModel.pendingNotice.value)
         assertTrue(notifier.sent.isEmpty())
@@ -130,7 +133,7 @@ class HomeViewModelTest {
                 Gesture("1", AffectionKind.Hug, fromMe = false, sentAt = now.minus(Duration.ofMinutes(3))),
             ),
         )
-        val viewModel = HomeViewModel(FakeHomeRepository(withGestures), gestures, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(withGestures), gestures, FakeSnapRepository(), notifier, clock)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
         val state = viewModel.uiState.value as HomeUiState.Ready
         assertEquals("Wren sent a hug", state.lastReceived?.text)

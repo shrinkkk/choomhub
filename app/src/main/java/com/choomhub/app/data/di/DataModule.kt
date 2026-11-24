@@ -14,6 +14,9 @@ import com.choomhub.app.data.push.NoopNotifier
 import com.choomhub.app.data.push.PushEndpoint
 import com.choomhub.app.data.push.WorkManagerNotifier
 import com.choomhub.app.data.home.LiveHomeRepository
+import com.choomhub.app.data.firebase.FirestoreSnapRepository
+import com.choomhub.app.data.snap.LocalSnapRepository
+import com.choomhub.app.domain.repository.SnapRepository
 import com.choomhub.app.data.mood.LocalGestureRepository
 import com.choomhub.app.data.mood.LocalMoodRepository
 import com.choomhub.app.data.firebase.FirestoreGestureRepository
@@ -48,6 +51,17 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindHomeRepository(impl: LiveHomeRepository): HomeRepository
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object SnapModule {
+    @Provides
+    @Singleton
+    fun provideSnapRepository(
+        firestore: Provider<FirestoreSnapRepository>,
+        local: Provider<LocalSnapRepository>,
+    ): SnapRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
 }
 
 @Module

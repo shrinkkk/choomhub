@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.choomhub.app.core.designsystem.component.SnapPhoto
+import androidx.compose.material3.TextButton
 import com.choomhub.app.feature.home.GestureUi
 import com.choomhub.app.feature.home.MyMoodUi
 import androidx.compose.ui.semantics.Role
@@ -171,13 +173,26 @@ private fun PartnerMoodBody(partner: PartnerMoodUi) {
 }
 
 @Composable
-internal fun LatestSnapSection(snap: SnapUi?, modifier: Modifier = Modifier) {
+internal fun LatestSnapSection(
+    snap: SnapUi?,
+    image: ByteArray?,
+    partnerName: String?,
+    mySnapLabel: String?,
+    onOpen: (String) -> Unit,
+    onTakePhoto: () -> Unit,
+    onPickPhoto: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = ChoomHubTheme.colors
     Column(modifier.fillMaxWidth()) {
         SectionHeader(
             title = "Latest snap",
             eyebrow = snap?.let { "from ${it.senderName}" } ?: "snaps",
-            trailing = { PillBadge(text = "sample", color = colors.textSecondary) },
+            trailing = if (snap?.isNew == true) {
+                { PillBadge(text = "new", color = colors.pink, showDot = true) }
+            } else {
+                null
+            },
         )
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
         ChoomHubCard(
@@ -186,23 +201,53 @@ internal fun LatestSnapSection(snap: SnapUi?, modifier: Modifier = Modifier) {
             glowColor = colors.pink,
         ) {
             if (snap == null) {
-                Text("No snaps yet", style = MaterialTheme.typography.titleMedium, color = colors.textMain)
-                return@ChoomHubCard
+                Text(
+                    "Nothing from ${partnerName ?: "them"} yet",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.textMain,
+                )
+                Text(
+                    "Each of you has one snap at a time. Sending a new one replaces your last, unless one of you kept it.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                )
+            } else {
+                Polaroid(
+                    caption = snap.caption,
+                    stamp = snapStamp(snap),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(vertical = ChoomHubTheme.spacing.sm)
+                        .clickable(role = Role.Button, onClickLabel = "Open snap") { onOpen(snap.id) }
+                        .testTag("latest_snap_open"),
+                ) {
+                    SnapPhoto(image, snap.aspect, contentDescription = snap.caption ?: "Snap from ${snap.senderName}", Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
+                Text(
+                    text = "received ${snap.relativeLabel} \u00B7 tap to open",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textFaint,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
             }
-            Polaroid(
-                caption = snap.caption,
-                stamp = snapStamp(snap),
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(vertical = ChoomHubTheme.spacing.sm),
-            )
+            Spacer(Modifier.height(ChoomHubTheme.spacing.md))
+            HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
             Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
-            Text(
-                text = "received ${snap.relativeLabel}",
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textFaint,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    mySnapLabel ?: "Send one",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onTakePhoto, modifier = Modifier.testTag("snap_camera")) {
+                    Text("CAMERA", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                }
+                TextButton(onClick = onPickPhoto, modifier = Modifier.testTag("snap_gallery")) {
+                    Text("GALLERY", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                }
+            }
         }
     }
 }
@@ -215,8 +260,9 @@ private fun snapStamp(snap: SnapUi): String {
     return "$day · $time"
 }
 
+/** A slightly tilted polaroid frame around [photo]. */
 @Composable
-private fun Polaroid(caption: String?, stamp: String, modifier: Modifier = Modifier) {
+internal fun Polaroid(caption: String?, stamp: String, modifier: Modifier = Modifier, photo: @Composable () -> Unit) {
     Column(
         modifier = modifier
             .widthIn(max = 300.dp)
@@ -227,12 +273,7 @@ private fun Polaroid(caption: String?, stamp: String, modifier: Modifier = Modif
             .background(ChoomHubTheme.colors.bone)
             .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 14.dp),
     ) {
-        CrowsOnAWirePhoto(
-            Modifier
-                .fillMaxWidth()
-                .aspectRatio(4f / 3f)
-                .semantics { contentDescription = "Snap placeholder: crows on a telephone wire at dusk" },
-        )
+        photo()
         Spacer(Modifier.height(10.dp))
         if (caption != null) {
             Text(
@@ -366,7 +407,7 @@ internal fun SampleDataNote(modifier: Modifier = Modifier) {
             RavenMark(Modifier.size(40.dp))
             Spacer(Modifier.width(ChoomHubTheme.spacing.md))
             Text(
-                text = "Snaps, points and the cat are sample data for now. Names, moods, gestures and the meetup are real.",
+                text = "Points and the cat are sample data for now. Everything else here is real.",
                 style = MaterialTheme.typography.bodySmall,
                 color = ChoomHubTheme.colors.textSecondary,
             )

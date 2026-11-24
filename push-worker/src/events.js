@@ -2,7 +2,7 @@
 // I/O so it can be unit-tested. Copy is plain on purpose (see docs/DECISIONS.md).
 
 /** Android notification channels; must match NotificationChannels.kt in the app. */
-export const Channels = Object.freeze({ gestures: 'gestures', moods: 'moods', meetup: 'meetup', space: 'space', general: 'general' });
+export const Channels = Object.freeze({ gestures: 'gestures', snaps: 'snaps', moods: 'moods', meetup: 'meetup', space: 'space', general: 'general' });
 
 /** Gesture kinds the app may name; must match AffectionKind in the app. */
 export const Gestures = Object.freeze(['hug', 'forehead_kiss', 'head_pats', 'tomato']);
@@ -25,6 +25,7 @@ export const Events = Object.freeze({
   renamed: { category: 'space', channel: Channels.space, tag: 'renamed', toSelf: false, takesDetail: false },
   test: { category: null, channel: Channels.general, tag: 'test', toSelf: true, takesDetail: false },
   gesture: { category: 'gestures', channel: Channels.gestures, tag: null, toSelf: false, takesDetail: false, kinds: Gestures },
+  snap: { category: 'snaps', channel: Channels.snaps, tag: 'snap', toSelf: false, takesDetail: true },
   mood: { category: 'moods', channel: Channels.moods, tag: 'mood', toSelf: false, takesDetail: true, kinds: 'label' },
 });
 
@@ -82,6 +83,8 @@ export function compose(event, ctx) {
       return { title: 'Test notification', body: 'Notifications reach this phone.' };
     case 'gesture':
       return gestureText(who, ctx.kind);
+    case 'snap':
+      return { title: `${who} sent a snap`, body: ctx.detail || 'Open ChoomHub to see it.' };
     case 'mood': {
       const label = clean(ctx.kind || '', MAX_MOOD_LABEL) || 'Something new';
       return { title: `${who} updated their mood`, body: ctx.detail ? `${label} \u00b7 ${ctx.detail}` : label };

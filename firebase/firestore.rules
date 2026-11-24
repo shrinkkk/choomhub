@@ -4,7 +4,7 @@ rules_version = '2';
 // Model (see docs/ARCHITECTURE.md, "Firestore data model"):
 //   users/{uid}                        -> { coupleId }               private pointer to your space
 //   users/{uid}/devices/{fid}          -> { platform, updatedAt }    phones registered for pushes (id = FCM installation id)
-//   users/{uid}/settings/notifications -> { gestures, moods, meetup, space, updatedAt } which notifications you want
+//   users/{uid}/settings/notifications -> { gestures, snaps, moods, meetup, space, updatedAt } which notifications you want
 //   couples/{coupleId}                 -> { members, createdBy, createdAt, inviteCode }
 //   invites/{code}                     -> { coupleId, createdBy, expiresAt, usedBy }
 //   couples/{coupleId}/names/{namerId} -> { nameForPartner, updatedAt }  the name namerId gives the other
@@ -13,6 +13,9 @@ rules_version = '2';
 //   couples/{coupleId}/moods/{uid}     -> { mood, label, note, updatedAt }  each person's current mood
 //   couples/{coupleId}/shared/moodOptions -> { options: [{key, label}], updatedBy, updatedAt }  the space's mood list
 //   couples/{coupleId}/gestures/{id}   -> { kind, from, sentAt }     append-only history
+//   couples/{coupleId}/snaps/{id}      -> { from, caption, sentAt, width, height, thumb, collections, kept }
+//   couples/{coupleId}/snaps/{id}/image/full -> { data }            the full JPEG
+//   couples/{coupleId}/collections/{id} -> { name, createdBy, createdAt }  Memory Lane
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -64,8 +67,9 @@ service cloud.firestore {
       match /settings/notifications {
         allow read: if signedIn() && me() == userId;
         allow create, update: if signedIn() && me() == userId
-          && request.resource.data.keys().hasOnly(['gestures', 'moods', 'meetup', 'space', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['gestures', 'snaps', 'moods', 'meetup', 'space', 'updatedAt'])
           && request.resource.data.get('gestures', true) is bool
+          && request.resource.data.get('snaps', true) is bool
           && request.resource.data.get('moods', true) is bool
           && request.resource.data.get('meetup', true) is bool
           && request.resource.data.get('space', true) is bool
@@ -144,6 +148,55 @@ service cloud.firestore {
           && request.resource.data.kind in ['hug', 'forehead_kiss', 'head_pats', 'tomato']
           && request.resource.data.from == me()
           && request.resource.data.sentAt == request.time;
+      }
+
+      // Snaps. Sent as yourself; either of you can keep one in collections (and only that
+      // can change); the sender's unkept snaps can be removed (that's how a new one replaces
+      // the last). The picture sits in a sub-document so lists stay small.
+      match /snaps/{snapId} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['from', 'caption', 'sentAt', 'width', 'height', 'thumb', 'collections', 'kept'])
+          && request.resource.data.from == me()
+          && request.resource.data.sentAt == request.time
+          && (request.resource.data.caption == null
+              || (request.resource.data.caption is string && request.resource.data.caption.size() <= 140))
+          && request.resource.data.width is int && request.resource.data.height is int
+          && request.resource.data.thumb is bytes && request.resource.data.thumb.size() <= 60000
+          && request.resource.data.collections == [] && request.resource.data.kept == false;
+        allow update: if isMember(coupleId)
+          && onlyChanged(['collections', 'kept'])
+          && request.resource.data.collections is list
+          && request.resource.data.collections.size() <= 20
+          && request.resource.data.kept == (request.resource.data.collections.size() > 0);
+        allow delete: if isMember(coupleId) && resource.data.from == me() && resource.data.kept == false;
+
+        match /image/{part} {
+          function snapPath() { return /databases/$(database)/documents/couples/$(coupleId)/snaps/$(snapId); }
+          allow read: if isMember(coupleId);
+          allow create: if isMember(coupleId) && part == 'full'
+            && request.resource.data.keys().hasOnly(['data'])
+            && request.resource.data.data is bytes
+            && request.resource.data.data.size() <= 900000
+            && getAfter(snapPath()).data.from == me();
+          allow delete: if isMember(coupleId)
+            && get(snapPath()).data.from == me()
+            && get(snapPath()).data.kept == false;
+        }
+      }
+
+      match /collections/{collectionId} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['name', 'createdBy', 'createdAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+          && request.resource.data.createdBy == me()
+          && request.resource.data.createdAt == request.time;
+        allow update: if isMember(coupleId)
+          && onlyChanged(['name'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40;
       }
 
       // The mood list both people pick from; either can edit it.

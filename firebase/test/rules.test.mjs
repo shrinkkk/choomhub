@@ -8,6 +8,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   arrayUnion,
+  Bytes,
   collection,
   deleteDoc,
   doc,
@@ -236,6 +237,67 @@ describe('moods and gestures', () => {
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/gestures/g3'), { kind: 'slap', from: 'alice', sentAt: serverTimestamp() }));
     await assertFails(setDoc(doc(db('mallory'), 'couples/c1/gestures/g4'), { kind: 'hug', from: 'mallory', sentAt: serverTimestamp() }));
     await assertFails(getDocs(collection(db('mallory'), 'couples/c1/gestures')));
+  });
+});
+
+describe('snaps and Memory Lane', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'couples/c1'), { members: ['alice', 'bob'], createdBy: 'alice', inviteCode: 'X' });
+    });
+  });
+  const bytes = (n) => Bytes.fromUint8Array(new Uint8Array(n));
+  const snap = (from, extra = {}) => ({
+    from, caption: 'rain again', sentAt: serverTimestamp(), width: 1280, height: 960,
+    thumb: bytes(2000), collections: [], kept: false, ...extra,
+  });
+  async function send(uid, id) {
+    const f = db(uid);
+    const b = writeBatch(f);
+    b.set(doc(f, `couples/c1/snaps/${id}`), snap(uid));
+    b.set(doc(f, `couples/c1/snaps/${id}/image/full`), { data: bytes(300000) });
+    return b.commit();
+  }
+
+  test('you send snaps as yourself, within size limits', async () => {
+    await assertSucceeds(send('alice', 's1'));
+    await assertSucceeds(getDoc(doc(db('bob'), 'couples/c1/snaps/s1/image/full')));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s2'), snap('bob')));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s3'), snap('alice', { thumb: bytes(70000) })));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s4'), snap('alice', { kept: true, collections: ['x'] })));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s5'), snap('alice', { caption: 'x'.repeat(141) })));
+    const fa = db('alice');
+    const big = writeBatch(fa);
+    big.set(doc(fa, 'couples/c1/snaps/s6'), snap('alice'));
+    big.set(doc(fa, 'couples/c1/snaps/s6/image/full'), { data: bytes(950000) });
+    await assertFails(big.commit());
+    await assertFails(getDoc(doc(db('mallory'), 'couples/c1/snaps/s1')));
+    await assertFails(getDoc(doc(db('mallory'), 'couples/c1/snaps/s1/image/full')));
+  });
+
+  test("a new snap can remove the sender's last one, unless either of you kept it", async () => {
+    await send('alice', 's1');
+    await assertFails(deleteDoc(doc(db('bob'), 'couples/c1/snaps/s1')));
+    await assertSucceeds(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: ['c9'], kept: true }));
+    await assertFails(deleteDoc(doc(db('alice'), 'couples/c1/snaps/s1/image/full')));
+    await assertFails(deleteDoc(doc(db('alice'), 'couples/c1/snaps/s1')));
+    await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { caption: 'edited' }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: [], kept: true }));
+    await assertSucceeds(updateDoc(doc(db('alice'), 'couples/c1/snaps/s1'), { collections: [], kept: false }));
+    const fa = db('alice');
+    const cleanup = writeBatch(fa);
+    cleanup.delete(doc(fa, 'couples/c1/snaps/s1/image/full'));
+    cleanup.delete(doc(fa, 'couples/c1/snaps/s1'));
+    await assertSucceeds(cleanup.commit());
+  });
+
+  test('collections are made and renamed by either of you', async () => {
+    const ref = (uid) => doc(db(uid), 'couples/c1/collections/k1');
+    await assertSucceeds(setDoc(ref('alice'), { name: 'crows', createdBy: 'alice', createdAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref('bob'), { name: 'the crows' }));
+    await assertFails(updateDoc(ref('bob'), { createdBy: 'bob' }));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/collections/k2'), { name: '', createdBy: 'alice', createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('mallory'), 'couples/c1/collections/k3'), { name: 'x', createdBy: 'mallory', createdAt: serverTimestamp() }));
   });
 });
 

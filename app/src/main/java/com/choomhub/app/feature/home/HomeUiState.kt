@@ -30,6 +30,8 @@ sealed interface HomeUiState {
         /** The latest gesture from them, and the latest from you. */
         val lastReceived: GestureUi? = null,
         val lastSent: GestureUi? = null,
+        /** e.g. "You sent one 5 min ago"; null if you haven't. */
+        val mySnapLabel: String? = null,
     ) : HomeUiState
 }
 
@@ -46,11 +48,14 @@ data class PartnerMoodUi(
 )
 
 data class SnapUi(
+    val id: String,
     val senderName: String,
     val caption: String?,
     val sentAt: ZonedDateTime,
     val relativeLabel: String,
     val isNew: Boolean,
+    /** Width / height of the photo. */
+    val aspect: Float = 4f / 3f,
 )
 
 /** Pure mapping from domain data to what the screen renders. */
@@ -70,15 +75,19 @@ internal fun HomeSnapshot.toUiState(clock: Clock): HomeUiState.Ready {
                 updatedLabel = TimeLabels.relative(it.updatedAt ?: now, now, zone),
             )
         },
-        snap = latestSnap?.let {
+        snap = partnerSnap?.let {
+            val at = it.sentAt ?: now
             SnapUi(
-                senderName = it.sender.displayName,
-                caption = it.caption?.takeIf(String::isNotBlank),
-                sentAt = it.sentAt.atZone(zone),
-                relativeLabel = TimeLabels.relative(it.sentAt, now, zone),
-                isNew = it.isUnseen,
+                id = it.id,
+                senderName = partnerName ?: "They",
+                caption = it.caption,
+                sentAt = at.atZone(zone),
+                relativeLabel = TimeLabels.relative(at, now, zone),
+                isNew = it.id != seenSnapId,
+                aspect = if (it.width > 0 && it.height > 0) it.width.toFloat() / it.height else 4f / 3f,
             )
         },
+        mySnapLabel = mySnap?.let { "You sent one ${TimeLabels.relative(it.sentAt ?: now, now, zone)}" },
         points = points,
         myRole = myRole,
         partnerName = partnerName ?: partnerMood?.partner?.displayName,

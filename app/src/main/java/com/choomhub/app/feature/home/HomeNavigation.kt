@@ -12,8 +12,16 @@ fun NavGraphBuilder.homeScreen(
     contentPadding: PaddingValues,
     showMessage: suspend (String) -> Unit,
     onSetMood: () -> Unit,
+    onComposeSnap: (android.net.Uri) -> Unit,
+    onOpenSnap: (String) -> Unit,
 ) {
     composable<HomeRoute> {
-        HomeScreen(contentPadding = contentPadding, showMessage = showMessage, onSetMood = onSetMood)
+        HomeScreen(
+            contentPadding = contentPadding,
+            showMessage = showMessage,
+            onSetMood = onSetMood,
+            onComposeSnap = onComposeSnap,
+            onOpenSnap = onOpenSnap,
+        )
     }
 }

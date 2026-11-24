@@ -19,6 +19,9 @@ import com.choomhub.app.data.di.MeetupModule
 import com.choomhub.app.data.di.ProfileModule
 import com.choomhub.app.data.di.PushModule
 import com.choomhub.app.data.di.MoodModule
+import com.choomhub.app.data.di.SnapModule
+import com.choomhub.app.domain.repository.SnapRepository
+import com.choomhub.app.testing.FakeSnapRepository
 import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.MoodRepository
 import com.choomhub.app.testing.FakeGestureRepository
@@ -58,13 +61,18 @@ import java.io.File
 /** Settings → Notifications with pushes available, signed in and paired. */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class, MoodModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class, MoodModule::class, SnapModule::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class NotificationSettingsTest {
 
     private val fakeMoods = FakeMoodRepository()
     private val fakeGestures = FakeGestureRepository()
+    private val fakeSnaps = FakeSnapRepository()
+
+    @BindValue
+    @JvmField
+    val snapRepository: SnapRepository = fakeSnaps
 
     @BindValue
     @JvmField

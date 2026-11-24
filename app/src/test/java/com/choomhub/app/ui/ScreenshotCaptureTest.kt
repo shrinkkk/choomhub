@@ -28,6 +28,9 @@ import com.choomhub.app.testing.FakeProfileRepository
 import dagger.hilt.android.testing.BindValue
 import com.choomhub.app.data.di.PushModule
 import com.choomhub.app.data.di.MoodModule
+import com.choomhub.app.data.di.SnapModule
+import com.choomhub.app.domain.repository.SnapRepository
+import com.choomhub.app.testing.FakeSnapRepository
 import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.MoodRepository
 import com.choomhub.app.testing.FakeGestureRepository
@@ -47,6 +50,8 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.performScrollToNode
 import com.choomhub.app.domain.model.AffectionKind
 import com.choomhub.app.domain.model.CoupleMoods
 import com.choomhub.app.domain.model.Gesture
@@ -62,12 +67,17 @@ import androidx.compose.ui.test.performSemanticsAction
  */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class, MoodModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class, MoodModule::class, SnapModule::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreenshotCaptureTest {
 
     private val fakeMoods = FakeMoodRepository()
     private val fakeGestures = FakeGestureRepository()
+    private val fakeSnaps = FakeSnapRepository()
+
+    @BindValue
+    @JvmField
+    val snapRepository: SnapRepository = fakeSnaps
 
     @BindValue
     @JvmField
@@ -176,6 +186,34 @@ class ScreenshotCaptureTest {
         capture("phone_home_live")
         composeRule.onNodeWithTag("set_my_mood").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         capture("phone_mood")
+    }
+
+    /** A received snap on Home, opened and kept, then Memory Lane. */
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-xxhdpi")
+    fun snaps() {
+        val w = 640
+        val h = 480
+        val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawPaint(android.graphics.Paint().apply {
+            shader = android.graphics.LinearGradient(0f, 0f, 0f, h.toFloat(), 0xFF2B2438.toInt(), 0xFF6B5A6E.toInt(), android.graphics.Shader.TileMode.CLAMP)
+        })
+        val ink = android.graphics.Paint().apply { color = 0xFF101014.toInt(); isAntiAlias = true }
+        canvas.drawRect(0f, h * 0.72f, w.toFloat(), h.toFloat(), ink)
+        canvas.drawCircle(w * 0.72f, h * 0.28f, 46f, android.graphics.Paint().apply { color = 0xFFE9DFCF.toInt(); isAntiAlias = true })
+        canvas.drawLine(0f, h * 0.5f, w.toFloat(), h * 0.46f, android.graphics.Paint().apply { color = 0xFF101014.toInt(); strokeWidth = 3f })
+        val bytes = java.io.ByteArrayOutputStream().also { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+        fakeSnaps.receive("s1", "the crows are back on the wire", bytes)
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag("latest_snap_open").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithTag("home_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("latest_snap_card"))
+        capture("phone_snap_home")
+        composeRule.onNodeWithTag("latest_snap_open").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        kotlinx.coroutines.runBlocking { fakeSnaps.setCollections("s1", listOf(fakeSnaps.createCollection("crows"))) }
+        kotlinx.coroutines.runBlocking { fakeSnaps.createCollection("rainy days") }
+        capture("phone_snap_viewer")
+        composeRule.onNodeWithTag(TopLevelDestination.OurWorld.testTag).performClick()
+        capture("phone_memory_lane")
     }
 
     /** Small, older-phone size to check nothing clips. */

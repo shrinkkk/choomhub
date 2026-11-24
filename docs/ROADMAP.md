@@ -48,7 +48,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Google sign-in (Credential Manager)
 - ✅ Start a space / join with a single-use, 48-hour invite code; at most two people
 - ✅ Names and meetup synced through Firestore (offline cache, queued writes)
-- ✅ Security rules + emulator tests (24 cases now)
+- ✅ Security rules + emulator tests (28 cases now)
 - ⬜ Verified on real devices (sign-in, start space, join from a second account/emulator)
 - ⬜ Avatars
 
@@ -73,11 +73,12 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ⬜ New categories as features land (moods, gestures, snaps, messages)
 - ⬜ Fallback: periodic background check, only if pushes prove unreliable
 
-## Milestone 5: Snaps and widget ⬜
+## Milestone 5: Snaps and widget 🟡
 
-- ⬜ Camera / gallery, caption, on-phone compression, stored in Firestore
-- ⬜ Partner's latest snap on Home; sending a new one deletes your previous unless bookmarked
-- ⬜ Bookmarks → collections in Our World → Memory Lane
+- ✅ Camera / gallery, caption, on-phone compression (≤ 1280 px, < 850 KB), stored in Firestore
+- ✅ Partner's latest snap on Home ("new" until opened); sending a new one removes your previous unless kept
+- ✅ Keep → collections in Our World → Memory Lane (create, toggle per snap, grid per collection)
+- ✅ Push notification for new snaps (Snaps switch)
 - ⬜ Reactions, random snap prompts
 - ⬜ Glance home-screen widget with event-driven refresh
 

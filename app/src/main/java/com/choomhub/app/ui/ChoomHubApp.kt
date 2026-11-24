@@ -35,6 +35,11 @@ import com.choomhub.app.feature.home.HomeRoute
 import com.choomhub.app.feature.home.homeScreen
 import com.choomhub.app.feature.messages.messagesScreen
 import com.choomhub.app.feature.mood.MoodOptionsRoute
+import com.choomhub.app.feature.snaps.SnapComposeRoute
+import com.choomhub.app.feature.snaps.SnapViewerRoute
+import com.choomhub.app.feature.snaps.snapComposeScreen
+import com.choomhub.app.feature.snaps.snapViewerScreen
+import com.choomhub.app.feature.world.CollectionRoute
 import com.choomhub.app.feature.mood.MoodRoute
 import com.choomhub.app.feature.mood.moodOptionsScreen
 import com.choomhub.app.feature.mood.moodScreen
@@ -111,11 +116,19 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
                 contentPadding = padding,
                 showMessage = { snackbarHostState.showSnackbar(it) },
                 onSetMood = { navController.navigate(MoodRoute) },
+                onComposeSnap = { uri -> navController.navigate(SnapComposeRoute(uri.toString())) },
+                onOpenSnap = { id -> navController.navigate(SnapViewerRoute(id)) },
             )
+            snapComposeScreen(contentPadding = padding, onClose = { navController.popBackStack() })
+            snapViewerScreen(contentPadding = padding)
             moodScreen(contentPadding = padding, onClose = { navController.popBackStack() })
             messagesScreen(contentPadding = padding)
             activitiesScreen(contentPadding = padding)
-            ourWorldScreen(contentPadding = padding)
+            ourWorldScreen(
+                contentPadding = padding,
+                onOpenCollection = { id -> navController.navigate(CollectionRoute(id)) },
+                onOpenSnap = { id -> navController.navigate(SnapViewerRoute(id)) },
+            )
             settingsScreen(contentPadding = padding, onEditMoods = { navController.navigate(MoodOptionsRoute) })
             moodOptionsScreen(contentPadding = padding)
         }

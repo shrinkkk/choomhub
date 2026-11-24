@@ -40,6 +40,12 @@ test('gestures and moods read plainly', () => {
   assert.equal(compose('mood', { senderName: 'Wren', kind: 'Calm', detail: '' }).body, 'Calm');
 });
 
+test('snaps carry their caption', () => {
+  assert.deepEqual(compose('snap', { senderName: 'Wren', detail: 'crows again' }), { title: 'Wren sent a snap', body: 'crows again' });
+  assert.equal(compose('snap', { senderName: 'Wren', detail: '' }).body, 'Open ChoomHub to see it.');
+  assert.equal(fcmMessage('f', 'snap', { title: 't', body: 'b' }).message.android.notification.channel_id, 'snaps');
+});
+
 test('each gesture kind gets its own tag', () => {
   const hug = fcmMessage('f', 'gesture', { title: 't', body: 'b' }, 'hug').message;
   assert.equal(hug.android.notification.tag, 'gesture_hug');

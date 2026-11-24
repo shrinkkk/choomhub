@@ -18,18 +18,6 @@ data class PartnerMood(
     val updatedAt: Instant?,
 )
 
-/** A photograph shared between the two members. */
-data class Snap(
-    val id: String,
-    val sender: Member,
-    val caption: String?,
-    val sentAt: Instant,
-    /** True until the receiving member has opened it. */
-    val isUnseen: Boolean,
-    /** Remote/private-storage reference. Null while only preview artwork exists. */
-    val imageRef: String? = null,
-)
-
 /**
  * Current Good Boy / Good Girl totals. In the real implementation these are
  * derived by summing an append-only transaction ledger, never stored as an
@@ -59,10 +47,14 @@ data class HomeSnapshot(
     val myMood: MoodUpdate? = null,
     /** Recent gestures in both directions, newest first. */
     val recentGestures: List<Gesture> = emptyList(),
-    val latestSnap: Snap?,
+    /** Their current snap, and yours. */
+    val partnerSnap: SnapInfo? = null,
+    val mySnap: SnapInfo? = null,
+    /** Their snap's id once you've opened it, so it stops showing as new. */
+    val seenSnapId: String? = null,
     val points: PointBalances,
     val cat: SharedCatStatus,
-    /** True while snaps, points and the cat are still sample data (names, moods and gestures are real). */
+    /** True while points and the cat are still sample data. */
     val isSampleData: Boolean,
 )
 

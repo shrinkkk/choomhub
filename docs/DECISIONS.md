@@ -323,3 +323,24 @@ The 11 built-in moods are only the starting list. Settings → Moods lets either
 and a colour from the same muted accents. A saved mood carries its label, so it still reads right
 after the list changes. Rules and the push Worker no longer check moods against a fixed list, only
 their length; the Worker sends the label as written.
+
+## ADR-032: Snaps in Firestore, one current snap each, kept ones in Memory Lane
+
+**Date:** 2026-11-25 · **Status:** Accepted
+
+- **Storage** (follows ADR-022, free plan has no Cloud Storage): the phone shrinks the photo to at
+  most 1280 px and under 850 KB (JPEG, quality lowered then size if needed; camera rotation applied,
+  metadata dropped) plus a 320 px thumbnail under 60 KB. The snap document holds the metadata and
+  thumbnail; the full picture is a sub-document (`image/full`) read only when it's shown, so lists
+  and Memory Lane stay cheap.
+- **One current snap each.** Sending writes the new snap, then removes your earlier snaps that
+  nobody kept (a separate batch, so a snap kept at the same moment can't make the send fail).
+  Rules let only the sender delete, and only while unkept.
+- **Keeping** = adding the snap to one or more collections (`kept` mirrors "has any"). Either of
+  you can keep or un-keep any snap; nothing else on a snap can change.
+- **No composite indexes**: queries are single-field or equality-only (sorted on the phone), so
+  setup stays "paste the rules".
+- **Camera** goes through the system camera app (no camera permission) into a private cache file
+  shared with FileProvider; the gallery uses the system photo picker (no storage permission).
+- "New" is tracked on each phone (last of their snaps you opened).
+- Later: reactions, snap prompts, the home-screen widget.

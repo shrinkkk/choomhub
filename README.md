@@ -53,7 +53,11 @@ What exists **today**:
 - **Moods and gestures**: set your mood (with an optional note) and see theirs on Home; send hugs,
   forehead kisses, head pats and tomatoes. Both notify the other phone.
 
-What does **not** exist yet: real snaps, messages, points or widgets. The
+- **Snaps**: send a photo from the camera or gallery with a caption; each of you has one current
+  snap, which replaces your last unless one of you kept it. Kept snaps live in collections in
+  Our World → Memory Lane.
+
+What does **not** exist yet: messages, points or widgets. The
 gesture buttons say so when tapped. Without Firebase config the app runs in device-only mode.
 
 ## Technology stack
