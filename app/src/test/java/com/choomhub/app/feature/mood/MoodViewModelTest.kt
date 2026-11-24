@@ -39,25 +39,38 @@ class MoodViewModelTest {
         assertEquals("Pick one first.", vm.state.value.error)
         assertFalse(vm.state.value.done)
 
-        vm.select(Mood.Sleepy)
+        vm.select(Mood.Sleepy.option)
         vm.onNoteChange("  headphones   on\n ignoring the rain ")
         vm.save()
         assertTrue(vm.state.value.done)
-        assertEquals(MoodUpdate(Mood.Sleepy, "headphones on ignoring the rain", java.time.Instant.EPOCH), repo.moods.value.mine)
+        assertEquals(MoodUpdate(Mood.Sleepy.option, "headphones on ignoring the rain", java.time.Instant.EPOCH), repo.moods.value.mine)
         assertEquals(listOf<Pair<PushEvent, String?>>(PushEvent.MoodChanged to "headphones on ignoring the rain"), notifier.sent)
-        assertEquals(listOf<String?>("sleepy"), notifier.kinds)
+        assertEquals(listOf<String?>("Sleepy"), notifier.kinds)
     }
 
     @Test
     fun `opens on your current mood, and saving it unchanged notifies no one`() {
-        val repo = FakeMoodRepository(CoupleMoods(MoodUpdate(Mood.Calm, "tea", null), null))
+        val repo = FakeMoodRepository(CoupleMoods(MoodUpdate(Mood.Calm.option, "tea", null), null))
         val vm = MoodViewModel(repo, notifier)
-        assertEquals(Mood.Calm, vm.state.value.selected)
+        assertEquals(Mood.Calm.option, vm.state.value.selected)
         assertEquals("tea", vm.state.value.note)
         vm.save()
         assertTrue(vm.state.value.done)
         assertEquals(0, repo.saves)
         assertTrue(notifier.sent.isEmpty())
+    }
+
+    @Test
+    fun `custom moods are offered, and a mood removed from the list still shows as yours`() {
+        val custom = com.choomhub.app.domain.model.MoodOption("c_abc", "Angry bcs parents")
+        val repo = FakeMoodRepository(CoupleMoods(MoodUpdate(Mood.Wired.option, null, null), null))
+        repo.options.value = listOf(Mood.Sleepy.option, custom)
+        val vm = MoodViewModel(repo, notifier)
+        assertEquals(listOf(Mood.Wired.option, Mood.Sleepy.option, custom), vm.state.value.options)
+        vm.select(custom)
+        vm.save()
+        assertEquals(custom, repo.moods.value.mine?.mood)
+        assertEquals(listOf<String?>("Angry bcs parents"), notifier.kinds)
     }
 
     @Test

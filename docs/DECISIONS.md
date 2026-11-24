@@ -312,3 +312,14 @@ changes are shown to the owner as previews before they ship.
   collapse into one, so an excited thumb doesn't become ten notifications.
 - Home keeps "sample" labels on the parts that are still sample (snaps, points, the cat) instead of
   one badge for the whole screen.
+
+## ADR-031: The mood list is the couple's own
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner's request)
+
+The 11 built-in moods are only the starting list. Settings → Moods lets either person add moods
+(up to 24 characters, 40 in total) and remove any, or restore the defaults; the list lives in
+`couples/{id}/shared/moodOptions` and both phones use it. Custom moods get generated keys (`c_…`)
+and a colour from the same muted accents. A saved mood carries its label, so it still reads right
+after the list changes. Rules and the push Worker no longer check moods against a fixed list, only
+their length; the Worker sends the label as written.

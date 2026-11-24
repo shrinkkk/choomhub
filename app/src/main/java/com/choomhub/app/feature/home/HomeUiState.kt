@@ -3,7 +3,7 @@ package com.choomhub.app.feature.home
 import com.choomhub.app.core.common.TimeLabels
 import com.choomhub.app.domain.model.AffectionKind
 import com.choomhub.app.domain.model.HomeSnapshot
-import com.choomhub.app.domain.model.Mood
+import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.PointBalances
 import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.SharedCatStatus
@@ -33,14 +33,14 @@ sealed interface HomeUiState {
     ) : HomeUiState
 }
 
-data class MyMoodUi(val mood: Mood, val note: String?)
+data class MyMoodUi(val mood: MoodOption, val note: String?)
 
 /** e.g. "Wren sent a hug" + "3 min ago". */
 data class GestureUi(val kind: AffectionKind, val text: String, val whenLabel: String)
 
 data class PartnerMoodUi(
     val name: String,
-    val mood: Mood,
+    val mood: MoodOption,
     val note: String?,
     val updatedLabel: String,
 )

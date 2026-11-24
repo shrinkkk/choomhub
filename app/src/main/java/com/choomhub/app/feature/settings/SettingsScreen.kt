@@ -69,12 +69,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object SettingsRoute
 
-fun NavGraphBuilder.settingsScreen(contentPadding: PaddingValues) {
-    composable<SettingsRoute> { SettingsScreen(contentPadding) }
+fun NavGraphBuilder.settingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}) {
+    composable<SettingsRoute> { SettingsScreen(contentPadding, onEditMoods) }
 }
 
 @Composable
-fun SettingsScreen(contentPadding: PaddingValues, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}, viewModel: SettingsViewModel = hiltViewModel()) {
     val names by viewModel.names.collectAsStateWithLifecycle()
     val space by viewModel.space.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
@@ -115,6 +115,7 @@ fun SettingsScreen(contentPadding: PaddingValues, viewModel: SettingsViewModel =
         },
         onCategoryToggle = viewModel::setNotificationsEnabled,
         onSendTest = viewModel::sendTestNotification,
+        onEditMoods = onEditMoods,
     )
 }
 
@@ -136,6 +137,7 @@ fun SettingsContent(
     onNotificationPermission: () -> Unit = {},
     onCategoryToggle: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onSendTest: () -> Unit = {},
+    onEditMoods: () -> Unit = {},
 ) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
@@ -184,6 +186,17 @@ fun SettingsContent(
                     title = "They call you",
                     value = names.myName ?: "They pick this on their phone. It shows up once you're connected.",
                     divider = false,
+                )
+            }
+
+            SettingsGroup("Moods") {
+                SettingsRow(
+                    title = "Mood list",
+                    value = "Add your own, remove any. Shared by both of you.",
+                    badge = "edit",
+                    onClick = onEditMoods,
+                    divider = false,
+                    modifier = Modifier.testTag("settings_mood_list"),
                 )
             }
 

@@ -10,7 +10,8 @@ rules_version = '2';
 //   couples/{coupleId}/names/{namerId} -> { nameForPartner, updatedAt }  the name namerId gives the other
 //   couples/{coupleId}/shared/meetup   -> { at, updatedBy, updatedAt }
 //   couples/{coupleId}/shared/roles    -> { goodBoy, goodGirl, updatedAt }   uids; who receives which points
-//   couples/{coupleId}/moods/{uid}     -> { mood, note, updatedAt }  each person's current mood
+//   couples/{coupleId}/moods/{uid}     -> { mood, label, note, updatedAt }  each person's current mood
+//   couples/{coupleId}/shared/moodOptions -> { options: [{key, label}], updatedBy, updatedAt }  the space's mood list
 //   couples/{coupleId}/gestures/{id}   -> { kind, from, sentAt }     append-only history
 // Everything not matched below is denied.
 service cloud.firestore {
@@ -121,13 +122,15 @@ service cloud.firestore {
           && rolesWriteOk(resource == null ? {} : resource.data, request.resource.data);
       }
 
-      // Your own mood only; one of the app's moods, a short optional note.
+      // Your own mood only: a key and label from the mood list, a short optional note.
       match /moods/{uid} {
         allow read: if isMember(coupleId);
         allow create, update: if isMember(coupleId) && me() == uid
-          && request.resource.data.keys().hasOnly(['mood', 'note', 'updatedAt'])
-          && request.resource.data.mood in ['cozy', 'sleepy', 'content', 'calm', 'restless', 'missing_you',
-                                            'tired', 'low', 'stressed', 'lonely', 'wired']
+          && request.resource.data.keys().hasOnly(['mood', 'label', 'note', 'updatedAt'])
+          && request.resource.data.mood is string
+          && request.resource.data.mood.size() > 0 && request.resource.data.mood.size() <= 40
+          && request.resource.data.label is string
+          && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 24
           && (request.resource.data.get('note', null) == null
               || (request.resource.data.note is string && request.resource.data.note.size() <= 80))
           && request.resource.data.updatedAt == request.time;
@@ -141,6 +144,17 @@ service cloud.firestore {
           && request.resource.data.kind in ['hug', 'forehead_kiss', 'head_pats', 'tomato']
           && request.resource.data.from == me()
           && request.resource.data.sentAt == request.time;
+      }
+
+      // The mood list both people pick from; either can edit it.
+      match /shared/moodOptions {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['options', 'updatedBy', 'updatedAt'])
+          && request.resource.data.options is list
+          && request.resource.data.options.size() > 0 && request.resource.data.options.size() <= 40
+          && request.resource.data.updatedBy == me()
+          && request.resource.data.updatedAt == request.time;
       }
 
       match /shared/meetup {

@@ -45,7 +45,7 @@ class HomeViewModelTest {
 
     private val snapshot = HomeSnapshot(
         viewerName = "Rook",
-        partnerMood = PartnerMood(partner, Mood.Cozy, note = "  ", updatedAt = now.minus(Duration.ofMinutes(5))),
+        partnerMood = PartnerMood(partner, Mood.Cozy.option, note = "  ", updatedAt = now.minus(Duration.ofMinutes(5))),
         latestSnap = Snap("s1", partner, "rain again", now.minus(Duration.ofHours(2)), isUnseen = true),
         points = PointBalances(goodBoy = 3, goodGirl = 9),
         cat = SharedCatStatus(isAdopted = false, name = null),
@@ -72,7 +72,7 @@ class HomeViewModelTest {
         assertEquals("Evening", state.greeting)
         assertEquals("Rook", state.viewerName)
         assertEquals("Wren", state.partner?.name)
-        assertEquals(Mood.Cozy, state.partner?.mood)
+        assertEquals(Mood.Cozy.option, state.partner?.mood)
         assertNull("blank notes are hidden", state.partner?.note)
         assertEquals("5 min ago", state.partner?.updatedLabel)
         assertEquals("2 h ago", state.snap?.relativeLabel)
@@ -87,11 +87,11 @@ class HomeViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
 
         repository.data.value = snapshot.copy(
-            partnerMood = snapshot.partnerMood!!.copy(mood = Mood.MissingYou, updatedAt = now),
+            partnerMood = snapshot.partnerMood!!.copy(mood = Mood.MissingYou.option, updatedAt = now),
         )
 
         val state = viewModel.uiState.value as HomeUiState.Ready
-        assertEquals(Mood.MissingYou, state.partner?.mood)
+        assertEquals(Mood.MissingYou.option, state.partner?.mood)
         assertEquals("just now", state.partner?.updatedLabel)
     }
 

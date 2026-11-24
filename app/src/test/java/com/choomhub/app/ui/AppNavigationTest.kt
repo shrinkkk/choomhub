@@ -165,7 +165,7 @@ class AppNavigationTest {
         composeRule.onNodeWithTag("mood_save").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("screen_home").assertIsDisplayed()
-        assertEquals(Mood.Sleepy, fakeMoods.moods.value.mine?.mood)
+        assertEquals(Mood.Sleepy.option, fakeMoods.moods.value.mine?.mood)
         composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("set_my_mood"))
         composeRule.onNodeWithText("Sleepy \u00B7 rain again").assertExists()
     }

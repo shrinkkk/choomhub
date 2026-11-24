@@ -204,13 +204,26 @@ describe('moods and gestures', () => {
 
   test('you set only your own mood, from the list, with a short note', async () => {
     const mine = doc(db('alice'), 'couples/c1/moods/alice');
-    await assertSucceeds(setDoc(mine, { mood: 'sleepy', note: 'rain again', updatedAt: serverTimestamp() }));
-    await assertSucceeds(setDoc(mine, { mood: 'missing_you', note: null, updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(mine, { mood: 'sleepy', label: 'Sleepy', note: 'rain again', updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(mine, { mood: 'c_k3v9q2xa', label: 'Angry bcs parents', note: null, updatedAt: serverTimestamp() }));
     await assertSucceeds(getDoc(doc(db('bob'), 'couples/c1/moods/alice')));
-    await assertFails(setDoc(doc(db('bob'), 'couples/c1/moods/alice'), { mood: 'low', note: null, updatedAt: serverTimestamp() }));
-    await assertFails(setDoc(mine, { mood: 'furious', note: null, updatedAt: serverTimestamp() }));
-    await assertFails(setDoc(mine, { mood: 'calm', note: 'x'.repeat(81), updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('bob'), 'couples/c1/moods/alice'), { mood: 'low', label: 'Low', note: null, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(mine, { mood: 'calm', label: 'x'.repeat(25), note: null, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(mine, { mood: 'calm', label: 'Calm', note: 'x'.repeat(81), updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(mine, { mood: 'calm', label: 'Calm', note: null, updatedAt: serverTimestamp(), extra: 1 }));
     await assertFails(getDoc(doc(db('mallory'), 'couples/c1/moods/alice')));
+  });
+
+  test('either member can edit the shared mood list, within limits', async () => {
+    const list = (uid) => doc(db(uid), 'couples/c1/shared/moodOptions');
+    const options = [{ key: 'sleepy', label: 'Sleepy' }, { key: 'c_ab', label: 'Very sad' }];
+    await assertSucceeds(setDoc(list('alice'), { options, updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(list('bob'), { options: options.slice(1), updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(list('bob'), { options: [], updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(list('bob'), { options, updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    const tooMany = Array.from({ length: 41 }, (_, i) => ({ key: `k${i}`, label: `m${i}` }));
+    await assertFails(setDoc(list('alice'), { options: tooMany, updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(list('mallory'), { options, updatedBy: 'mallory', updatedAt: serverTimestamp() }));
   });
 
   test('gestures are added as yourself and can never be changed or removed', async () => {

@@ -5,6 +5,7 @@ import com.choomhub.app.domain.model.CoupleMoods
 import com.choomhub.app.domain.model.Gesture
 import com.choomhub.app.domain.model.GestureResult
 import com.choomhub.app.domain.model.Mood
+import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.MoodUpdate
 import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.MoodRepository
@@ -15,11 +16,18 @@ import java.time.Instant
 
 class FakeMoodRepository(initial: CoupleMoods = CoupleMoods(null, null)) : MoodRepository {
     val moods = MutableStateFlow(initial)
+    val options = MutableStateFlow(Mood.defaults)
     var saves = 0
 
     override fun observeMoods(): Flow<CoupleMoods> = moods
 
-    override suspend fun setMood(mood: Mood, note: String?) {
+    override fun observeOptions(): Flow<List<MoodOption>> = options
+
+    override suspend fun setOptions(options: List<MoodOption>) {
+        this.options.value = options
+    }
+
+    override suspend fun setMood(mood: MoodOption, note: String?) {
         saves++
         moods.update { it.copy(mine = MoodUpdate(mood, note, Instant.EPOCH)) }
     }

@@ -4,25 +4,16 @@
 /** Android notification channels; must match NotificationChannels.kt in the app. */
 export const Channels = Object.freeze({ gestures: 'gestures', moods: 'moods', meetup: 'meetup', space: 'space', general: 'general' });
 
-/** Gesture kinds and moods the app may name; must match AffectionKind and Mood in the app. */
+/** Gesture kinds the app may name; must match AffectionKind in the app. */
 export const Gestures = Object.freeze(['hug', 'forehead_kiss', 'head_pats', 'tomato']);
-export const Moods = Object.freeze({
-  cozy: 'Cozy',
-  sleepy: 'Sleepy',
-  content: 'Content',
-  calm: 'Calm',
-  restless: 'Restless',
-  missing_you: 'Missing you',
-  tired: 'Tired',
-  low: 'Low',
-  stressed: 'Stressed',
-  lonely: 'Lonely',
-  wired: 'Wired',
-});
+
+/** Mood names are the couple's own (they can edit the list), so only their length is limited. */
+export const MAX_MOOD_LABEL = 24;
 
 /**
  * event -> { category: preference key or null (always on), channel, tag, toSelf, kinds }
- * `kinds`, when present, is the list of values the request's `kind` must be one of;
+ * `kinds`, when present, is the list of values the request's `kind` must be one of
+ * (`'label'` means free text: a mood's name, cleaned and capped);
  * a null tag means one per kind (`<event>_<kind>`), so a hug doesn't replace a tomato.
  * `toSelf` events go to the caller's own devices (the test button); everything
  * else goes only to the caller's partner.
@@ -34,7 +25,7 @@ export const Events = Object.freeze({
   renamed: { category: 'space', channel: Channels.space, tag: 'renamed', toSelf: false, takesDetail: false },
   test: { category: null, channel: Channels.general, tag: 'test', toSelf: true, takesDetail: false },
   gesture: { category: 'gestures', channel: Channels.gestures, tag: null, toSelf: false, takesDetail: false, kinds: Gestures },
-  mood: { category: 'moods', channel: Channels.moods, tag: 'mood', toSelf: false, takesDetail: true, kinds: Object.keys(Moods) },
+  mood: { category: 'moods', channel: Channels.moods, tag: 'mood', toSelf: false, takesDetail: true, kinds: 'label' },
 });
 
 export const MAX_DETAIL = 80;
@@ -50,11 +41,16 @@ export function parseRequest(body) {
   if (typeof event !== 'string' || !Object.hasOwn(Events, event)) return null;
   if (detail !== undefined && detail !== null && typeof detail !== 'string') return null;
   const spec = Events[event];
-  if (spec.kinds) {
+  let cleanKind = null;
+  if (spec.kinds === 'label') {
+    cleanKind = typeof kind === 'string' ? clean(kind, MAX_MOOD_LABEL) : '';
+    if (!cleanKind) return null;
+  } else if (spec.kinds) {
     if (typeof kind !== 'string' || !spec.kinds.includes(kind)) return null;
+    cleanKind = kind;
   }
   const cleanDetail = spec.takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '';
-  return { event, detail: cleanDetail, kind: spec.kinds ? kind : null };
+  return { event, detail: cleanDetail, kind: cleanKind };
 }
 
 function clean(text, max) {
@@ -87,7 +83,7 @@ export function compose(event, ctx) {
     case 'gesture':
       return gestureText(who, ctx.kind);
     case 'mood': {
-      const label = Moods[ctx.kind] ?? 'Something new';
+      const label = clean(ctx.kind || '', MAX_MOOD_LABEL) || 'Something new';
       return { title: `${who} updated their mood`, body: ctx.detail ? `${label} \u00b7 ${ctx.detail}` : label };
     }
     default:
@@ -114,11 +110,12 @@ function gestureText(who, kind) {
 export function fcmMessage(fid, event, text, kind = null) {
   const spec = Events[event];
   const tag = spec.tag ?? `${event}_${kind}`;
+  const kindData = kind && spec.kinds !== 'label' ? { kind } : {};
   return {
     message: {
       fid,
       notification: { title: text.title, body: text.body },
-      data: { event, category: spec.category ?? 'general', ...(kind ? { kind } : {}) },
+      data: { event, category: spec.category ?? 'general', ...kindData },
       android: {
         priority: 'high',
         collapse_key: tag,

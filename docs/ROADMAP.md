@@ -54,7 +54,8 @@ The order after Milestone 1 is a proposal; it will change as we go.
 
 ## Milestone 3: Moods and gestures 🟡
 
-- ✅ Mood picker (11 moods + an optional 80-character note), synced; partner's mood and yours on Home
+- ✅ Mood picker (an optional 80-character note), synced; partner's mood and yours on Home
+- ✅ Editable shared mood list (Settings → Moods): add custom moods, remove any, restore defaults
 - ✅ Hugs, forehead kisses, head pats, tomato deliveries: sent, kept in a shared history, last each
   way shown on Home, 3-second cooldown per gesture
 - ✅ Push notifications for both, each with its own switch (Gestures, Moods)

@@ -166,8 +166,8 @@ class ScreenshotCaptureTest {
     fun moodsAndGestures() {
         val now = Instant.now()
         fakeMoods.moods.value = CoupleMoods(
-            mine = MoodUpdate(Mood.Calm, "tea and a long playlist", now),
-            partner = MoodUpdate(Mood.MissingYou, "rain again, crows on the wire", now.minusSeconds(720)),
+            mine = MoodUpdate(Mood.Calm.option, "tea and a long playlist", now),
+            partner = MoodUpdate(Mood.MissingYou.option, "rain again, crows on the wire", now.minusSeconds(720)),
         )
         fakeGestures.history.value = listOf(
             Gesture("2", AffectionKind.TomatoDelivery, fromMe = true, sentAt = now.minusSeconds(60)),

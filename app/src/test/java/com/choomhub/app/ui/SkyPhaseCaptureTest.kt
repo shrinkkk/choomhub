@@ -86,7 +86,7 @@ class SkyPhaseCaptureTest {
         },
         dateLabel = "Wednesday, 25 November",
         viewerName = null,
-        partner = PartnerMoodUi("Wren", Mood.Sleepy, "headphones on, ignoring the rain", "12 min ago"),
+        partner = PartnerMoodUi("Wren", Mood.Sleepy.option, "headphones on, ignoring the rain", "12 min ago"),
         snap = SnapUi("Wren", "the crows are back on the wire", ZonedDateTime.now(), "47 min ago", isNew = true),
         points = PointBalances(goodBoy = 128, goodGirl = 142),
         myRole = PointsRole.GoodBoy,

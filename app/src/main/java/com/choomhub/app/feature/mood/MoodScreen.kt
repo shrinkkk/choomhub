@@ -38,7 +38,7 @@ import com.choomhub.app.core.designsystem.component.ChoomHubPrimaryButton
 import com.choomhub.app.core.designsystem.component.ChoomHubTextField
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
-import com.choomhub.app.domain.model.Mood
+import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.MoodRules
 import com.choomhub.app.feature.home.component.moodColor
 import kotlinx.serialization.Serializable
@@ -69,7 +69,7 @@ fun MoodScreen(contentPadding: PaddingValues, onClose: () -> Unit, viewModel: Mo
 fun MoodContent(
     state: MoodUiState,
     contentPadding: PaddingValues,
-    onSelect: (Mood) -> Unit,
+    onSelect: (MoodOption) -> Unit,
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
@@ -92,8 +92,8 @@ fun MoodContent(
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
-                Mood.entries.forEach { mood ->
-                    MoodChip(mood, selected = state.selected == mood, onClick = { onSelect(mood) })
+                state.options.forEach { mood ->
+                    MoodChip(mood, selected = state.selected?.key == mood.key, onClick = { onSelect(mood) })
                 }
             }
             Spacer(Modifier.height(spacing.xl))
@@ -121,7 +121,7 @@ fun MoodContent(
 }
 
 @Composable
-private fun MoodChip(mood: Mood, selected: Boolean, onClick: () -> Unit) {
+private fun MoodChip(mood: MoodOption, selected: Boolean, onClick: () -> Unit) {
     val colors = ChoomHubTheme.colors
     val accent = moodColor(mood)
     val shape = MaterialTheme.shapes.small

@@ -2,7 +2,7 @@ package com.choomhub.app.feature.mood
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.choomhub.app.domain.model.Mood
+import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.MoodRules
 import com.choomhub.app.domain.model.PushEvent
 import com.choomhub.app.domain.repository.MoodRepository
@@ -17,7 +17,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class MoodUiState(
-    val selected: Mood? = null,
+    /** The space's mood list (plus your current mood if it has since been removed from the list). */
+    val options: List<MoodOption> = emptyList(),
+    val selected: MoodOption? = null,
     val note: String = "",
     val error: String? = null,
     /** Set once saved (or nothing changed); the screen closes. */
@@ -34,17 +36,26 @@ class MoodViewModel @Inject constructor(
     private val _state = MutableStateFlow(MoodUiState())
     val state: StateFlow<MoodUiState> = _state.asStateFlow()
 
-    private var current: Pair<Mood, String?>? = null
+    private var current: Pair<MoodOption, String?>? = null
 
     init {
         viewModelScope.launch {
-            val mine = moodRepository.observeMoods().first().mine ?: return@launch
-            current = mine.mood to mine.note
-            _state.update { s -> if (s.selected == null && s.note.isEmpty()) s.copy(selected = mine.mood, note = mine.note.orEmpty()) else s }
+            val mine = moodRepository.observeMoods().first().mine
+            if (mine != null) {
+                current = mine.mood to mine.note
+                _state.update { s -> if (s.selected == null && s.note.isEmpty()) s.copy(selected = mine.mood, note = mine.note.orEmpty()) else s }
+            }
+            moodRepository.observeOptions().collect { options ->
+                _state.update { s ->
+                    val selected = s.selected
+                    val shown = if (selected != null && options.none { it.key == selected.key }) listOf(selected) + options else options
+                    s.copy(options = shown)
+                }
+            }
         }
     }
 
-    fun select(mood: Mood) = _state.update { it.copy(selected = mood, error = null) }
+    fun select(mood: MoodOption) = _state.update { it.copy(selected = mood, error = null) }
 
     fun onNoteChange(value: String) = _state.update { it.copy(note = value.take(MoodRules.MAX_NOTE), error = null) }
 
@@ -62,7 +73,7 @@ class MoodViewModel @Inject constructor(
         current = mood to note
         viewModelScope.launch {
             moodRepository.setMood(mood, note)
-            notifier.notifyPartner(PushEvent.MoodChanged, detail = note, kind = mood.key)
+            notifier.notifyPartner(PushEvent.MoodChanged, detail = note, kind = mood.label)
             _state.update { it.copy(done = true) }
         }
     }

@@ -98,7 +98,7 @@ test('a hug reaches the partner on the gestures channel, and can be muted', asyn
 });
 
 test('a mood change carries the mood and the note', async () => {
-  await notify('alice', { event: 'mood', kind: 'sleepy', detail: 'headphones on' });
+  await notify('alice', { event: 'mood', kind: 'Sleepy', detail: 'headphones on' });
   assert.equal(sent[0].notification.title, 'Shri updated their mood');
   assert.equal(sent[0].notification.body, 'Sleepy \u00b7 headphones on');
 });

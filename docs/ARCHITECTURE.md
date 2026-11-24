@@ -118,7 +118,8 @@ that must be read without the Firestore SDK).
 | `couples/{id}/names/{namerUid}` | `nameForPartner` (1–24 chars), `updatedAt` | members read; only `namerUid` writes |
 | `couples/{id}/shared/meetup` | `at` (timestamp or null), `updatedBy`, `updatedAt` | members read/write, signed as themselves |
 | `couples/{id}/shared/roles` | `goodBoy`, `goodGirl` (uids), `updatedAt` | members read; each can only place themself |
-| `couples/{id}/moods/{uid}` | `mood` (one of 11 keys), `note` (≤ 80 chars or null), `updatedAt` | members read; only `uid` writes |
+| `couples/{id}/moods/{uid}` | `mood` (key), `label` (≤ 24), `note` (≤ 80 or null), `updatedAt` | members read; only `uid` writes |
+| `couples/{id}/shared/moodOptions` | `options` (1–40 `{key, label}`), `updatedBy`, `updatedAt` | members read/write; missing = the 11 defaults |
 | `couples/{id}/gestures/{id}` | `kind` (hug, forehead_kiss, head_pats, tomato), `from`, `sentAt` | members read; added as yourself; never edited or deleted |
 | `users/{uid}/devices/{fid}` | `platform`, `updatedAt` (doc id = FCM installation id) | only that user; the push Worker reads with server credentials |
 | `users/{uid}/settings/notifications` | `meetup`, `space` (booleans), `updatedAt` | only that user; the Worker reads it before sending |

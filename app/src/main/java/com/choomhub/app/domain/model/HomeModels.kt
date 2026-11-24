@@ -11,7 +11,7 @@ data class Member(
 /** The partner's most recent mood update. */
 data class PartnerMood(
     val partner: Member,
-    val mood: Mood,
+    val mood: MoodOption,
     /** Optional short status, e.g. "rewatching ghibli under a blanket". */
     val note: String?,
     /** Server-assigned time of the update; null for a moment while it syncs. */
