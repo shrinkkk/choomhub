@@ -10,30 +10,31 @@ import androidx.compose.ui.graphics.Color
  * tuned in one place.
  */
 internal object ChoomHubPalette {
-    // Near-black with a violet cast, not pure black: keeps depth without looking like OLED-void.
-    val Night = Color(0xFF0E0D12)
-    val NightDeep = Color(0xFF09080C)
-    val Surface = Color(0xFF17151C)
-    val SurfaceElevated = Color(0xFF1E1B25)
-    val SurfaceHighest = Color(0xFF282431)
-    val Outline = Color(0xFF34303D)
+    // Ink-and-bone: near-black surfaces, off-white "paper" accents, colour used sparingly.
+    val Night = Color(0xFF09090B)
+    val NightDeep = Color(0xFF050506)
+    val Surface = Color(0xFF121114)
+    val SurfaceElevated = Color(0xFF19181C)
+    val SurfaceHighest = Color(0xFF232126)
+    val Outline = Color(0xFF302E33)
 
-    // Accents are deliberately desaturated: dusty violet, faded rose, old gold.
-    val Purple = Color(0xFF8E7BB5)
-    val PurpleDeep = Color(0xFF3A3150)
-    val Pink = Color(0xFFB98A9E)
-    val PinkDeep = Color(0xFF4A2E3B)
-    val Lavender = Color(0xFFB9AECB)
-    val Tomato = Color(0xFFC25B55)
-    val TomatoDeep = Color(0xFF4F2224)
+    // "Purple" is now a pale bone used for primary actions; the old violet survives
+    // only as a faint grey-lilac, and the rose as a dusty pink for small accents.
+    val Purple = Color(0xFFE2DACB)
+    val PurpleDeep = Color(0xFF3A3731)
+    val Pink = Color(0xFFC4A3A8)
+    val PinkDeep = Color(0xFF3E2C30)
+    val Lavender = Color(0xFFB8B2BF)
+    val Tomato = Color(0xFFC0504A)
+    val TomatoDeep = Color(0xFF4A1F1E)
     val Wine = Color(0xFF5C2233)
-    val Leaf = Color(0xFF6F8A72)
-    val Candle = Color(0xFFD9B27C)
-    val Bone = Color(0xFFD8D0C3)
+    val Leaf = Color(0xFF7D8C76)
+    val Candle = Color(0xFFE6D6AE)
+    val Bone = Color(0xFFEDE6D6)
 
-    val TextMain = Color(0xFFE6E0EA)
-    val TextSecondary = Color(0xFF9A90A6)
-    val TextFaint = Color(0xFF625A6C)
+    val TextMain = Color(0xFFECE6DA)
+    val TextSecondary = Color(0xFF9B958E)
+    val TextFaint = Color(0xFF5F5B57)
 }
 
 /**

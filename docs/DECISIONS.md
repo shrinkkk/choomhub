@@ -234,3 +234,15 @@ caller to a one-member space while consuming the invite. Rules are covered by em
 One shared "next meetup", last write wins. Mood: more than 14 days away → sad; 14 days to 3 days →
 happy; under 3 days → excited; after the meetup time, "It's today." for 12 hours, then back to
 "nothing planned" (teary moon). Thresholds live in `MeetupCountdown` and are unit-tested.
+
+## ADR-027: Ink illustration style (supersedes ADR-016's art direction)
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner's reference image)
+
+The owner shared a reference: a black cat in ink, edges made of scratchy pale fur strokes, huge cream
+eyes with small pupils, long wiry whiskers, ink splatter, near-monochrome. All art now follows it:
+solid ink silhouettes (`InkPalette.Ink`) with seeded hairline "fur" along their outlines
+(`scratchEdge`), bone-white accents (`InkPalette.Bone`), splatters and drips, sketchy doubled lines
+instead of neat outlines, no glows or gradients. The palette shifted to ink-and-bone: primary actions
+are pale bone, violet and rose survive only as faint accents, and red is kept for tomatoes. The
+countdown face is the shared black cat (taller, not round), not a moon.

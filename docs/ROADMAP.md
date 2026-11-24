@@ -27,6 +27,13 @@ The order after Milestone 1 is a proposal; it will change as we go.
 
 - ✅ Live countdown (days/hrs/min/sec) at the top of Home with a moon face: teary → sad → happy → excited
 - ✅ Schedule / reschedule / clear (date + time pickers)
+- ✅ Face is the shared black cat (crying, sad, happy, excited)
+
+## Milestone 1.3: Roles and ink style ✅
+
+- ✅ Good Boy / Good Girl chosen during setup (first pick decides both), synced and rule-protected
+- ✅ "Forehead kiss" gesture
+- ✅ All art redrawn in the ink style from the owner's reference
 
 ## Milestone 2: Backend foundation and pairing 🚧
 

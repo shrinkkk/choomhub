@@ -28,15 +28,11 @@ fun Tomato(modifier: Modifier = Modifier) {
 internal fun DrawScope.drawTomato(body: Color, leaf: Color) {
     val w = size.width
     val h = size.height
-    drawOval(
-        brush = Brush.radialGradient(
-            colors = listOf(Color(0xFFD98A80), body, Color(0xFF6E2A2C)),
-            center = Offset(w * 0.38f, h * 0.44f),
-            radius = w * 0.62f,
-        ),
-        topLeft = Offset(w * 0.08f, h * 0.26f),
-        size = Size(w * 0.84f, h * 0.68f),
-    )
+    val fruit = Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(w * 0.08f, h * 0.26f), Size(w * 0.84f, h * 0.68f))) }
+    drawPath(fruit, body)
+    // Ink shading and a scratchy edge instead of a glossy gradient.
+    drawArc(InkPalette.Ink.copy(alpha = 0.35f), 20f, 150f, true, Offset(w * 0.08f, h * 0.26f), Size(w * 0.84f, h * 0.68f))
+    scratchEdge(fruit, InkPalette.Ink, strands = 30f, length = (w * 0.03f)..(w * 0.08f), width = w * 0.008f, seed = 91)
     // A faint vertical seam gives it some form without cartoon shine.
     drawArc(
         color = Color.Black.copy(alpha = 0.18f),
@@ -72,7 +68,7 @@ fun ShadowCat(modifier: Modifier = Modifier) {
 
 /** Cat silhouette on the 100 grid; feet along y = 94. */
 internal fun DrawScope.drawShadowCat(rim: Color) {
-    strokePath(MotifShapes.catTail, rim.copy(alpha = 0.4f), 8.5f)
-    strokePath(MotifShapes.catTail, Silhouette, 6.5f)
-    fillWithRim(MotifShapes.catBack, Silhouette, rim, 0.4f, 1.6f)
+    strokePath(MotifShapes.catTail, InkPalette.Ink, 6.5f)
+    scratchEdge(MotifShapes.catTail, InkPalette.Bone.copy(alpha = 0.6f), strands = 26f, seed = 71)
+    inkSilhouette(MotifShapes.catBack, seed = 72, strands = 38f)
 }

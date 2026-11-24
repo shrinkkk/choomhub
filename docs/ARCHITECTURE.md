@@ -71,10 +71,11 @@ firebase/                          firestore.rules, emulator config, rules tests
 
 ## 3. Design system (implemented)
 
-Always-dark custom Material 3 theme; muted palette; Cormorant Garamond + Space Mono (bundled, OFL);
-film grain; Canvas illustrations from SVG path data on a 100 × 100 grid (`MotifPaths.kt`); six gothic
-header motifs rotating every 3 days by date; `LocalAmbientMotionEnabled` respects "remove animations".
-See ADR-016/017.
+Always-dark custom Material 3 theme in ink-and-bone; Cormorant Garamond + Space Mono (bundled, OFL);
+film grain. Illustrations follow one ink style (ADR-027): shapes from SVG path data on a 100 × 100
+grid (`MotifPaths.kt`), drawn with the `Ink.kt` toolkit: solid ink fills, seeded scratchy fur edges,
+splatters, drips, sketchy lines. Six gothic header motifs rotate every 3 days by date; the meetup
+countdown uses the shared cat's face. `LocalAmbientMotionEnabled` respects "remove animations".
 
 ## 4. Offline-first (implemented via Firestore; ADR-021)
 

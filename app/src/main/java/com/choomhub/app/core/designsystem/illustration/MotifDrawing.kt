@@ -89,12 +89,17 @@ internal fun DrawScope.drawPerchedCrow(feet: Offset, height: Float, color: Color
     val k = height / 63f
     placed(Offset(feet.x - 54f * k, feet.y - 80f * k), k) {
         drawPath(MotifShapes.ravenBody, color)
-        if (rim != null) drawPath(MotifShapes.ravenBody, rim, style = Stroke(width = 2.5f))
+        if (rim != null) scratchEdge(MotifShapes.ravenBody, rim, strands = 20f, length = 4f..10f, width = 1.6f, seed = 61)
     }
 }
 
 /** A crow in flight, centred on [center]; [span] is the wingspan. */
 internal fun DrawScope.drawFlyingCrow(center: Offset, span: Float, color: Color = Silhouette) {
     val k = span / 24f
-    translate(center.x, center.y) { scale(k, k, pivot = Offset.Zero) { drawPath(MotifShapes.flyingCrow, color) } }
+    translate(center.x, center.y) {
+        scale(k, k, pivot = Offset.Zero) {
+            drawPath(MotifShapes.flyingCrow, color)
+            scratchEdge(MotifShapes.flyingCrow, InkPalette.Bone.copy(alpha = 0.6f), strands = 30f, length = 1f..2.5f, width = 0.25f, seed = 62)
+        }
+    }
 }

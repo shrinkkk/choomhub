@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -82,91 +83,94 @@ private fun flickerState(): State<Float> {
     )
 }
 
-private val Branch = Color(0xFF3A3443)
-private val Tarnish = Color(0xFFA097AD)
+private val Bone = InkPalette.Bone
+private val Ink = InkPalette.Ink
 
 private fun DrawScope.drawRavenOnBranch(colors: ChoomHubColors, withMoon: Boolean = false) {
     if (withMoon) {
-        // A pale moon behind the bird so the silhouette reads on dark backgrounds.
-        drawCircle(
-            brush = Brush.radialGradient(listOf(colors.lavender.copy(alpha = 0.22f), Color.Transparent), Offset(64f, 32f), 32f),
-            radius = 32f,
-            center = Offset(64f, 32f),
-        )
-        drawCircle(colors.lavender.copy(alpha = 0.88f), radius = 20f, center = Offset(64f, 32f))
+        drawCircle(Bone.copy(alpha = 0.9f), radius = 20f, center = Offset(64f, 32f))
+        scratchEdge(Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(64f, 32f), 20f)) }, Ink, strands = 30f, seed = 4, coverage = 0.5f)
     }
-    strokePath(MotifShapes.ravenBranch, Branch, 3.5f)
-    strokePath(MotifShapes.ravenTwig, Branch, 2f)
-    strokePath(MotifShapes.ravenLegs, Silhouette, 2.2f)
-    fillWithRim(MotifShapes.ravenBody, Silhouette, colors.lavender, 0.38f, 0.9f)
-    strokePath(MotifShapes.ravenWingLines, colors.lavender.copy(alpha = 0.16f), 0.9f)
-    drawCircle(colors.candle, radius = 1.35f, center = Offset(29.3f, 25.6f))
+    splatter(Offset(14f, 70f), 1.6f, InkPalette.Ash, seed = 9)
+    drawPath(MotifShapes.ravenBranch, Ink, style = Stroke(width = 3.5f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+    scratchEdge(MotifShapes.ravenBranch, Bone.copy(alpha = 0.7f), strands = 18f, seed = 2)
+    strokePath(MotifShapes.ravenTwig, Ink, 2f)
+    strokePath(MotifShapes.ravenLegs, Ink, 2.2f)
+    inkSilhouette(MotifShapes.ravenBody, seed = 13, strands = 36f)
+    strokePath(MotifShapes.ravenWingLines, Bone.copy(alpha = 0.22f), 0.6f)
+    drawCircle(Bone, radius = 1.9f, center = Offset(29.3f, 25.6f))
+    drawCircle(Ink, radius = 0.9f, center = Offset(29.8f, 25.8f))
 }
 
 private fun DrawScope.drawMoth(colors: ChoomHubColors) {
-    fillWithRim(MotifShapes.mothForewings, Color(0xFF15131A), colors.lavender, 0.4f, 0.9f)
-    fillWithRim(MotifShapes.mothHindwings, Color(0xFF121016), colors.lavender, 0.35f, 0.9f)
-    strokePath(MotifShapes.mothVeins, colors.lavender.copy(alpha = 0.15f), 0.8f)
+    splatter(Offset(86f, 84f), 1.8f, InkPalette.Ash, seed = 12)
+    inkSilhouette(MotifShapes.mothHindwings, seed = 31)
+    inkSilhouette(MotifShapes.mothForewings, seed = 32)
+    strokePath(MotifShapes.mothVeins, Bone.copy(alpha = 0.3f), 0.6f)
     listOf(Offset(79f, 35f), Offset(21f, 35f)).forEach { eye ->
-        drawCircle(colors.candle.copy(alpha = 0.7f), radius = 4.2f, center = eye, style = Stroke(width = 1f))
-        drawCircle(colors.candle.copy(alpha = 0.7f), radius = 1.4f, center = eye)
+        drawCircle(Bone.copy(alpha = 0.9f), radius = 4.2f, center = eye, style = Stroke(width = 1f))
+        drawCircle(Bone.copy(alpha = 0.9f), radius = 1.4f, center = eye)
     }
-    // Body and head.
-    drawOval(Silhouette, topLeft = Offset(45.7f, 34f), size = androidx.compose.ui.geometry.Size(8.6f, 38f))
-    drawOval(colors.lavender.copy(alpha = 0.4f), topLeft = Offset(45.7f, 34f), size = androidx.compose.ui.geometry.Size(8.6f, 38f), style = Stroke(0.9f))
-    drawCircle(Silhouette, radius = 4f, center = Offset(50f, 32f))
-    drawCircle(colors.lavender.copy(alpha = 0.4f), radius = 4f, center = Offset(50f, 32f), style = Stroke(0.9f))
-    strokePath(MotifShapes.mothAntennae, colors.lavender.copy(alpha = 0.55f), 0.9f)
+    val body = Path().apply { addOval(androidx.compose.ui.geometry.Rect(45.7f, 34f, 54.3f, 72f)) }
+    inkSilhouette(body, seed = 33, strands = 52f)
+    inkSilhouette(Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(50f, 32f), 4f)) }, seed = 34, strands = 40f)
+    strokePath(MotifShapes.mothAntennae, Bone.copy(alpha = 0.75f), 0.7f)
 }
 
 private fun DrawScope.drawCandle(colors: ChoomHubColors, flicker: Float) {
-    val holder = Color(0xFF26222D)
-    val wax = Color(0xFF141218)
     drawCircle(
-        brush = Brush.radialGradient(listOf(colors.candle.copy(alpha = 0.42f * flicker), Color.Transparent), Offset(50f, 28f), 22f),
-        radius = 22f,
+        brush = Brush.radialGradient(listOf(colors.candle.copy(alpha = 0.16f * flicker), Color.Transparent), Offset(50f, 28f), 18f),
+        radius = 18f,
         center = Offset(50f, 28f),
     )
-    fillWithRim(MotifShapes.candleDish, holder, colors.lavender, 0.3f, 0.8f)
-    fillWithRim(MotifShapes.candleCup, holder, colors.lavender, 0.3f, 0.8f)
-    fillWithRim(MotifShapes.candleBody, wax, colors.lavender, 0.4f, 0.9f)
-    fillWithRim(MotifShapes.candleDrips, wax, colors.lavender, 0.3f, 0.7f)
-    drawLine(Branch, Offset(50f, 41f), Offset(50f, 35.5f), strokeWidth = 1.2f)
-    // Flame scales from its base so it flickers upward.
+    splatter(Offset(20f, 78f), 1.7f, InkPalette.Ash, seed = 15)
+    inkSilhouette(MotifShapes.candleDish, seed = 41)
+    inkSilhouette(MotifShapes.candleCup, seed = 42)
+    inkSilhouette(MotifShapes.candleBody, seed = 43, strands = 42f)
+    // Pale wax running down the black candle.
+    drawPath(MotifShapes.candleDrips, Bone.copy(alpha = 0.85f))
+    drip(Offset(54f, 46f), 10f, 1.1f, Bone.copy(alpha = 0.7f))
+    drawLine(Bone.copy(alpha = 0.5f), Offset(50f, 41f), Offset(50f, 35.5f), strokeWidth = 0.9f)
     scale(scaleX = 1f, scaleY = flicker, pivot = Offset(50f, 36f)) {
         drawPath(MotifShapes.candleFlame, colors.candle)
-        drawPath(MotifShapes.candleFlameCore, Color(0xFFF4E3C4))
+        drawPath(MotifShapes.candleFlameCore, Bone)
     }
 }
 
 private fun DrawScope.drawSkeletonKey() {
+    splatter(Offset(80f, 76f), 1.8f, InkPalette.Ash, seed = 17)
     rotate(-38f, pivot = Offset(50f, 50f)) {
-        drawCircle(Tarnish, radius = 12f, center = Offset(28f, 50f), style = Stroke(3.4f))
-        listOf(Offset(28f, 44.6f), Offset(28f, 55.4f), Offset(22.6f, 50f), Offset(33.4f, 50f)).forEach {
-            drawCircle(Tarnish, radius = 3f, center = it, style = Stroke(1.4f))
+        // Drawn twice, slightly offset, like a pen going over it.
+        listOf(Offset.Zero to 1f, Offset(0.7f, -0.5f) to 0.4f).forEach { (o, a) ->
+            val c = Bone.copy(alpha = 0.92f * a)
+            drawCircle(c, radius = 12f, center = Offset(28f, 50f) + o, style = Stroke(3f))
+            listOf(Offset(28f, 44.6f), Offset(28f, 55.4f), Offset(22.6f, 50f), Offset(33.4f, 50f)).forEach {
+                drawCircle(c, radius = 3f, center = it + o, style = Stroke(1.2f))
+            }
+            drawLine(c, Offset(40f, 50f) + o, Offset(88f, 50f) + o, strokeWidth = 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(c, Offset(45f, 45.5f) + o, Offset(45f, 54.5f) + o, strokeWidth = 1.8f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(c, Offset(49f, 46.5f) + o, Offset(49f, 53.5f) + o, strokeWidth = 1.8f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
-        drawLine(Tarnish, Offset(40f, 50f), Offset(88f, 50f), strokeWidth = 3.4f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        drawLine(Tarnish, Offset(45f, 45.5f), Offset(45f, 54.5f), strokeWidth = 2f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        drawLine(Tarnish, Offset(49f, 46.5f), Offset(49f, 53.5f), strokeWidth = 2f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-        strokePath(MotifShapes.keyBit, Tarnish, 2.8f)
+        strokePath(MotifShapes.keyBit, Bone.copy(alpha = 0.92f), 2.6f)
     }
 }
 
 private fun DrawScope.drawMoonAndCrows(colors: ChoomHubColors) {
-    drawCrescentAt(Offset(62f, 38f), 20f, colors.lavender)
-    drawFlyingCrow(Offset(24f, 62f), 31f)
-    drawFlyingCrow(Offset(40f, 74f), 23f)
-    drawFlyingCrow(Offset(15f, 80f), 17f)
+    drawCrescentAt(Offset(62f, 38f), 20f, Bone.copy(alpha = 0.92f), glow = false)
+    splatter(Offset(84f, 76f), 1.6f, InkPalette.Ash, seed = 19)
+    drawFlyingCrow(Offset(24f, 62f), 31f, Ink)
+    drawFlyingCrow(Offset(40f, 74f), 23f, Ink)
+    drawFlyingCrow(Offset(15f, 80f), 17f, Ink)
 }
 
 private fun DrawScope.drawCobweb(colors: ChoomHubColors) {
     clipRect(0f, 0f, 100f, 100f) {
-        strokePath(MotifShapes.webThreads, colors.lavender.copy(alpha = 0.42f), 0.8f)
+        strokePath(MotifShapes.webThreads, Bone.copy(alpha = 0.42f), 0.6f)
     }
-    drawLine(colors.lavender.copy(alpha = 0.5f), Offset(64f, 52f), Offset(64f, 66f), strokeWidth = 0.6f)
-    strokePath(MotifShapes.spiderLegs, Silhouette, 1.1f)
-    drawCircle(Silhouette, radius = 2.6f, center = Offset(64f, 68f))
-    drawCircle(colors.lavender.copy(alpha = 0.4f), radius = 2.6f, center = Offset(64f, 68f), style = Stroke(0.5f))
-    drawOval(Silhouette, topLeft = Offset(60.2f, 69.4f), size = androidx.compose.ui.geometry.Size(7.6f, 9.2f))
-    drawOval(colors.lavender.copy(alpha = 0.4f), topLeft = Offset(60.2f, 69.4f), size = androidx.compose.ui.geometry.Size(7.6f, 9.2f), style = Stroke(0.5f))
+    drawLine(Bone.copy(alpha = 0.55f), Offset(64f, 52f), Offset(64f, 66f), strokeWidth = 0.5f)
+    strokePath(MotifShapes.spiderLegs, Ink, 1.1f)
+    inkSilhouette(Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset(64f, 68f), 2.6f)) }, seed = 51, strands = 80f)
+    inkSilhouette(Path().apply { addOval(androidx.compose.ui.geometry.Rect(60.2f, 69.4f, 67.8f, 78.6f)) }, seed = 52, strands = 60f)
+    drawCircle(Bone, 0.6f, Offset(63f, 67.4f))
+    drawCircle(Bone, 0.6f, Offset(65f, 67.4f))
 }

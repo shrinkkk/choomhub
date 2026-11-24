@@ -231,12 +231,7 @@ internal fun GestureSection(onGesture: (AffectionKind) -> Unit, modifier: Modifi
                         AffectionKind.HeadPats -> GestureIcons.Paw
                         AffectionKind.TomatoDelivery -> GestureIcons.Tomato
                     },
-                    tint = when (kind) {
-                        AffectionKind.Hug -> colors.lavender
-                        AffectionKind.ForeheadKiss -> colors.pink
-                        AffectionKind.HeadPats -> colors.lavender
-                        AffectionKind.TomatoDelivery -> colors.tomato
-                    },
+                    tint = if (kind == AffectionKind.TomatoDelivery) colors.tomato else colors.textMain,
                     onClick = { onGesture(kind) },
                     modifier = Modifier.weight(1f).fillMaxHeight().testTag("affection_${kind.name}"),
                 )

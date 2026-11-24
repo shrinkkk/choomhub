@@ -21,13 +21,15 @@ import androidx.compose.ui.graphics.drawscope.translate
 import com.choomhub.app.core.designsystem.theme.ChoomHubColors
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 
-private val DuskTop = Color(0xFF1F1A2E)
-private val DuskMid = Color(0xFF3E3046)
-private val DuskLow = Color(0xFF5B4250)
-private val HillBack = Color(0xFF1A1424)
-private val HillFront = Color(0xFF141019)
-private val NightPane = Color(0xFF211B33)
-private val Ink = Color(0xFF2A2530)
+// Monochrome "photo" tones: charcoal sky fading to a dull grey horizon.
+private val DuskTop = Color(0xFF141316)
+private val DuskMid = Color(0xFF2B2A2E)
+private val DuskLow = Color(0xFF55524F)
+private val HillBack = Color(0xFF0E0D10)
+private val HillFront = InkPalette.Ink
+private val NightPane = Color(0xFF141317)
+private val Ink = InkPalette.Ink
+private val Bone = InkPalette.Bone
 
 /**
  * Placeholder "photograph" for the latest snap: dusk, rain, and a few crows
@@ -44,7 +46,8 @@ fun CrowsOnAWirePhoto(modifier: Modifier = Modifier) {
 }
 
 private fun DrawScope.drawCrowsOnAWire(colors: ChoomHubColors) {
-    drawCrescentAt(Offset(77f, 21f), 8f, colors.lavender.copy(alpha = 0.85f))
+    drawCrescentAt(Offset(77f, 21f), 8f, Bone.copy(alpha = 0.9f), glow = false)
+    splatter(Offset(90f, 8f), 0.9f, Bone.copy(alpha = 0.25f), seed = 23)
     drawPath(
         Path().apply {
             moveTo(0f, 54f); cubicTo(25f, 46f, 45f, 54f, 62f, 50f); cubicTo(80f, 46f, 92f, 52f, 100f, 49f)
@@ -69,9 +72,9 @@ private fun DrawScope.drawCrowsOnAWire(colors: ChoomHubColors) {
         )
     }
     listOf(33f, 40f, 46f, 68f).forEachIndexed { i, x ->
-        drawPerchedCrow(Offset(x, wireY(x) + 0.4f), height = if (i == 2) 5.2f else 5.8f)
+        drawPerchedCrow(Offset(x, wireY(x) + 0.4f), height = if (i == 2) 5.2f else 5.8f, rim = Bone.copy(alpha = 0.55f))
     }
-    drawRain(Rect(0f, 0f, 100f, 75f), colors.lavender.copy(alpha = 0.22f), drops = 22, seed = 7, strokeWidth = 0.35f)
+    drawRain(Rect(0f, 0f, 100f, 75f), Bone.copy(alpha = 0.22f), drops = 22, seed = 7, strokeWidth = 0.3f)
 }
 
 /** Height of the upper wire at [x] (quadratic from (14, 24.5) via (57, 43.5) to (100, 27)). */
@@ -104,19 +107,27 @@ private fun DrawScope.drawWindowWatch(colors: ChoomHubColors) {
         cornerRadius = CornerRadius(3f),
     )
     clipRect(pane.left, pane.top, pane.right, pane.bottom) {
-        drawCrescentAt(Offset(66f, 26f), 8f, colors.lavender.copy(alpha = 0.9f))
+        drawCrescentAt(Offset(66f, 26f), 8f, Bone.copy(alpha = 0.9f), glow = false)
         drawPath(
             Path().apply { moveTo(56f, 66f); cubicTo(70f, 64f, 82f, 67f, 96f, 63f) },
             Ink,
             style = Stroke(width = 2f, cap = StrokeCap.Round),
         )
-        drawPerchedCrow(Offset(75f, 65.2f), height = 11f, rim = colors.lavender.copy(alpha = 0.45f))
-        drawRain(pane, colors.lavender.copy(alpha = 0.28f), drops = 20, seed = 11, strokeWidth = 0.5f)
+        drawPerchedCrow(Offset(75f, 65.2f), height = 11f, rim = Bone.copy(alpha = 0.6f))
+        drawRain(pane, Bone.copy(alpha = 0.22f), drops = 20, seed = 11, strokeWidth = 0.4f)
     }
-    drawRoundRect(colors.outline, pane.topLeft, pane.size, CornerRadius(3f), style = Stroke(width = 2.4f))
-    drawLine(colors.outline, Offset(50f, pane.top), Offset(50f, pane.bottom), strokeWidth = 1.8f)
-    drawLine(colors.outline, Offset(pane.left, 42f), Offset(pane.right, 42f), strokeWidth = 1.8f)
-    drawRoundRect(colors.surfaceHighest, Offset(0f, 78f), Size(100f, 7f), CornerRadius(2f))
+    // Window frame in sketchy bone lines rather than a neat outline.
+    val frame = Bone.copy(alpha = 0.55f)
+    sketchLine(Offset(pane.left, pane.top), Offset(pane.right, pane.top), frame, 1.4f, 81)
+    sketchLine(Offset(pane.left, pane.bottom), Offset(pane.right, pane.bottom), frame, 1.4f, 82)
+    sketchLine(Offset(pane.left, pane.top), Offset(pane.left, pane.bottom), frame, 1.4f, 83)
+    sketchLine(Offset(pane.right, pane.top), Offset(pane.right, pane.bottom), frame, 1.4f, 84)
+    sketchLine(Offset(50f, pane.top), Offset(50f, pane.bottom), frame, 1.1f, 85)
+    sketchLine(Offset(pane.left, 42f), Offset(pane.right, 42f), frame, 1.1f, 86)
+    drawRect(Ink, Offset(0f, 78f), Size(100f, 8f))
+    sketchLine(Offset(0f, 78f), Offset(100f, 78f), Bone.copy(alpha = 0.45f), 0.8f, 87)
+    drip(Offset(14f, 86f), 4f, 0.9f, Ink)
+    drip(Offset(88f, 86f), 2.5f, 0.8f, Ink)
     // Cat sits on the sill: grid feet at y = 94 map onto y = 79.
     placed(Offset(10f, 32f), 0.5f) { drawShadowCat(colors.lavender) }
 }
@@ -130,7 +141,8 @@ fun SealedLetter(modifier: Modifier = Modifier) {
         val h = size.height
         val body = Rect(w * 0.08f, h * 0.22f, w * 0.92f, h * 0.84f)
         rotate(-6f) {
-            drawRoundRect(colors.bone.copy(alpha = 0.88f), body.topLeft, body.size, CornerRadius(w * 0.015f))
+            drawRoundRect(colors.bone.copy(alpha = 0.9f), body.topLeft, body.size, CornerRadius(w * 0.01f))
+            splatter(Offset(body.left + body.width * 0.15f, body.bottom - body.height * 0.2f), w * 0.02f, Ink.copy(alpha = 0.55f), seed = 29)
             val flap = Path().apply {
                 moveTo(body.left, body.top)
                 lineTo(body.center.x, body.top + body.height * 0.55f)
