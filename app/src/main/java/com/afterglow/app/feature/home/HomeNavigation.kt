@@ -1,0 +1,18 @@
+package com.afterglow.app.feature.home
+
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.compose.composable
+import kotlinx.serialization.Serializable
+
+@Serializable
+data object HomeRoute
+
+fun NavGraphBuilder.homeScreen(
+    contentPadding: PaddingValues,
+    showMessage: suspend (String) -> Unit,
+) {
+    composable<HomeRoute> {
+        HomeScreen(contentPadding = contentPadding, showMessage = showMessage)
+    }
+}
