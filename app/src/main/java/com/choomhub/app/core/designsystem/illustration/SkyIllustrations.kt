@@ -27,62 +27,13 @@ import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.random.Random
 
-/** A crescent moon with an optional soft halo. */
+/** A crescent moon with a faint halo. */
 @Composable
 fun CrescentMoon(
     modifier: Modifier = Modifier,
     color: Color = ChoomHubTheme.colors.lavender,
-    glow: Boolean = true,
 ) {
-    Canvas(modifier) { drawCrescentMoon(center, size.minDimension / 2f, color, glow) }
-}
-
-internal fun DrawScope.drawCrescentMoon(
-    center: Offset,
-    outerRadius: Float,
-    color: Color,
-    glow: Boolean = true,
-) {
-    if (glow) {
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(color.copy(alpha = 0.30f), Color.Transparent),
-                center = center,
-                radius = outerRadius,
-            ),
-            radius = outerRadius,
-            center = center,
-        )
-    }
-    val r = outerRadius * 0.62f
-    val disc = Path().apply { addOval(Rect(center, r)) }
-    val bite = Path().apply {
-        addOval(Rect(Offset(center.x + r * 0.52f, center.y - r * 0.38f), r * 0.86f))
-    }
-    val crescent = Path().apply { op(disc, bite, PathOperation.Difference) }
-    drawPath(crescent, color)
-}
-
-/** Four-pointed sparkle, used for stars and little moments of delight. */
-@Composable
-fun Sparkle(
-    modifier: Modifier = Modifier,
-    color: Color = ChoomHubTheme.colors.pink,
-) {
-    Canvas(modifier) { drawSparkle(center, size.minDimension / 2f, color) }
-}
-
-internal fun DrawScope.drawSparkle(center: Offset, radius: Float, color: Color) {
-    val (cx, cy) = center
-    val path = Path().apply {
-        moveTo(cx, cy - radius)
-        quadraticTo(cx, cy, cx + radius, cy)
-        quadraticTo(cx, cy, cx, cy + radius)
-        quadraticTo(cx, cy, cx - radius, cy)
-        quadraticTo(cx, cy, cx, cy - radius)
-        close()
-    }
-    drawPath(path, color)
+    Canvas(modifier) { drawCrescentAt(center, size.minDimension / 3f, color) }
 }
 
 @Immutable
@@ -95,7 +46,7 @@ private data class Star(val x: Float, val y: Float, val radius: Float, val alpha
 @Composable
 fun StarField(
     modifier: Modifier = Modifier,
-    starCount: Int = 70,
+    starCount: Int = 40,
     seed: Int = 1123,
     color: Color = ChoomHubTheme.colors.lavender,
 ) {
@@ -105,8 +56,8 @@ fun StarField(
             Star(
                 x = random.nextFloat(),
                 y = random.nextFloat(),
-                radius = 0.6f + random.nextFloat() * 1.3f,
-                alpha = 0.15f + random.nextFloat() * 0.55f,
+                radius = 0.5f + random.nextFloat() * 0.9f,
+                alpha = 0.10f + random.nextFloat() * 0.40f,
                 phase = random.nextFloat() * 2f * PI.toFloat(),
             )
         }
@@ -143,6 +94,7 @@ internal fun DrawScope.drawRain(
     color: Color,
     drops: Int = 26,
     seed: Int = 42,
+    strokeWidth: Float = 1.2f * density,
 ) {
     val random = Random(seed)
     repeat(drops) {
@@ -154,7 +106,7 @@ internal fun DrawScope.drawRain(
             color = color.copy(alpha = color.alpha * (0.4f + random.nextFloat() * 0.6f)),
             start = Offset(x, y),
             end = end,
-            strokeWidth = 1.2f * density,
+            strokeWidth = strokeWidth,
             cap = StrokeCap.Round,
         )
     }

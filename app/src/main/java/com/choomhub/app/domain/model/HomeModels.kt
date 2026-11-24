@@ -48,7 +48,8 @@ data class SharedCatStatus(
 
 /** Everything the home screen shows, assembled by [com.choomhub.app.domain.repository.HomeRepository]. */
 data class HomeSnapshot(
-    val viewer: Member,
+    /** The name your partner gave you; null until it has synced. */
+    val viewerName: String?,
     val partnerMood: PartnerMood?,
     val latestSnap: Snap?,
     val points: PointBalances,

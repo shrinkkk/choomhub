@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.choomhub.app.core.designsystem.component.ComingSoonScreen
-import com.choomhub.app.core.designsystem.illustration.SparkleCluster
+import com.choomhub.app.core.designsystem.illustration.TarotSpread
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -21,11 +21,11 @@ fun NavGraphBuilder.activitiesScreen(contentPadding: PaddingValues) {
 fun ActivitiesScreen(contentPadding: PaddingValues) {
     ComingSoonScreen(
         title = "Activities",
-        whisper = "little rituals, a few minutes a day",
-        description = "Daily check-ins, questions for two, productivity wins worth celebrating " +
-            "and small games to play together.",
+        whisper = "a few minutes a day",
+        description = "Daily check-ins, a question a day, logging what you got done, " +
+            "and a few small games.",
         planned = listOf("Daily check-ins", "Daily questions", "Achievements", "Point shop", "Mini-games"),
         contentPadding = contentPadding,
         testTag = "screen_activities",
-    ) { SparkleCluster(Modifier.fillMaxSize()) }
+    ) { TarotSpread(Modifier.fillMaxSize()) }
 }

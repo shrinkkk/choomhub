@@ -21,10 +21,10 @@ fun NavGraphBuilder.ourWorldScreen(contentPadding: PaddingValues) {
 fun OurWorldScreen(contentPadding: PaddingValues) {
     ComingSoonScreen(
         title = "Our World",
-        whisper = "a cozy room we build together",
-        description = "A shared room to decorate, photos pinned to the wall, the cat's favourite corner, " +
-            "a tomato garden and the moments worth keeping.",
-        planned = listOf("Shared room", "Photo wall", "Memories", "Milestones", "Tomato garden", "Soundtrack"),
+        whisper = "a shared room, slowly filling up",
+        description = "A room you both decorate, photos on the wall, the cat once it moves in, " +
+            "a tomato garden, and the things worth keeping.",
+        planned = listOf("Shared room", "Photo wall", "The cat", "Memories", "Milestones", "Tomato garden", "Soundtrack"),
         contentPadding = contentPadding,
         testTag = "screen_our_world",
     ) { PolaroidWall(Modifier.fillMaxSize()) }

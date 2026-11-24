@@ -1,6 +1,7 @@
 package com.choomhub.app.feature.home
 
 import com.choomhub.app.core.common.TimeLabels
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.domain.model.HomeSnapshot
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.PointBalances
@@ -14,7 +15,10 @@ sealed interface HomeUiState {
     data class Ready(
         val greeting: String,
         val dateLabel: String,
-        val viewerName: String,
+        /** Name your partner gave you; null until synced. */
+        val viewerName: String?,
+        /** Header artwork; rotates every few days. */
+        val motif: GothicMotif,
         val partner: PartnerMoodUi?,
         val snap: SnapUi?,
         val points: PointBalances,
@@ -46,7 +50,8 @@ internal fun HomeSnapshot.toUiState(clock: Clock): HomeUiState.Ready {
     return HomeUiState.Ready(
         greeting = TimeLabels.greeting(localNow.toLocalTime()),
         dateLabel = TimeLabels.longDate(localNow),
-        viewerName = viewer.displayName,
+        viewerName = viewerName,
+        motif = GothicMotif.forDate(localNow.toLocalDate()),
         partner = partnerMood?.let {
             PartnerMoodUi(
                 name = it.partner.displayName,

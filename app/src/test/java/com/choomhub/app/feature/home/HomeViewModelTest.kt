@@ -35,10 +35,10 @@ class HomeViewModelTest {
     private val zone = ZoneId.of("Asia/Kolkata")
     private val now = Instant.parse("2026-11-24T15:52:00Z") // 21:22 IST
     private val clock = Clock.fixed(now, zone)
-    private val partner = Member("p", "Moonie")
+    private val partner = Member("p", "Wren")
 
     private val snapshot = HomeSnapshot(
-        viewer = Member("v", "Choom"),
+        viewerName = "Rook",
         partnerMood = PartnerMood(partner, Mood.Cozy, note = "  ", updatedAt = now.minus(Duration.ofMinutes(5))),
         latestSnap = Snap("s1", partner, "rain again", now.minus(Duration.ofHours(2)), isUnseen = true),
         points = PointBalances(goodBoy = 3, goodGirl = 9),
@@ -63,9 +63,9 @@ class HomeViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
 
         val state = viewModel.uiState.value as HomeUiState.Ready
-        assertEquals("Good evening", state.greeting)
-        assertEquals("Choom", state.viewerName)
-        assertEquals("Moonie", state.partner?.name)
+        assertEquals("Evening", state.greeting)
+        assertEquals("Rook", state.viewerName)
+        assertEquals("Wren", state.partner?.name)
         assertEquals(Mood.Cozy, state.partner?.mood)
         assertNull("blank notes are hidden", state.partner?.note)
         assertEquals("5 min ago", state.partner?.updatedLabel)

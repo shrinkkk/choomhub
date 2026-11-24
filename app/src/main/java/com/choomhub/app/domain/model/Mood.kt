@@ -7,14 +7,14 @@ package com.choomhub.app.domain.model
  */
 enum class Mood(val label: String) {
     Cozy("Cozy"),
-    Sleepy("Sleepy & soft"),
-    Happy("Happy"),
-    MissingYou("Missing you"),
-    Loved("Feeling loved"),
+    Sleepy("Sleepy"),
+    Content("Content"),
     Calm("Calm"),
-    Excited("Excited"),
+    Restless("Restless"),
+    MissingYou("Missing you"),
     Tired("Tired"),
-    Sad("A bit sad"),
+    Low("Low"),
     Stressed("Stressed"),
     Lonely("Lonely"),
+    Wired("Wired"),
 }

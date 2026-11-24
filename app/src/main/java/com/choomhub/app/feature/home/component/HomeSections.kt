@@ -3,14 +3,13 @@ package com.choomhub.app.feature.home.component
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +25,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -34,21 +35,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.choomhub.app.R
 import com.choomhub.app.core.common.TimeLabels
-import com.choomhub.app.core.designsystem.component.AffectionButton
-import com.choomhub.app.core.designsystem.component.ChoomHubCard
 import com.choomhub.app.core.designsystem.component.AvatarPlaceholder
 import com.choomhub.app.core.designsystem.component.CardTone
+import com.choomhub.app.core.designsystem.component.ChoomHubCard
+import com.choomhub.app.core.designsystem.component.GestureButton
 import com.choomhub.app.core.designsystem.component.PillBadge
 import com.choomhub.app.core.designsystem.component.SectionHeader
-import com.choomhub.app.core.designsystem.illustration.BlackCat
-import com.choomhub.app.core.designsystem.illustration.CrescentMoon
-import com.choomhub.app.core.designsystem.illustration.HugGlyph
-import com.choomhub.app.core.designsystem.illustration.KissGlyph
-import com.choomhub.app.core.designsystem.illustration.PawGlyph
-import com.choomhub.app.core.designsystem.illustration.RainyDuskPhoto
-import com.choomhub.app.core.designsystem.illustration.RainyWindowWithCat
-import com.choomhub.app.core.designsystem.illustration.Sparkle
-import com.choomhub.app.core.designsystem.illustration.Tomato
+import com.choomhub.app.core.designsystem.icon.GestureIcons
+import com.choomhub.app.core.designsystem.illustration.CrowsOnAWirePhoto
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
+import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
+import com.choomhub.app.core.designsystem.illustration.RavenMark
+import com.choomhub.app.core.designsystem.illustration.WindowWatch
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.AffectionKind
@@ -58,19 +56,22 @@ import com.choomhub.app.feature.home.PartnerMoodUi
 import com.choomhub.app.feature.home.SnapUi
 import java.time.LocalDate
 
-private val PolaroidPaper = Color(0xFFEDE4EE)
-private val PolaroidInk = Color(0xFF3B2F45)
-private val PolaroidInkFaint = Color(0xFF7D6E88)
+private val PolaroidInk = Color(0xFF2E2731)
+private val PolaroidInkFaint = Color(0xFF6E6470)
 
 @Composable
 internal fun HomeHeader(
     dateLabel: String,
     greeting: String,
-    viewerName: String,
+    viewerName: String?,
+    motif: GothicMotif,
     isSampleData: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = ChoomHubTheme.colors
+    // Narrow phones: smaller art so the title stays on one line.
+    val windowWidth = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() }
+    val motifSize = if (windowWidth < 360.dp) 68.dp else 96.dp
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(dateLabel.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
@@ -79,9 +80,11 @@ internal fun HomeHeader(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displaySmall,
                 color = colors.textMain,
+                maxLines = 1,
+                softWrap = false,
             )
             Text(
-                text = "$greeting, $viewerName.",
+                text = if (viewerName != null) "$greeting, $viewerName." else "$greeting.",
                 style = ChoomHubTextStyles.Handwritten,
                 color = colors.pink,
             )
@@ -90,11 +93,7 @@ internal fun HomeHeader(
                 PillBadge(text = "sample data", color = colors.textSecondary)
             }
         }
-        Box(Modifier.size(84.dp)) {
-            CrescentMoon(Modifier.size(84.dp))
-            Sparkle(Modifier.size(14.dp).offset(x = 8.dp, y = 10.dp), color = colors.pink)
-            Sparkle(Modifier.size(9.dp).align(Alignment.BottomEnd).offset(x = (-6).dp, y = (-10).dp), color = colors.candle)
-        }
+        GothicMotifArt(motif, Modifier.size(motifSize).testTag("header_motif_${motif.name}"))
     }
 }
 
@@ -110,18 +109,19 @@ internal fun PartnerMoodCard(partner: PartnerMoodUi?, modifier: Modifier = Modif
             AvatarPlaceholder(initial = partner.name, accent = moodColor(partner.mood))
             Spacer(Modifier.width(ChoomHubTheme.spacing.lg))
             Column(Modifier.weight(1f)) {
-                Text("${partner.name} is feeling", style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
-                Text(partner.mood.label, style = MaterialTheme.typography.headlineSmall, color = moodColor(partner.mood))
+                Text(
+                    text = partner.name.uppercase(),
+                    style = ChoomHubTextStyles.Eyebrow,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(partner.mood.label, style = MaterialTheme.typography.headlineMedium, color = moodColor(partner.mood))
             }
-            MoodOrb(partner.mood, Modifier.size(40.dp))
         }
         if (partner.note != null) {
             Spacer(Modifier.height(ChoomHubTheme.spacing.md))
-            Text(
-                text = "“${partner.note}”",
-                style = ChoomHubTextStyles.Handwritten,
-                color = colors.textMain,
-            )
+            Text(text = partner.note, style = ChoomHubTextStyles.Handwritten, color = colors.textMain)
         }
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
         Text("updated ${partner.updatedLabel}", style = MaterialTheme.typography.labelSmall, color = colors.textFaint)
@@ -183,18 +183,17 @@ private fun Polaroid(caption: String?, stamp: String, modifier: Modifier = Modif
         modifier = modifier
             .widthIn(max = 300.dp)
             .fillMaxWidth(0.86f)
-            .rotate(-1.8f)
-            .shadow(12.dp, RoundedCornerShape(4.dp), ambientColor = Color.Black, spotColor = Color.Black)
-            .clip(RoundedCornerShape(4.dp))
-            .background(PolaroidPaper)
+            .rotate(-1.2f)
+            .shadow(14.dp, RoundedCornerShape(2.dp), ambientColor = Color.Black, spotColor = Color.Black)
+            .clip(RoundedCornerShape(2.dp))
+            .background(ChoomHubTheme.colors.bone)
             .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 14.dp),
     ) {
-        RainyDuskPhoto(
+        CrowsOnAWirePhoto(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 3f)
-                .clip(RoundedCornerShape(2.dp))
-                .semantics { contentDescription = "Snap placeholder: a rainy dusk over hills" },
+                .semantics { contentDescription = "Snap placeholder: crows on a telephone wire at dusk" },
         )
         Spacer(Modifier.height(10.dp))
         if (caption != null) {
@@ -211,48 +210,38 @@ private fun Polaroid(caption: String?, stamp: String, modifier: Modifier = Modif
 }
 
 @Composable
-internal fun AffectionSection(onAffection: (AffectionKind) -> Unit, modifier: Modifier = Modifier) {
+internal fun GestureSection(onGesture: (AffectionKind) -> Unit, modifier: Modifier = Modifier) {
     val colors = ChoomHubTheme.colors
     Column(modifier.fillMaxWidth()) {
-        SectionHeader(title = "Send a little love", eyebrow = "affection")
+        SectionHeader(title = "Send something", eyebrow = "gestures")
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
-        ChoomHubCard(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = ChoomHubTheme.spacing.sm,
-                vertical = ChoomHubTheme.spacing.lg,
-            ),
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                AffectionKind.entries.forEach { kind ->
-                    AffectionButton(
-                        label = kind.label,
-                        tint = when (kind) {
-                            AffectionKind.Hug -> colors.lavender
-                            AffectionKind.Kiss -> colors.pink
-                            AffectionKind.HeadPats -> colors.purple
-                            AffectionKind.TomatoDelivery -> colors.tomato
-                        },
-                        onClick = { onAffection(kind) },
-                        modifier = Modifier.weight(1f).testTag("affection_${kind.name}"),
-                    ) {
-                        when (kind) {
-                            AffectionKind.Hug -> HugGlyph(Modifier.size(34.dp))
-                            AffectionKind.Kiss -> KissGlyph(Modifier.size(34.dp))
-                            AffectionKind.HeadPats -> PawGlyph(Modifier.size(30.dp))
-                            AffectionKind.TomatoDelivery -> Tomato(Modifier.size(36.dp))
-                        }
-                    }
-                }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.sm)) {
+            AffectionKind.entries.forEach { kind ->
+                GestureButton(
+                    label = kind.label,
+                    icon = when (kind) {
+                        AffectionKind.Hug -> GestureIcons.Hug
+                        AffectionKind.Kiss -> GestureIcons.Kiss
+                        AffectionKind.HeadPats -> GestureIcons.Paw
+                        AffectionKind.TomatoDelivery -> GestureIcons.Tomato
+                    },
+                    tint = when (kind) {
+                        AffectionKind.Hug -> colors.lavender
+                        AffectionKind.Kiss -> colors.pink
+                        AffectionKind.HeadPats -> colors.lavender
+                        AffectionKind.TomatoDelivery -> colors.tomato
+                    },
+                    onClick = { onGesture(kind) },
+                    modifier = Modifier.weight(1f).testTag("affection_${kind.name}"),
+                )
             }
-            Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
-            Text(
-                text = "prototype · these don't send anything yet",
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textFaint,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
         }
+        Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
+        Text(
+            text = "prototype · nothing is sent yet",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.textFaint,
+        )
     }
 }
 
@@ -260,7 +249,7 @@ internal fun AffectionSection(onAffection: (AffectionKind) -> Unit, modifier: Mo
 internal fun PointsSection(points: PointBalances, modifier: Modifier = Modifier) {
     val colors = ChoomHubTheme.colors
     Column(modifier.fillMaxWidth()) {
-        SectionHeader(title = "Good points", eyebrow = "productivity")
+        SectionHeader(title = "Points", eyebrow = "productivity")
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
         Row(horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.md)) {
             PointsCard("Good Boy", points.goodBoy, colors.lavender, Modifier.weight(1f).testTag("points_good_boy"))
@@ -272,14 +261,14 @@ internal fun PointsSection(points: PointBalances, modifier: Modifier = Modifier)
 @Composable
 private fun PointsCard(title: String, value: Int, accent: Color, modifier: Modifier = Modifier) {
     ChoomHubCard(modifier = modifier, tone = CardTone.Calm) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Sparkle(Modifier.size(14.dp), color = accent)
-            Spacer(Modifier.width(ChoomHubTheme.spacing.sm))
-            Text(title, style = MaterialTheme.typography.labelMedium, color = ChoomHubTheme.colors.textSecondary)
-        }
-        Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
-        Text(value.toString(), style = MaterialTheme.typography.displaySmall, color = accent)
-        Text("points", style = MaterialTheme.typography.labelSmall, color = ChoomHubTheme.colors.textFaint)
+        Text(title.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = ChoomHubTheme.colors.textSecondary)
+        Spacer(Modifier.height(ChoomHubTheme.spacing.xs))
+        Text(
+            text = value.toString(),
+            // Lining figures: Cormorant's default old-style numerals make "128" read like "I28".
+            style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "lnum"),
+            color = accent,
+        )
     }
 }
 
@@ -287,21 +276,21 @@ private fun PointsCard(title: String, value: Int, accent: Color, modifier: Modif
 internal fun SharedCatSection(cat: SharedCatStatus, modifier: Modifier = Modifier) {
     val colors = ChoomHubTheme.colors
     Column(modifier.fillMaxWidth()) {
-        SectionHeader(title = cat.name ?: "Our cat", eyebrow = "shared cat")
+        SectionHeader(title = cat.name ?: "The cat", eyebrow = "shared cat")
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
         ChoomHubCard(modifier = Modifier.fillMaxWidth().testTag("shared_cat_card")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                RainyWindowWithCat(Modifier.size(width = 118.dp, height = 108.dp))
+                WindowWatch(Modifier.size(width = 124.dp, height = 109.dp))
                 Spacer(Modifier.width(ChoomHubTheme.spacing.lg))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = if (cat.isAdopted) "${cat.name} is here" else "Waiting on the windowsill",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = if (cat.isAdopted) "${cat.name} is around" else "Unnamed, for now",
+                        style = MaterialTheme.typography.titleLarge,
                         color = colors.textMain,
                     )
                     Spacer(Modifier.height(ChoomHubTheme.spacing.xs))
                     Text(
-                        text = "A little black cat is waiting for a name. Feeding, pets and moods come in a later milestone.",
+                        text = "Has claimed the windowsill and is watching the crows. Naming, feeding and moods come later.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.textSecondary,
                     )
@@ -313,12 +302,16 @@ internal fun SharedCatSection(cat: SharedCatStatus, modifier: Modifier = Modifie
 
 @Composable
 internal fun SampleDataNote(modifier: Modifier = Modifier) {
-    ChoomHubCard(modifier = modifier.fillMaxWidth(), tone = CardTone.Calm) {
+    ChoomHubCard(
+        modifier = modifier.fillMaxWidth(),
+        tone = CardTone.Calm,
+        contentPadding = PaddingValues(ChoomHubTheme.spacing.md),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BlackCat(Modifier.size(width = 34.dp, height = 42.dp), eyesOpen = true)
+            RavenMark(Modifier.size(40.dp))
             Spacer(Modifier.width(ChoomHubTheme.spacing.md))
             Text(
-                text = "Everything here is sample data for now. Real moods, snaps and points will appear once your shared space is connected.",
+                text = "Moods, snaps and points here are sample data until your shared space is connected. Names are real.",
                 style = MaterialTheme.typography.bodySmall,
                 color = ChoomHubTheme.colors.textSecondary,
             )

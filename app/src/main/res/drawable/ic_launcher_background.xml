@@ -4,15 +4,10 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Night sky gradient approximated with two layers -->
     <path
-        android:fillColor="#FF14121B"
+        android:fillColor="#FF0E0D12"
         android:pathData="M0,0h108v108h-108z" />
     <path
-        android:fillColor="#FF292337"
-        android:pathData="M0,64 C30,52 70,76 108,60 L108,108 L0,108 Z" />
-    <!-- tiny stars -->
-    <path android:fillColor="#99C8B6E5" android:pathData="M30,32m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0" />
-    <path android:fillColor="#77C8B6E5" android:pathData="M78,30m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0" />
-    <path android:fillColor="#88D8A5BA" android:pathData="M72,78m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0" />
+        android:fillColor="#FF17151C"
+        android:pathData="M0,70 C30,62 70,78 108,66 L108,108 L0,108 Z" />
 </vector>

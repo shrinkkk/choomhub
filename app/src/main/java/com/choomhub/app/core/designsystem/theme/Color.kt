@@ -10,26 +10,30 @@ import androidx.compose.ui.graphics.Color
  * tuned in one place.
  */
 internal object ChoomHubPalette {
-    val Night = Color(0xFF14121B)
-    val NightDeep = Color(0xFF0E0C14)
-    val Surface = Color(0xFF201C2B)
-    val SurfaceElevated = Color(0xFF292337)
-    val SurfaceHighest = Color(0xFF332C44)
-    val Outline = Color(0xFF3D3550)
+    // Near-black with a violet cast, not pure black: keeps depth without looking like OLED-void.
+    val Night = Color(0xFF0E0D12)
+    val NightDeep = Color(0xFF09080C)
+    val Surface = Color(0xFF17151C)
+    val SurfaceElevated = Color(0xFF1E1B25)
+    val SurfaceHighest = Color(0xFF282431)
+    val Outline = Color(0xFF34303D)
 
-    val Purple = Color(0xFFA78BFA)
-    val PurpleDeep = Color(0xFF4C3A7A)
-    val Pink = Color(0xFFD8A5BA)
-    val PinkDeep = Color(0xFF5E3A4D)
-    val Lavender = Color(0xFFC8B6E5)
-    val Tomato = Color(0xFFE87575)
-    val TomatoDeep = Color(0xFF6B2E33)
-    val Leaf = Color(0xFF8FB996)
-    val Candle = Color(0xFFF2C98A)
+    // Accents are deliberately desaturated: dusty violet, faded rose, old gold.
+    val Purple = Color(0xFF8E7BB5)
+    val PurpleDeep = Color(0xFF3A3150)
+    val Pink = Color(0xFFB98A9E)
+    val PinkDeep = Color(0xFF4A2E3B)
+    val Lavender = Color(0xFFB9AECB)
+    val Tomato = Color(0xFFC25B55)
+    val TomatoDeep = Color(0xFF4F2224)
+    val Wine = Color(0xFF5C2233)
+    val Leaf = Color(0xFF6F8A72)
+    val Candle = Color(0xFFD9B27C)
+    val Bone = Color(0xFFD8D0C3)
 
-    val TextMain = Color(0xFFF1EAF7)
-    val TextSecondary = Color(0xFFA99DB8)
-    val TextFaint = Color(0xFF6F6580)
+    val TextMain = Color(0xFFE6E0EA)
+    val TextSecondary = Color(0xFF9A90A6)
+    val TextFaint = Color(0xFF625A6C)
 }
 
 /**
@@ -49,8 +53,10 @@ data class ChoomHubColors(
     val lavender: Color,
     val tomato: Color,
     val tomatoDeep: Color,
+    val wine: Color,
     val leaf: Color,
     val candle: Color,
+    val bone: Color,
     val textMain: Color,
     val textSecondary: Color,
     val textFaint: Color,
@@ -68,8 +74,10 @@ internal val DefaultChoomHubColors = ChoomHubColors(
     lavender = ChoomHubPalette.Lavender,
     tomato = ChoomHubPalette.Tomato,
     tomatoDeep = ChoomHubPalette.TomatoDeep,
+    wine = ChoomHubPalette.Wine,
     leaf = ChoomHubPalette.Leaf,
     candle = ChoomHubPalette.Candle,
+    bone = ChoomHubPalette.Bone,
     textMain = ChoomHubPalette.TextMain,
     textSecondary = ChoomHubPalette.TextSecondary,
     textFaint = ChoomHubPalette.TextFaint,

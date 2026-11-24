@@ -1,5 +1,6 @@
 package com.choomhub.app.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -9,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -22,48 +25,61 @@ import com.choomhub.app.feature.activities.activitiesScreen
 import com.choomhub.app.feature.home.HomeRoute
 import com.choomhub.app.feature.home.homeScreen
 import com.choomhub.app.feature.messages.messagesScreen
+import com.choomhub.app.feature.onboarding.OnboardingScreen
 import com.choomhub.app.feature.settings.settingsScreen
 import com.choomhub.app.feature.world.ourWorldScreen
 
 /**
- * Root of the UI: night-sky backdrop, bottom navigation, snackbar host and
- * the navigation graph. Each feature contributes its own destination.
+ * Root of the UI: night-sky backdrop, then either first-run onboarding or the
+ * main app (bottom navigation, snackbar host and the navigation graph).
  */
 @Composable
-fun ChoomHubApp(navController: NavHostController = rememberNavController()) {
+fun ChoomHubApp(appViewModel: AppViewModel = hiltViewModel()) {
+    val gate by appViewModel.gate.collectAsStateWithLifecycle()
+    NightSkyBackground {
+        Crossfade(targetState = gate, label = "appGate") { current ->
+            when (current) {
+                AppGate.Loading -> Unit
+                AppGate.Onboarding -> OnboardingScreen()
+                AppGate.Main -> MainScaffold()
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainScaffold(navController: NavHostController = rememberNavController()) {
     val snackbarHostState = remember { SnackbarHostState() }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val colors = ChoomHubTheme.colors
 
-    NightSkyBackground {
-        Scaffold(
-            containerColor = Color.Transparent,
-            contentColor = colors.textMain,
-            bottomBar = {
-                ChoomHubBottomBar(
-                    currentDestination = backStackEntry?.destination,
-                    onNavigate = navController::navigateToTopLevel,
-                )
-            },
-            snackbarHost = {
-                SnackbarHost(snackbarHostState) { data ->
-                    Snackbar(
-                        containerColor = colors.surfaceHighest,
-                        contentColor = colors.textMain,
-                    ) { Text(data.visuals.message) }
-                }
-            },
-        ) { padding ->
-            NavHost(
-                navController = navController,
-                startDestination = HomeRoute,
-            ) {
-                homeScreen(contentPadding = padding, showMessage = { snackbarHostState.showSnackbar(it) })
-                messagesScreen(contentPadding = padding)
-                activitiesScreen(contentPadding = padding)
-                ourWorldScreen(contentPadding = padding)
-                settingsScreen(contentPadding = padding)
+    Scaffold(
+        containerColor = Color.Transparent,
+        contentColor = colors.textMain,
+        bottomBar = {
+            ChoomHubBottomBar(
+                currentDestination = backStackEntry?.destination,
+                onNavigate = navController::navigateToTopLevel,
+            )
+        },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    containerColor = colors.surfaceHighest,
+                    contentColor = colors.textMain,
+                ) { Text(data.visuals.message) }
             }
+        },
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = HomeRoute,
+        ) {
+            homeScreen(contentPadding = padding, showMessage = { snackbarHostState.showSnackbar(it) })
+            messagesScreen(contentPadding = padding)
+            activitiesScreen(contentPadding = padding)
+            ourWorldScreen(contentPadding = padding)
+            settingsScreen(contentPadding = padding)
         }
     }
 }

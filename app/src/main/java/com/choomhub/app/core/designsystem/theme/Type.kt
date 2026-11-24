@@ -2,59 +2,83 @@ package com.choomhub.app.core.designsystem.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.choomhub.app.R
 
 /**
  * Typography.
  *
- * Headlines use the platform serif face to evoke handwritten letters and old
- * paperbacks; body text stays on the default sans-serif for readability.
- * Both are system fonts, so nothing is downloaded or bundled yet. Swapping in
- * bundled fonts later only requires changing these two families.
+ * - **Cormorant Garamond** (bundled, variable weight) for display text and
+ *   captions: high-contrast, old-book, a little gothic.
+ * - **Space Mono** (bundled) for small labels, eyebrows and timestamps: the
+ *   zine / typewriter edge that keeps things from feeling too precious.
+ * - The platform sans for body copy, for readability.
+ *
+ * Both bundled fonts are SIL Open Font License; licence texts ship in
+ * assets/licenses.
  */
-internal val DisplayFamily: FontFamily = FontFamily.Serif
+internal val DisplayFamily = FontFamily(
+    Font(R.font.cormorant_garamond, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.cormorant_garamond, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.cormorant_garamond, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(
+        R.font.cormorant_garamond_italic,
+        FontWeight.Normal,
+        FontStyle.Italic,
+        variationSettings = FontVariation.Settings(FontVariation.weight(400)),
+    ),
+    Font(
+        R.font.cormorant_garamond_italic,
+        FontWeight.Medium,
+        FontStyle.Italic,
+        variationSettings = FontVariation.Settings(FontVariation.weight(500)),
+    ),
+)
+
+internal val MonoFamily = FontFamily(Font(R.font.space_mono_regular, FontWeight.Normal))
+
 internal val BodyFamily: FontFamily = FontFamily.Default
 
 internal val ChoomHubTypography = Typography(
     displaySmall = TextStyle(
         fontFamily = DisplayFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 34.sp,
-        lineHeight = 40.sp,
-        letterSpacing = 0.01.em,
+        fontSize = 40.sp,
+        lineHeight = 44.sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = DisplayFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 26.sp,
-        lineHeight = 32.sp,
+        fontSize = 30.sp,
+        lineHeight = 34.sp,
     ),
     headlineSmall = TextStyle(
         fontFamily = DisplayFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 26.sp,
+        lineHeight = 30.sp,
     ),
     titleLarge = TextStyle(
         fontFamily = DisplayFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 23.sp,
+        lineHeight = 28.sp,
     ),
     titleMedium = TextStyle(
         fontFamily = BodyFamily,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 16.sp,
         lineHeight = 22.sp,
-        letterSpacing = 0.01.em,
     ),
     titleSmall = TextStyle(
         fontFamily = BodyFamily,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
@@ -74,26 +98,23 @@ internal val ChoomHubTypography = Typography(
         fontFamily = BodyFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
-        lineHeight = 16.sp,
+        lineHeight = 17.sp,
     ),
     labelLarge = TextStyle(
-        fontFamily = BodyFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.02.em,
-    ),
-    labelMedium = TextStyle(
-        fontFamily = BodyFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
+        fontFamily = MonoFamily,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
         letterSpacing = 0.04.em,
     ),
-    labelSmall = TextStyle(
-        fontFamily = BodyFamily,
-        fontWeight = FontWeight.Medium,
+    labelMedium = TextStyle(
+        fontFamily = MonoFamily,
         fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.06.em,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = MonoFamily,
+        fontSize = 10.sp,
         lineHeight = 14.sp,
         letterSpacing = 0.06.em,
     ),
@@ -101,21 +122,20 @@ internal val ChoomHubTypography = Typography(
 
 /** Extra styles that Material's type scale has no slot for. */
 object ChoomHubTextStyles {
-    /** Italic serif used for captions, whispered notes and polaroid captions. */
+    /** Italic serif for captions, quotes and asides. */
     val Handwritten = TextStyle(
         fontFamily = DisplayFamily,
         fontStyle = FontStyle.Italic,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 19.sp,
+        lineHeight = 24.sp,
     )
 
-    /** Small caps-style overline for section eyebrows. */
+    /** Uppercase mono overline for section eyebrows and dates. */
     val Eyebrow = TextStyle(
-        fontFamily = BodyFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp,
+        fontFamily = MonoFamily,
+        fontSize = 10.sp,
         lineHeight = 14.sp,
-        letterSpacing = 0.14.em,
+        letterSpacing = 0.16.em,
     )
 }

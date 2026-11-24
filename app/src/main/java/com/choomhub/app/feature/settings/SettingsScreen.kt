@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,25 +18,37 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.choomhub.app.BuildConfig
 import com.choomhub.app.R
-import com.choomhub.app.core.designsystem.component.ChoomHubCard
 import com.choomhub.app.core.designsystem.component.CardTone
+import com.choomhub.app.core.designsystem.component.ChoomHubCard
+import com.choomhub.app.core.designsystem.component.ChoomHubTextField
 import com.choomhub.app.core.designsystem.component.PillBadge
 import com.choomhub.app.core.designsystem.component.SectionHeader
-import com.choomhub.app.core.designsystem.illustration.CrescentMoon
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
+import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.core.network.BackendConfig
+import com.choomhub.app.domain.model.CoupleNames
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -45,14 +58,26 @@ fun NavGraphBuilder.settingsScreen(contentPadding: PaddingValues) {
     composable<SettingsRoute> { SettingsScreen(contentPadding) }
 }
 
+@Composable
+fun SettingsScreen(contentPadding: PaddingValues, viewModel: SettingsViewModel = hiltViewModel()) {
+    val names by viewModel.names.collectAsStateWithLifecycle()
+    SettingsContent(names = names, contentPadding = contentPadding, onRenamePartner = viewModel::renamePartner)
+}
+
 /**
- * Settings shows the honest status of the app: what is connected, what is
- * not, and what is still to come. Real toggles arrive with their features.
+ * Settings shows names (editable) and the honest status of the app: what is
+ * connected, what is not, and what is still to come.
  */
 @Composable
-fun SettingsScreen(contentPadding: PaddingValues) {
+fun SettingsContent(
+    names: CoupleNames,
+    contentPadding: PaddingValues,
+    onRenamePartner: (String) -> String?,
+) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
+    var renaming by rememberSaveable { mutableStateOf(false) }
+
     Box(Modifier.fillMaxSize().testTag("screen_settings"), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
@@ -68,7 +93,30 @@ fun SettingsScreen(contentPadding: PaddingValues) {
                     Text("Settings", style = MaterialTheme.typography.displaySmall, color = colors.textMain)
                     Text("the quiet corner", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
                 }
-                CrescentMoon(Modifier.size(56.dp))
+                GothicMotifArt(GothicMotif.Candle, Modifier.size(64.dp))
+            }
+
+            SettingsGroup("Names") {
+                if (renaming) {
+                    InlineRename(
+                        current = names.partnerName.orEmpty(),
+                        onSave = onRenamePartner,
+                        onClose = { renaming = false },
+                    )
+                } else {
+                    SettingsRow(
+                        title = "You call them",
+                        value = names.partnerName ?: "Not set",
+                        badge = "edit",
+                        onClick = { renaming = true },
+                        modifier = Modifier.testTag("settings_partner_name"),
+                    )
+                }
+                SettingsRow(
+                    title = "They call you",
+                    value = names.myName ?: "They pick this on their phone. It shows up once you're connected.",
+                    divider = false,
+                )
             }
 
             SettingsGroup("Your space") {
@@ -92,16 +140,56 @@ fun SettingsScreen(contentPadding: PaddingValues) {
 
             SettingsGroup("Appearance") {
                 SettingsRow("Theme", "Always dark, by design")
+                SettingsRow("Header art", "Changes every ${GothicMotif.DAYS_PER_MOTIF} days")
                 SettingsRow("Motion", "Follows your system “remove animations” setting", divider = false)
             }
 
             SettingsGroup("About") {
                 SettingsRow(stringResource(R.string.app_name), "Version ${BuildConfig.VERSION_NAME}")
-                SettingsRow("Tagline", stringResource(R.string.app_tagline), divider = false)
+                SettingsRow("Fonts", "Cormorant Garamond and Space Mono, SIL Open Font License", divider = false)
             }
             Spacer(Modifier.height(spacing.lg))
         }
     }
+}
+
+/** Edits the partner's name in place, inside the Names card. */
+@Composable
+private fun InlineRename(
+    current: String,
+    onSave: (String) -> String?,
+    onClose: () -> Unit,
+) {
+    var input by rememberSaveable { mutableStateOf(current) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val colors = ChoomHubTheme.colors
+    val save = {
+        error = onSave(input)
+        if (error == null) onClose()
+    }
+    Column(Modifier.fillMaxWidth().padding(vertical = ChoomHubTheme.spacing.md)) {
+        ChoomHubTextField(
+            value = input,
+            onValueChange = {
+                input = it
+                error = null
+            },
+            label = "You call them",
+            supportingText = error ?: "They'll see this as their name once you're connected.",
+            isError = error != null,
+            onDone = save,
+            modifier = Modifier.fillMaxWidth().testTag("rename_field"),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onClose) {
+                Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+            }
+            TextButton(onClick = save, modifier = Modifier.testTag("rename_save")) {
+                Text("SAVE", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+            }
+        }
+    }
+    HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
 }
 
 @Composable
@@ -123,19 +211,27 @@ private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
 private fun SettingsRow(
     title: String,
     value: String,
+    modifier: Modifier = Modifier,
     badge: String? = null,
     badgeColor: Color = ChoomHubTheme.colors.lavender,
     divider: Boolean = true,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = ChoomHubTheme.spacing.md),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+            .padding(vertical = ChoomHubTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = ChoomHubTheme.colors.textMain)
             Text(value, style = MaterialTheme.typography.bodySmall, color = ChoomHubTheme.colors.textSecondary)
         }
-        if (badge != null) PillBadge(badge, color = badgeColor)
+        if (badge != null) {
+            Spacer(Modifier.size(ChoomHubTheme.spacing.sm))
+            PillBadge(badge, color = badgeColor)
+        }
     }
     if (divider) HorizontalDivider(color = ChoomHubTheme.colors.outline.copy(alpha = 0.4f))
 }

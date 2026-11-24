@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.choomhub.app.core.designsystem.component.ComingSoonScreen
-import com.choomhub.app.core.designsystem.illustration.LoveLetter
+import com.choomhub.app.core.designsystem.illustration.SealedLetter
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -21,11 +21,11 @@ fun NavGraphBuilder.messagesScreen(contentPadding: PaddingValues) {
 fun MessagesScreen(contentPadding: PaddingValues) {
     ComingSoonScreen(
         title = "Mailbox",
-        whisper = "nothing here yet, but it's saving a spot",
-        description = "Messages, voice notes and handwritten-style letters will live here, " +
-            "kept on your phones first so they open even without signal.",
-        planned = listOf("Text messages", "Voice notes", "Love notes", "Open-when letters", "Time capsules", "Reactions"),
+        whisper = "empty, for now",
+        description = "Messages, voice notes and letters will live here. They're stored on " +
+            "the phone first, so they open without signal.",
+        planned = listOf("Messages", "Voice notes", "Letters", "Open-when letters", "Time capsules", "Reactions"),
         contentPadding = contentPadding,
         testTag = "screen_messages",
-    ) { LoveLetter(Modifier.fillMaxSize()) }
+    ) { SealedLetter(Modifier.fillMaxSize()) }
 }

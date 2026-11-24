@@ -20,12 +20,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.choomhub.app.core.designsystem.component.NightSkyBackground
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.AffectionKind
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.PointBalances
 import com.choomhub.app.domain.model.SharedCatStatus
-import com.choomhub.app.feature.home.component.AffectionSection
+import com.choomhub.app.feature.home.component.GestureSection
 import com.choomhub.app.feature.home.component.HomeHeader
 import com.choomhub.app.feature.home.component.LatestSnapSection
 import com.choomhub.app.feature.home.component.PartnerMoodCard
@@ -98,13 +99,14 @@ fun HomeContent(
                             dateLabel = state.dateLabel,
                             greeting = state.greeting,
                             viewerName = state.viewerName,
+                            motif = state.motif,
                             isSampleData = state.isSampleData,
                             modifier = gutter,
                         )
                     }
                     item(key = "partner") { PartnerMoodCard(state.partner, gutter) }
                     item(key = "snap") { LatestSnapSection(state.snap, gutter) }
-                    item(key = "affection") { AffectionSection(onAffection, gutter) }
+                    item(key = "gestures") { GestureSection(onAffection, gutter) }
                     item(key = "points") { PointsSection(state.points, gutter) }
                     item(key = "cat") { SharedCatSection(state.cat, gutter) }
                     if (state.isSampleData) {
@@ -123,11 +125,12 @@ private fun HomeContentPreview() {
         NightSkyBackground {
             HomeContent(
                 state = HomeUiState.Ready(
-                    greeting = "Good evening",
+                    greeting = "Evening",
                     dateLabel = "Tuesday, 24 November",
-                    viewerName = "Choom",
-                    partner = PartnerMoodUi("Moonie", Mood.Sleepy, "rewatching ghibli under three blankets", "12 min ago"),
-                    snap = SnapUi("Moonie", "the sky looked like you today", ZonedDateTime.now(), "47 min ago", isNew = true),
+                    viewerName = null,
+                    motif = GothicMotif.Raven,
+                    partner = PartnerMoodUi("Wren", Mood.Sleepy, "headphones on, ignoring the rain", "12 min ago"),
+                    snap = SnapUi("Wren", "the crows are back on the wire", ZonedDateTime.now(), "47 min ago", isNew = true),
                     points = PointBalances(goodBoy = 128, goodGirl = 142),
                     cat = SharedCatStatus(isAdopted = false, name = null),
                     isSampleData = true,

@@ -34,11 +34,11 @@ object TimeLabels {
         return DateTimeFormatter.ofPattern(pattern, locale).format(time).lowercase(locale)
     }
 
-    /** Greeting that matches the hour, with a gentle late-night variant. */
+    /** Plain greeting for the hour. */
     fun greeting(time: LocalTime): String = when (time.hour) {
-        in 5..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        in 17..21 -> "Good evening"
-        else -> "Still awake?"
+        in 5..11 -> "Morning"
+        in 12..16 -> "Afternoon"
+        in 17..22 -> "Evening"
+        else -> "Late one"
     }
 }

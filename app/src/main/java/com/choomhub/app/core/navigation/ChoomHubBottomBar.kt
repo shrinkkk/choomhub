@@ -36,7 +36,7 @@ fun ChoomHubBottomBar(
                     selected = selected,
                     onClick = { onNavigate(destination) },
                     icon = { Icon(destination.icon(), contentDescription = null) },
-                    label = { Text(destination.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                    label = { Text(destination.label, style = MaterialTheme.typography.bodySmall, maxLines = 1) },
                     modifier = Modifier.testTag(destination.testTag),
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = colors.purple,

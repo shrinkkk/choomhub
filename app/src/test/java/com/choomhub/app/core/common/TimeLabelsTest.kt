@@ -33,10 +33,10 @@ class TimeLabelsTest {
 
     @Test
     fun `greeting follows the hour`() {
-        assertEquals("Good morning", TimeLabels.greeting(LocalTime.of(7, 0)))
-        assertEquals("Good afternoon", TimeLabels.greeting(LocalTime.of(13, 30)))
-        assertEquals("Good evening", TimeLabels.greeting(LocalTime.of(21, 22)))
-        assertEquals("Still awake?", TimeLabels.greeting(LocalTime.of(2, 10)))
+        assertEquals("Morning", TimeLabels.greeting(LocalTime.of(7, 0)))
+        assertEquals("Afternoon", TimeLabels.greeting(LocalTime.of(13, 30)))
+        assertEquals("Evening", TimeLabels.greeting(LocalTime.of(21, 22)))
+        assertEquals("Late one", TimeLabels.greeting(LocalTime.of(2, 10)))
     }
 
     @Test
