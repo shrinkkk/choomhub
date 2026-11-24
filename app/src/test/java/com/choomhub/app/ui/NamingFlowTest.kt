@@ -9,9 +9,12 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.choomhub.app.MainActivity
 import com.choomhub.app.core.navigation.TopLevelDestination
+import com.choomhub.app.data.di.MeetupModule
 import com.choomhub.app.data.di.ProfileModule
+import com.choomhub.app.domain.repository.MeetupRepository
 import com.choomhub.app.domain.repository.ProfileRepository
 import com.choomhub.app.testing.DisableAmbientAnimationsRule
+import com.choomhub.app.testing.FakeMeetupRepository
 import com.choomhub.app.testing.FakeProfileRepository
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -28,7 +31,7 @@ import org.robolectric.annotation.Config
 /** First launch: name your partner, land on Home, rename from Settings. */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class NamingFlowTest {
 
@@ -37,6 +40,12 @@ class NamingFlowTest {
     @BindValue
     @JvmField
     val profileRepository: ProfileRepository = fake
+
+    private val meetups = FakeMeetupRepository()
+
+    @BindValue
+    @JvmField
+    val meetupRepository: MeetupRepository = meetups
 
     private val hiltRule = HiltAndroidRule(this)
     private val composeRule = createAndroidComposeRule<MainActivity>()

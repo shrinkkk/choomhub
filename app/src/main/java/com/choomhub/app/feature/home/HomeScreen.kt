@@ -23,6 +23,9 @@ import com.choomhub.app.core.designsystem.component.NightSkyBackground
 import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.AffectionKind
+import com.choomhub.app.domain.model.CountdownState
+import com.choomhub.app.feature.home.meetup.MeetupCountdownCard
+import com.choomhub.app.feature.home.meetup.MeetupViewModel
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.PointBalances
 import com.choomhub.app.domain.model.SharedCatStatus
@@ -33,6 +36,9 @@ import com.choomhub.app.feature.home.component.PartnerMoodCard
 import com.choomhub.app.feature.home.component.PointsSection
 import com.choomhub.app.feature.home.component.SampleDataNote
 import com.choomhub.app.feature.home.component.SharedCatSection
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /** Stateful entry point: wires the ViewModel to [HomeContent]. */
@@ -41,8 +47,10 @@ fun HomeScreen(
     contentPadding: PaddingValues,
     showMessage: suspend (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
+    meetupViewModel: MeetupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val countdown by meetupViewModel.countdown.collectAsStateWithLifecycle()
     val notice by viewModel.pendingNotice.collectAsStateWithLifecycle()
 
     LaunchedEffect(notice) {
@@ -55,6 +63,10 @@ fun HomeScreen(
         state = state,
         contentPadding = contentPadding,
         onAffection = viewModel::onAffectionTapped,
+        countdown = countdown,
+        zone = meetupViewModel.zone,
+        onScheduleMeetup = meetupViewModel::schedule,
+        onClearMeetup = meetupViewModel::clear,
     )
 }
 
@@ -75,6 +87,10 @@ fun HomeContent(
     contentPadding: PaddingValues,
     onAffection: (AffectionKind) -> Unit,
     modifier: Modifier = Modifier,
+    countdown: CountdownState? = CountdownState.NoneScheduled,
+    zone: ZoneId = ZoneId.systemDefault(),
+    onScheduleMeetup: (LocalDate, LocalTime) -> String? = { _, _ -> null },
+    onClearMeetup: () -> Unit = {},
 ) {
     when (state) {
         HomeUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -101,6 +117,15 @@ fun HomeContent(
                             viewerName = state.viewerName,
                             motif = state.motif,
                             isSampleData = state.isSampleData,
+                            modifier = gutter,
+                        )
+                    }
+                    item(key = "meetup") {
+                        MeetupCountdownCard(
+                            state = countdown,
+                            zone = zone,
+                            onSchedule = onScheduleMeetup,
+                            onClear = onClearMeetup,
                             modifier = gutter,
                         )
                     }
