@@ -34,6 +34,8 @@ import com.choomhub.app.feature.activities.activitiesScreen
 import com.choomhub.app.feature.home.HomeRoute
 import com.choomhub.app.feature.home.homeScreen
 import com.choomhub.app.feature.messages.messagesScreen
+import com.choomhub.app.feature.mood.MoodRoute
+import com.choomhub.app.feature.mood.moodScreen
 import com.choomhub.app.feature.onboarding.OnboardingScreen
 import com.choomhub.app.feature.settings.settingsScreen
 import com.choomhub.app.feature.world.ourWorldScreen
@@ -103,7 +105,12 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
             navController = navController,
             startDestination = HomeRoute,
         ) {
-            homeScreen(contentPadding = padding, showMessage = { snackbarHostState.showSnackbar(it) })
+            homeScreen(
+                contentPadding = padding,
+                showMessage = { snackbarHostState.showSnackbar(it) },
+                onSetMood = { navController.navigate(MoodRoute) },
+            )
+            moodScreen(contentPadding = padding, onClose = { navController.popBackStack() })
             messagesScreen(contentPadding = padding)
             activitiesScreen(contentPadding = padding)
             ourWorldScreen(contentPadding = padding)

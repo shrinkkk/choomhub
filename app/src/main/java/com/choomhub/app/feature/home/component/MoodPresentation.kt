@@ -10,7 +10,7 @@ import com.choomhub.app.domain.model.Mood
  * moves to the mood feature when that is built.
  */
 @Composable
-internal fun moodColor(mood: Mood): Color {
+fun moodColor(mood: Mood): Color {
     val c = ChoomHubTheme.colors
     return when (mood) {
         Mood.Cozy, Mood.Content -> c.pink

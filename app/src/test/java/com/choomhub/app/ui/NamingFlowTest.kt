@@ -20,6 +20,11 @@ import com.choomhub.app.testing.FakeMeetupRepository
 import com.choomhub.app.testing.FakeProfileRepository
 import dagger.hilt.android.testing.BindValue
 import com.choomhub.app.data.di.PushModule
+import com.choomhub.app.data.di.MoodModule
+import com.choomhub.app.domain.repository.GestureRepository
+import com.choomhub.app.domain.repository.MoodRepository
+import com.choomhub.app.testing.FakeGestureRepository
+import com.choomhub.app.testing.FakeMoodRepository
 import com.choomhub.app.domain.repository.NotificationRepository
 import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.testing.FakeNotificationRepository
@@ -38,9 +43,20 @@ import org.robolectric.annotation.Config
 /** First launch: name your partner, land on Home, rename from Settings. */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, PushModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, PushModule::class, MoodModule::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class NamingFlowTest {
+
+    private val fakeMoods = FakeMoodRepository()
+    private val fakeGestures = FakeGestureRepository()
+
+    @BindValue
+    @JvmField
+    val moodRepository: MoodRepository = fakeMoods
+
+    @BindValue
+    @JvmField
+    val gestureRepository: GestureRepository = fakeGestures
 
     @BindValue
     @JvmField

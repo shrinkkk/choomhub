@@ -294,3 +294,21 @@ changes are shown to the owner as previews before they ship.
   vector silhouette. An icon that follows the cat's mood was considered and dropped for now:
   Android has no supported way to change an app's icon, and the activity-alias workaround can remove
   the icon from the home screen on many launchers each time it switches.
+
+## ADR-030: Moods and gestures
+
+**Date:** 2026-11-25 · **Status:** Accepted
+
+- **Moods** are one document per person (`couples/{id}/moods/{uid}`), overwritten on each change:
+  only the current mood matters, so there's no history to read or pay for. Moods are a fixed list
+  (rules check the key) plus an optional note of up to 80 characters.
+- **Gestures** are an append-only collection (`couples/{id}/gestures`), so both phones see the same
+  history and nothing can be unsent or edited. Home listens to the newest 20. Each costs one write
+  and, for the other phone, one read; far inside the free quota.
+- Both are written to Firestore's offline cache straight away and synced when possible; the push
+  goes through the same queued sender as before, with the gesture kind or mood as `kind`. The
+  Worker validates `kind` against its own list and writes the words itself.
+- Tapping the same gesture again within 3 seconds is ignored, and queued pushes of the same gesture
+  collapse into one, so an excited thumb doesn't become ten notifications.
+- Home keeps "sample" labels on the parts that are still sample (snaps, points, the cat) instead of
+  one badge for the whole screen.

@@ -20,6 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.choomhub.app.feature.home.GestureUi
+import com.choomhub.app.feature.home.MyMoodUi
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,22 +92,61 @@ internal fun HomeHeader(
                 style = ChoomHubTextStyles.Handwritten,
                 color = colors.pink,
             )
-            if (isSampleData) {
-                Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
-                PillBadge(text = "sample data", color = colors.textSecondary)
-            }
         }
     }
 }
 
 @Composable
-internal fun PartnerMoodCard(partner: PartnerMoodUi?, modifier: Modifier = Modifier) {
+internal fun PartnerMoodCard(
+    partner: PartnerMoodUi?,
+    myMood: MyMoodUi?,
+    partnerName: String?,
+    onSetMood: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = ChoomHubTheme.colors
     ChoomHubCard(modifier = modifier.fillMaxWidth().testTag("partner_mood_card")) {
         if (partner == null) {
+            Text(
+                text = (partnerName ?: "they").uppercase(),
+                style = ChoomHubTextStyles.Eyebrow,
+                color = colors.textSecondary,
+            )
             Text("No mood shared yet", style = MaterialTheme.typography.titleMedium, color = colors.textMain)
-            return@ChoomHubCard
+        } else {
+            PartnerMoodBody(partner)
         }
+        // Your own mood, small, with a way to change it.
+        Spacer(Modifier.height(ChoomHubTheme.spacing.md))
+        HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onSetMood)
+                .padding(top = ChoomHubTheme.spacing.md)
+                .testTag("set_my_mood"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("YOU", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+                Text(
+                    text = myMood?.let { m -> m.mood.label + (m.note?.let { " \u00B7 $it" } ?: "") } ?: "Not set",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = myMood?.let { moodColor(it.mood) } ?: colors.textFaint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.width(ChoomHubTheme.spacing.sm))
+            PillBadge(text = if (myMood == null) "set yours" else "change", color = colors.lavender)
+        }
+    }
+}
+
+@Composable
+private fun PartnerMoodBody(partner: PartnerMoodUi) {
+    val colors = ChoomHubTheme.colors
+    run {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AvatarPlaceholder(initial = partner.name, accent = moodColor(partner.mood))
             Spacer(Modifier.width(ChoomHubTheme.spacing.lg))
@@ -133,11 +177,7 @@ internal fun LatestSnapSection(snap: SnapUi?, modifier: Modifier = Modifier) {
         SectionHeader(
             title = "Latest snap",
             eyebrow = snap?.let { "from ${it.senderName}" } ?: "snaps",
-            trailing = if (snap?.isNew == true) {
-                { PillBadge(text = "new", color = colors.pink, showDot = true) }
-            } else {
-                null
-            },
+            trailing = { PillBadge(text = "sample", color = colors.textSecondary) },
         )
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
         ChoomHubCard(
@@ -208,7 +248,12 @@ private fun Polaroid(caption: String?, stamp: String, modifier: Modifier = Modif
 }
 
 @Composable
-internal fun GestureSection(onGesture: (AffectionKind) -> Unit, modifier: Modifier = Modifier) {
+internal fun GestureSection(
+    onGesture: (AffectionKind) -> Unit,
+    lastReceived: GestureUi?,
+    lastSent: GestureUi?,
+    modifier: Modifier = Modifier,
+) {
     val colors = ChoomHubTheme.colors
     Column(modifier.fillMaxWidth()) {
         SectionHeader(title = "Send something", eyebrow = "gestures")
@@ -232,12 +277,18 @@ internal fun GestureSection(onGesture: (AffectionKind) -> Unit, modifier: Modifi
                 )
             }
         }
-        Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
-        Text(
-            text = "prototype · nothing is sent yet",
-            style = MaterialTheme.typography.labelSmall,
-            color = colors.textFaint,
-        )
+        listOfNotNull(lastReceived, lastSent).forEachIndexed { i, g ->
+            Spacer(Modifier.height(if (i == 0) ChoomHubTheme.spacing.md else ChoomHubTheme.spacing.xs))
+            Row(Modifier.testTag(if (g === lastReceived) "gesture_received" else "gesture_sent"), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = g.text,
+                    style = if (g === lastReceived) ChoomHubTextStyles.Handwritten else MaterialTheme.typography.bodySmall,
+                    color = if (g === lastReceived) colors.textMain else colors.textSecondary,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Text(" \u00B7 ${g.whenLabel}", style = MaterialTheme.typography.labelSmall, color = colors.textFaint)
+            }
+        }
     }
 }
 
@@ -245,7 +296,7 @@ internal fun GestureSection(onGesture: (AffectionKind) -> Unit, modifier: Modifi
 internal fun PointsSection(points: PointBalances, myRole: PointsRole?, partnerName: String?, modifier: Modifier = Modifier) {
     val colors = ChoomHubTheme.colors
     Column(modifier.fillMaxWidth()) {
-        SectionHeader(title = "Points", eyebrow = "productivity")
+        SectionHeader(title = "Points", eyebrow = "rewards", trailing = { PillBadge(text = "sample", color = colors.textSecondary) })
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
         Row(horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.md)) {
             fun owner(role: PointsRole) = when (myRole) {
@@ -253,8 +304,8 @@ internal fun PointsSection(points: PointBalances, myRole: PointsRole?, partnerNa
                 role -> "you"
                 else -> partnerName
             }
-            PointsCard("Good Boy", owner(PointsRole.GoodBoy), points.goodBoy, colors.lavender, Modifier.weight(1f).testTag("points_good_boy"))
-            PointsCard("Good Girl", owner(PointsRole.GoodGirl), points.goodGirl, colors.pink, Modifier.weight(1f).testTag("points_good_girl"))
+            PointsCard("Good Boy points", owner(PointsRole.GoodBoy), points.goodBoy, colors.lavender, Modifier.weight(1f).testTag("points_good_boy"))
+            PointsCard("Good Girl points", owner(PointsRole.GoodGirl), points.goodGirl, colors.pink, Modifier.weight(1f).testTag("points_good_girl"))
         }
     }
 }
@@ -315,7 +366,7 @@ internal fun SampleDataNote(modifier: Modifier = Modifier) {
             RavenMark(Modifier.size(40.dp))
             Spacer(Modifier.width(ChoomHubTheme.spacing.md))
             Text(
-                text = "Moods, snaps and points here are sample data until your shared space is connected. Names are real.",
+                text = "Snaps, points and the cat are sample data for now. Names, moods, gestures and the meetup are real.",
                 style = MaterialTheme.typography.bodySmall,
                 color = ChoomHubTheme.colors.textSecondary,
             )

@@ -1,6 +1,8 @@
 // ChoomHub push Worker (Cloudflare Workers, free plan).
 //
 // POST /v1/notify  { "event": "meetup_set", "detail": "Sat 14 Dec, 7:30 pm" }
+//                  { "event": "gesture", "kind": "hug" }
+//                  { "event": "mood", "kind": "sleepy", "detail": "headphones on" }
 // Authorization: Bearer <Firebase ID token of the sender>
 //
 // The Worker checks who is asking, finds their partner through Firestore, respects
@@ -79,7 +81,7 @@ export async function handle(request, env, deps) {
   const devices = await db.listIds(`users/${recipient}/devices`);
   if (devices.length === 0) return json(200, { sent: 0, reason: 'no-devices' });
 
-  const ctx = { detail: parsed.detail };
+  const ctx = { detail: parsed.detail, kind: parsed.kind };
   if (coupleId) {
     ctx.senderName = field.string(await db.get(`couples/${coupleId}/names/${recipient}`), 'nameForPartner');
     if (parsed.event === 'renamed') {
@@ -91,7 +93,7 @@ export async function handle(request, env, deps) {
   const fcm = { root: deps.fcmRoot, projectId: deps.projectId, accessToken: deps.getAccessToken, fetchFn: deps.fetch };
   const results = await Promise.all(
     devices.map(async (fid) => {
-      const outcome = await sendFcm(fcm, fcmMessage(fid, parsed.event, text));
+      const outcome = await sendFcm(fcm, fcmMessage(fid, parsed.event, text, parsed.kind));
       if (outcome === 'unregistered') await db.delete(`users/${recipient}/devices/${fid}`);
       return outcome;
     }),

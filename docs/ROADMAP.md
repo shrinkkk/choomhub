@@ -48,15 +48,18 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Google sign-in (Credential Manager)
 - ✅ Start a space / join with a single-use, 48-hour invite code; at most two people
 - ✅ Names and meetup synced through Firestore (offline cache, queued writes)
-- ✅ Security rules + 17 emulator tests
+- ✅ Security rules + emulator tests (24 cases now)
 - ⬜ Verified on real devices (sign-in, start space, join from a second account/emulator)
 - ⬜ Avatars
 
-## Milestone 3: Moods and gestures ⬜
+## Milestone 3: Moods and gestures 🟡
 
-- ⬜ Mood picker, custom description, current activity/status; partner mood on Home from real data
-- ⬜ Hugs, kisses, head pats, tomato deliveries, thinking-of-you, comfort, custom gestures
-- ⬜ Daily check-ins, stay-with-me mode
+- ✅ Mood picker (11 moods + an optional 80-character note), synced; partner's mood and yours on Home
+- ✅ Hugs, forehead kisses, head pats, tomato deliveries: sent, kept in a shared history, last each
+  way shown on Home, 3-second cooldown per gesture
+- ✅ Push notifications for both, each with its own switch (Gestures, Moods)
+- ⬜ Thinking-of-you, comfort, custom gestures
+- ⬜ Current activity/status, daily check-ins, stay-with-me mode
 
 ## Milestone 4: Notifications 🟡 (built; needs the one-time setup and a device check)
 

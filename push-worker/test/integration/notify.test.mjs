@@ -87,6 +87,22 @@ test("a meetup change reaches only the partner's phone, using the partner's name
   assert.equal(sent[0].android.notification.channel_id, 'meetup');
 });
 
+test('a hug reaches the partner on the gestures channel, and can be muted', async () => {
+  const r = await notify('alice', { event: 'gesture', kind: 'hug' });
+  assert.equal(r.body.sent, 1);
+  assert.equal(sent[0].notification.title, 'Shri sent you a hug');
+  assert.equal(sent[0].android.notification.channel_id, 'gestures');
+  await put('users/bob/settings/notifications', { gestures: false });
+  assert.deepEqual((await notify('alice', { event: 'gesture', kind: 'tomato' })).body, { sent: 0, reason: 'muted' });
+  assert.equal((await notify('alice', { event: 'gesture', kind: 'slap' })).status, 400);
+});
+
+test('a mood change carries the mood and the note', async () => {
+  await notify('alice', { event: 'mood', kind: 'sleepy', detail: 'headphones on' });
+  assert.equal(sent[0].notification.title, 'Shri updated their mood');
+  assert.equal(sent[0].notification.body, 'Sleepy \u00b7 headphones on');
+});
+
 test('renamed tells the partner their new name', async () => {
   await notify('alice', { event: 'renamed' });
   assert.equal(sent[0].notification.body, 'You\'re "Raven" to them now.');

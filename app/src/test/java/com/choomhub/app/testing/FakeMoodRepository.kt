@@ -1,0 +1,39 @@
+package com.choomhub.app.testing
+
+import com.choomhub.app.domain.model.AffectionKind
+import com.choomhub.app.domain.model.CoupleMoods
+import com.choomhub.app.domain.model.Gesture
+import com.choomhub.app.domain.model.GestureResult
+import com.choomhub.app.domain.model.Mood
+import com.choomhub.app.domain.model.MoodUpdate
+import com.choomhub.app.domain.repository.GestureRepository
+import com.choomhub.app.domain.repository.MoodRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import java.time.Instant
+
+class FakeMoodRepository(initial: CoupleMoods = CoupleMoods(null, null)) : MoodRepository {
+    val moods = MutableStateFlow(initial)
+    var saves = 0
+
+    override fun observeMoods(): Flow<CoupleMoods> = moods
+
+    override suspend fun setMood(mood: Mood, note: String?) {
+        saves++
+        moods.update { it.copy(mine = MoodUpdate(mood, note, Instant.EPOCH)) }
+    }
+}
+
+/** Sends succeed (and appear in the history) unless [refusal] is set. */
+class FakeGestureRepository(var refusal: String? = null) : GestureRepository {
+    val history = MutableStateFlow<List<Gesture>>(emptyList())
+
+    override fun observeRecent(): Flow<List<Gesture>> = history
+
+    override suspend fun send(kind: AffectionKind): GestureResult {
+        refusal?.let { return GestureResult.NotSent(it) }
+        history.update { listOf(Gesture("g${it.size}", kind, fromMe = true, sentAt = Instant.EPOCH)) + it }
+        return GestureResult.Sent
+    }
+}

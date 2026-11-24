@@ -6,6 +6,8 @@ package com.choomhub.app.domain.model
  * must match push-worker/src/events.js.
  */
 enum class NotificationCategory(val key: String, val channelId: String, val label: String, val description: String) {
+    Gestures("gestures", "gestures", "Gestures", "Hugs, forehead kisses, head pats and tomatoes"),
+    Moods("moods", "moods", "Moods", "When they change their mood"),
     Meetup("meetup", "meetup", "Meetup", "When the next meetup is set, moved or cleared"),
     Space("space", "space", "Space", "When they join, or change what they call you"),
 }
@@ -25,6 +27,8 @@ enum class PushEvent(val wire: String, val collapseKey: String) {
     MeetupCleared("meetup_cleared", "meetup"),
     PartnerJoined("partner_joined", "joined"),
     Renamed("renamed", "renamed"),
+    Gesture("gesture", "gesture"),
+    MoodChanged("mood", "mood"),
     Test("test", "test"),
     ;
 

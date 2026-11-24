@@ -17,11 +17,13 @@ class FakeNotifier(
     var testResult: TestPushResult = TestPushResult.Sent,
 ) : Notifier {
     val sent = mutableListOf<Pair<PushEvent, String?>>()
+    val kinds = mutableListOf<String?>()
     var forgotten = 0
     var tests = 0
 
-    override fun notifyPartner(event: PushEvent, detail: String?) {
+    override fun notifyPartner(event: PushEvent, detail: String?, kind: String?) {
         sent += event to detail
+        kinds += kind
     }
 
     override suspend fun sendTest(): TestPushResult {

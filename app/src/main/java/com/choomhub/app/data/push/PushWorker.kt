@@ -22,7 +22,8 @@ class PushWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val event = PushEvent.fromWire(inputData.getString(KEY_EVENT)) ?: return Result.failure()
-        return when (outcome(delivery.deliver(event, inputData.getString(KEY_DETAIL)), runAttemptCount)) {
+        val response = delivery.deliver(event, inputData.getString(KEY_DETAIL), inputData.getString(KEY_KIND))
+        return when (outcome(response, runAttemptCount)) {
             Outcome.Done -> Result.success()
             Outcome.GiveUp -> Result.failure()
             Outcome.Retry -> Result.retry()
@@ -34,6 +35,7 @@ class PushWorker @AssistedInject constructor(
     companion object {
         const val KEY_EVENT = "event"
         const val KEY_DETAIL = "detail"
+        const val KEY_KIND = "kind"
         const val MAX_ATTEMPTS = 6
 
         /** Pure decision, unit-tested: what to do with the Worker's answer. */

@@ -73,9 +73,11 @@ background on first launch) and try again.
 | Clear the meetup | "*Name* cleared the next meetup" | Meetup |
 | Join their space | "*Name* joined your space" | Space |
 | Change what you call them | "*Name* changed your name" · You're "…" to them now | Space |
+| Send a hug / forehead kiss / head pats / tomato | "*Name* sent you a hug" · Consider yourself hugged. | Gestures |
+| Change your mood | "*Name* updated their mood" · Missing you · rain again | Moods |
 
 *Name* is whatever **they** call **you**. Each person's switches are in Settings and respected by the
-Worker; Android's own per-channel settings work too. Moods, gestures, snaps and messages will add
+Worker; Android's own per-channel settings work too. Snaps and messages will add
 their own categories when those features exist.
 
 ## Testing the partner side with one phone

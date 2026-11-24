@@ -50,7 +50,10 @@ What exists **today**:
   honest "coming soon" screens.
 - Unit tests plus Robolectric UI tests (onboarding, renaming, navigation, screenshot capture).
 
-What does **not** exist yet: real moods, snaps, messages, points or widgets. The
+- **Moods and gestures**: set your mood (with an optional note) and see theirs on Home; send hugs,
+  forehead kisses, head pats and tomatoes. Both notify the other phone.
+
+What does **not** exist yet: real snaps, messages, points or widgets. The
 gesture buttons say so when tapped. Without Firebase config the app runs in device-only mode.
 
 ## Technology stack

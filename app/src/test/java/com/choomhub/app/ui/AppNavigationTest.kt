@@ -11,6 +11,9 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
+import org.junit.Assert.assertEquals
+import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.MainActivity
 import com.choomhub.app.core.navigation.TopLevelDestination
 import com.choomhub.app.data.di.MeetupModule
@@ -27,6 +30,11 @@ import com.choomhub.app.testing.FakeMeetupRepository
 import com.choomhub.app.testing.FakeProfileRepository
 import dagger.hilt.android.testing.BindValue
 import com.choomhub.app.data.di.PushModule
+import com.choomhub.app.data.di.MoodModule
+import com.choomhub.app.domain.repository.GestureRepository
+import com.choomhub.app.domain.repository.MoodRepository
+import com.choomhub.app.testing.FakeGestureRepository
+import com.choomhub.app.testing.FakeMoodRepository
 import com.choomhub.app.domain.repository.NotificationRepository
 import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.testing.FakeNotificationRepository
@@ -47,9 +55,20 @@ import org.robolectric.annotation.Config
  */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, PushModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, PushModule::class, MoodModule::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class AppNavigationTest {
+
+    private val fakeMoods = FakeMoodRepository()
+    private val fakeGestures = FakeGestureRepository()
+
+    @BindValue
+    @JvmField
+    val moodRepository: MoodRepository = fakeMoods
+
+    @BindValue
+    @JvmField
+    val gestureRepository: GestureRepository = fakeGestures
 
     @BindValue
     @JvmField
@@ -124,13 +143,30 @@ class AppNavigationTest {
     }
 
     @Test
-    fun gestureButtonsAreHonestPrototypes() {
+    fun gesturesAreSentAndShown() {
         composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("affection_Hug"))
         // Invoke the click action directly: after scrolling, the tile can sit under the bottom bar.
         composeRule.onNodeWithTag("affection_Hug").performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("Hugs can't travel yet", substring = true).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Hug sent.").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Hugs can't travel yet", substring = true).assertExists()
+        composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("gesture_sent"))
+        composeRule.onNodeWithText("You sent a hug").assertExists()
+    }
+
+    @Test
+    fun moodCanBeSetFromHome() {
+        composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("set_my_mood"))
+        composeRule.onNodeWithTag("set_my_mood").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("screen_mood").assertIsDisplayed()
+        composeRule.onNodeWithTag("mood_sleepy").performClick()
+        composeRule.onNodeWithTag("mood_note").performTextInput("rain again")
+        composeRule.onNodeWithTag("mood_save").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("screen_home").assertIsDisplayed()
+        assertEquals(Mood.Sleepy, fakeMoods.moods.value.mine?.mood)
+        composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("set_my_mood"))
+        composeRule.onNodeWithText("Sleepy \u00B7 rain again").assertExists()
     }
 }

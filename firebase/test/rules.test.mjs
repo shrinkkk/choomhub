@@ -195,6 +195,37 @@ describe('names and meetup', () => {
   });
 });
 
+describe('moods and gestures', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'couples/c1'), { members: ['alice', 'bob'], createdBy: 'alice', inviteCode: 'X' });
+    });
+  });
+
+  test('you set only your own mood, from the list, with a short note', async () => {
+    const mine = doc(db('alice'), 'couples/c1/moods/alice');
+    await assertSucceeds(setDoc(mine, { mood: 'sleepy', note: 'rain again', updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(mine, { mood: 'missing_you', note: null, updatedAt: serverTimestamp() }));
+    await assertSucceeds(getDoc(doc(db('bob'), 'couples/c1/moods/alice')));
+    await assertFails(setDoc(doc(db('bob'), 'couples/c1/moods/alice'), { mood: 'low', note: null, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(mine, { mood: 'furious', note: null, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(mine, { mood: 'calm', note: 'x'.repeat(81), updatedAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db('mallory'), 'couples/c1/moods/alice')));
+  });
+
+  test('gestures are added as yourself and can never be changed or removed', async () => {
+    const ref = doc(db('alice'), 'couples/c1/gestures/g1');
+    await assertSucceeds(setDoc(ref, { kind: 'hug', from: 'alice', sentAt: serverTimestamp() }));
+    await assertSucceeds(getDocs(collection(db('bob'), 'couples/c1/gestures')));
+    await assertFails(updateDoc(doc(db('alice'), 'couples/c1/gestures/g1'), { kind: 'tomato' }));
+    await assertFails(deleteDoc(doc(db('bob'), 'couples/c1/gestures/g1')));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/gestures/g2'), { kind: 'hug', from: 'bob', sentAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/gestures/g3'), { kind: 'slap', from: 'alice', sentAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('mallory'), 'couples/c1/gestures/g4'), { kind: 'hug', from: 'mallory', sentAt: serverTimestamp() }));
+    await assertFails(getDocs(collection(db('mallory'), 'couples/c1/gestures')));
+  });
+});
+
 describe('push registrations and notification settings', () => {
   const FID = 'cX9pQ2rS-tU_vW3x';
 
@@ -219,6 +250,7 @@ describe('push registrations and notification settings', () => {
   test('notification settings are yours alone and only booleans', async () => {
     const mine = doc(db('alice'), 'users/alice/settings/notifications');
     await assertSucceeds(setDoc(mine, { meetup: false, space: true, updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(mine, { gestures: false, moods: true, updatedAt: serverTimestamp() }));
     await assertSucceeds(getDoc(mine));
     await assertFails(setDoc(mine, { meetup: 'no', updatedAt: serverTimestamp() }));
     await assertFails(setDoc(mine, { meetup: true, spam: true, updatedAt: serverTimestamp() }));

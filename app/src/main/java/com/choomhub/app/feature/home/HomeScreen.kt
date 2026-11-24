@@ -50,6 +50,7 @@ import java.time.ZonedDateTime
 fun HomeScreen(
     contentPadding: PaddingValues,
     showMessage: suspend (String) -> Unit,
+    onSetMood: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     meetupViewModel: MeetupViewModel = hiltViewModel(),
 ) {
@@ -58,8 +59,8 @@ fun HomeScreen(
     val notice by viewModel.pendingNotice.collectAsStateWithLifecycle()
 
     LaunchedEffect(notice) {
-        val kind = notice ?: return@LaunchedEffect
-        showMessage(affectionNoticeText(kind))
+        val text = notice ?: return@LaunchedEffect
+        showMessage(text)
         viewModel.onNoticeShown()
     }
 
@@ -71,17 +72,8 @@ fun HomeScreen(
         zone = meetupViewModel.zone,
         onScheduleMeetup = meetupViewModel::schedule,
         onClearMeetup = meetupViewModel::clear,
+        onSetMood = onSetMood,
     )
-}
-
-internal fun affectionNoticeText(kind: AffectionKind): String {
-    val what = when (kind) {
-        AffectionKind.Hug -> "Hugs"
-        AffectionKind.ForeheadKiss -> "Forehead kisses"
-        AffectionKind.HeadPats -> "Head pats"
-        AffectionKind.TomatoDelivery -> "Tomato deliveries"
-    }
-    return "$what can't travel yet. Sending arrives once your shared space is connected."
 }
 
 /** Stateless home screen, previewable and testable without Hilt. */
@@ -95,6 +87,7 @@ fun HomeContent(
     zone: ZoneId = ZoneId.systemDefault(),
     onScheduleMeetup: (LocalDate, LocalTime) -> String? = { _, _ -> null },
     onClearMeetup: () -> Unit = {},
+    onSetMood: () -> Unit = {},
 ) {
     when (state) {
         HomeUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -142,9 +135,9 @@ fun HomeContent(
                             modifier = gutter,
                         )
                     }
-                    item(key = "partner") { PartnerMoodCard(state.partner, gutter) }
+                    item(key = "partner") { PartnerMoodCard(state.partner, state.myMood, state.partnerName, onSetMood, gutter) }
                     item(key = "snap") { LatestSnapSection(state.snap, gutter) }
-                    item(key = "gestures") { GestureSection(onAffection, gutter) }
+                    item(key = "gestures") { GestureSection(onAffection, state.lastReceived, state.lastSent, gutter) }
                     item(key = "points") { PointsSection(state.points, state.myRole, state.partnerName, gutter) }
                     item(key = "cat") { SharedCatSection(state.cat, gutter) }
                     if (state.isSampleData) {

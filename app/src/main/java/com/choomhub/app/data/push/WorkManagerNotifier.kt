@@ -27,17 +27,19 @@ class WorkManagerNotifier @Inject constructor(
 
     override val availability: PushAvailability = PushAvailability.Ready
 
-    override fun notifyPartner(event: PushEvent, detail: String?) {
+    override fun notifyPartner(event: PushEvent, detail: String?, kind: String?) {
         val request = OneTimeWorkRequestBuilder<PushWorker>()
-            .setInputData(workDataOf(PushWorker.KEY_EVENT to event.wire, PushWorker.KEY_DETAIL to detail))
+            .setInputData(workDataOf(PushWorker.KEY_EVENT to event.wire, PushWorker.KEY_DETAIL to detail, PushWorker.KEY_KIND to kind))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        // A newer meetup change replaces one that's still waiting to go out.
-        WorkManager.getInstance(context).enqueueUniqueWork("push-${event.collapseKey}", ExistingWorkPolicy.REPLACE, request)
+        // A newer change of the same kind replaces one that's still waiting to go out
+        // (so ten hugs tapped while offline arrive as one).
+        val name = listOfNotNull("push", event.collapseKey, kind.takeIf { event == PushEvent.Gesture }).joinToString("-")
+        WorkManager.getInstance(context).enqueueUniqueWork(name, ExistingWorkPolicy.REPLACE, request)
     }
 
-    override suspend fun sendTest(): TestPushResult = testResultFor(delivery.deliver(PushEvent.Test, null))
+    override suspend fun sendTest(): TestPushResult = testResultFor(delivery.deliver(PushEvent.Test, null, null))
 
     override suspend fun forgetThisPhone() = registrar.forgetThisPhone()
 
@@ -61,7 +63,7 @@ class WorkManagerNotifier @Inject constructor(
 
 /** Used when pushes can't work in this build; says why in the test result. */
 class NoopNotifier(override val availability: PushAvailability) : Notifier {
-    override fun notifyPartner(event: PushEvent, detail: String?) = Unit
+    override fun notifyPartner(event: PushEvent, detail: String?, kind: String?) = Unit
 
     override suspend fun sendTest(): TestPushResult = TestPushResult.NotSent(
         if (availability == PushAvailability.NotSetUp) "Push isn't set up in this build yet (no Worker URL)." else "This build has no backend.",

@@ -34,7 +34,7 @@ sealed interface PushResponse {
 /** Small HTTP client for push-worker/. No JSON library needed for one tiny body. */
 open class PushApi @Inject constructor(private val endpoint: PushEndpoint) {
 
-    open suspend fun notify(idToken: String, event: PushEvent, detail: String?): PushResponse = withContext(Dispatchers.IO) {
+    open suspend fun notify(idToken: String, event: PushEvent, detail: String?, kind: String? = null): PushResponse = withContext(Dispatchers.IO) {
         val url = endpoint.url ?: return@withContext PushResponse.Rejected(0, "not-configured")
         val connection = try {
             URL(url).openConnection() as HttpURLConnection
@@ -48,7 +48,7 @@ open class PushApi @Inject constructor(private val endpoint: PushEndpoint) {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $idToken")
-            connection.outputStream.use { it.write(requestBody(event, detail).toByteArray()) }
+            connection.outputStream.use { it.write(requestBody(event, detail, kind).toByteArray()) }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.use { s -> s.bufferedReader().readText().take(MAX_RESPONSE_CHARS) }
@@ -65,8 +65,9 @@ open class PushApi @Inject constructor(private val endpoint: PushEndpoint) {
         private const val MAX_RESPONSE_CHARS = 4_096
         const val MAX_DETAIL = 80
 
-        fun requestBody(event: PushEvent, detail: String?): String = buildString {
+        fun requestBody(event: PushEvent, detail: String?, kind: String? = null): String = buildString {
             append("{\"event\":").append(quote(event.wire))
+            if (!kind.isNullOrBlank()) append(",\"kind\":").append(quote(kind))
             if (!detail.isNullOrBlank()) append(",\"detail\":").append(quote(detail.take(MAX_DETAIL)))
             append('}')
         }

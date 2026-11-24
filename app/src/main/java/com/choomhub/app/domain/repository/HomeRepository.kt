@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
  * Implementations must never require a network round-trip before the first
  * emission. Remote sync happens behind the repository.
  *
- * Milestone 1 binds [com.choomhub.app.data.sample.SampleHomeRepository].
+ * Bound to [com.choomhub.app.data.home.LiveHomeRepository].
  */
 interface HomeRepository {
     fun observeHome(): Flow<HomeSnapshot>

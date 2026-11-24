@@ -21,6 +21,7 @@ class PushApiTest {
         assertEquals("""{"event":"meetup_set","detail":"Sat \"14\" Dec\n\\ 7:30"}""", PushApi.requestBody(PushEvent.MeetupSet, "Sat \"14\" Dec\n\\ 7:30"))
         assertEquals(PushApi.MAX_DETAIL, PushApi.requestBody(PushEvent.MeetupSet, "x".repeat(500)).count { it == 'x' })
         assertEquals("\"\\u0001\"", PushApi.quote("\u0001"))
+        assertEquals("""{"event":"gesture","kind":"hug"}""", PushApi.requestBody(PushEvent.Gesture, null, "hug"))
     }
 
     @Test
@@ -50,11 +51,11 @@ class PushApiTest {
         val seen = mutableListOf<Boolean>()
         val tokens = IdTokenSource { force -> seen += force; if (force) "fresh" else "stale" }
         val delivery = PushDelivery(FakeApi(mapOf("stale" to PushResponse.Unauthorized, "fresh" to PushResponse.Delivered(1))), tokens)
-        assertEquals(PushResponse.Delivered(1), delivery.deliver(PushEvent.Test, null))
+        assertEquals(PushResponse.Delivered(1), delivery.deliver(PushEvent.Test, null, null))
         assertEquals(listOf(false, true), seen)
 
         val signedOut = PushDelivery(FakeApi(emptyMap()), { null })
-        assertEquals(PushResponse.Rejected(401, "signed-out"), signedOut.deliver(PushEvent.Test, null))
+        assertEquals(PushResponse.Rejected(401, "signed-out"), signedOut.deliver(PushEvent.Test, null, null))
     }
 
     @Test
@@ -76,6 +77,6 @@ class PushApiTest {
 
 /** Answers by token, so the test can see which token was used. */
 private class FakeApi(private val byToken: Map<String, PushResponse>) : PushApi(PushEndpoint("https://example.test/v1/notify")) {
-    override suspend fun notify(idToken: String, event: PushEvent, detail: String?): PushResponse =
+    override suspend fun notify(idToken: String, event: PushEvent, detail: String?, kind: String?): PushResponse =
         byToken[idToken] ?: PushResponse.Rejected(0, "unexpected token")
 }

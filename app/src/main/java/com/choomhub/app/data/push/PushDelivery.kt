@@ -20,12 +20,12 @@ class PushDelivery @Inject constructor(
     private val api: PushApi,
     private val tokens: IdTokenSource,
 ) {
-    suspend fun deliver(event: PushEvent, detail: String?): PushResponse {
+    suspend fun deliver(event: PushEvent, detail: String?, kind: String?): PushResponse {
         val token = runCatching { tokens.idToken(forceRefresh = false) }.getOrNull()
             ?: return PushResponse.Rejected(401, "signed-out")
-        val first = api.notify(token, event, detail)
+        val first = api.notify(token, event, detail, kind)
         if (first != PushResponse.Unauthorized) return first
         val fresh = runCatching { tokens.idToken(forceRefresh = true) }.getOrNull() ?: return first
-        return api.notify(fresh, event, detail)
+        return api.notify(fresh, event, detail, kind)
     }
 }

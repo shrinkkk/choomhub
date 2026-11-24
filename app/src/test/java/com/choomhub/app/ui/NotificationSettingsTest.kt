@@ -18,6 +18,11 @@ import com.choomhub.app.core.navigation.TopLevelDestination
 import com.choomhub.app.data.di.MeetupModule
 import com.choomhub.app.data.di.ProfileModule
 import com.choomhub.app.data.di.PushModule
+import com.choomhub.app.data.di.MoodModule
+import com.choomhub.app.domain.repository.GestureRepository
+import com.choomhub.app.domain.repository.MoodRepository
+import com.choomhub.app.testing.FakeGestureRepository
+import com.choomhub.app.testing.FakeMoodRepository
 import com.choomhub.app.data.di.SpaceModule
 import com.choomhub.app.domain.model.CoupleNames
 import com.choomhub.app.domain.model.NotificationCategory
@@ -53,10 +58,21 @@ import java.io.File
 /** Settings → Notifications with pushes available, signed in and paired. */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class, MoodModule::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class NotificationSettingsTest {
+
+    private val fakeMoods = FakeMoodRepository()
+    private val fakeGestures = FakeGestureRepository()
+
+    @BindValue
+    @JvmField
+    val moodRepository: MoodRepository = fakeMoods
+
+    @BindValue
+    @JvmField
+    val gestureRepository: GestureRepository = fakeGestures
 
     private val fakeNotifier = FakeNotifier(PushAvailability.Ready, TestPushResult.Sent)
     private val prefs = FakeNotificationRepository()

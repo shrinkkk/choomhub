@@ -2,10 +2,28 @@
 // I/O so it can be unit-tested. Copy is plain on purpose (see docs/DECISIONS.md).
 
 /** Android notification channels; must match NotificationChannels.kt in the app. */
-export const Channels = Object.freeze({ meetup: 'meetup', space: 'space', general: 'general' });
+export const Channels = Object.freeze({ gestures: 'gestures', moods: 'moods', meetup: 'meetup', space: 'space', general: 'general' });
+
+/** Gesture kinds and moods the app may name; must match AffectionKind and Mood in the app. */
+export const Gestures = Object.freeze(['hug', 'forehead_kiss', 'head_pats', 'tomato']);
+export const Moods = Object.freeze({
+  cozy: 'Cozy',
+  sleepy: 'Sleepy',
+  content: 'Content',
+  calm: 'Calm',
+  restless: 'Restless',
+  missing_you: 'Missing you',
+  tired: 'Tired',
+  low: 'Low',
+  stressed: 'Stressed',
+  lonely: 'Lonely',
+  wired: 'Wired',
+});
 
 /**
- * event -> { category: preference key or null (always on), channel, tag, toSelf }
+ * event -> { category: preference key or null (always on), channel, tag, toSelf, kinds }
+ * `kinds`, when present, is the list of values the request's `kind` must be one of;
+ * a null tag means one per kind (`<event>_<kind>`), so a hug doesn't replace a tomato.
  * `toSelf` events go to the caller's own devices (the test button); everything
  * else goes only to the caller's partner.
  */
@@ -15,6 +33,8 @@ export const Events = Object.freeze({
   partner_joined: { category: 'space', channel: Channels.space, tag: 'space', toSelf: false, takesDetail: false },
   renamed: { category: 'space', channel: Channels.space, tag: 'renamed', toSelf: false, takesDetail: false },
   test: { category: null, channel: Channels.general, tag: 'test', toSelf: true, takesDetail: false },
+  gesture: { category: 'gestures', channel: Channels.gestures, tag: null, toSelf: false, takesDetail: false, kinds: Gestures },
+  mood: { category: 'moods', channel: Channels.moods, tag: 'mood', toSelf: false, takesDetail: true, kinds: Object.keys(Moods) },
 });
 
 export const MAX_DETAIL = 80;
@@ -26,11 +46,15 @@ const MAX_NAME = 24;
  */
 export function parseRequest(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
-  const { event, detail } = /** @type {Record<string, unknown>} */ (body);
+  const { event, detail, kind } = /** @type {Record<string, unknown>} */ (body);
   if (typeof event !== 'string' || !Object.hasOwn(Events, event)) return null;
   if (detail !== undefined && detail !== null && typeof detail !== 'string') return null;
-  const cleanDetail = Events[event].takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '';
-  return { event, detail: cleanDetail };
+  const spec = Events[event];
+  if (spec.kinds) {
+    if (typeof kind !== 'string' || !spec.kinds.includes(kind)) return null;
+  }
+  const cleanDetail = spec.takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '';
+  return { event, detail: cleanDetail, kind: spec.kinds ? kind : null };
 }
 
 function clean(text, max) {
@@ -42,7 +66,7 @@ function clean(text, max) {
 /**
  * The notification text.
  * @param {string} event
- * @param {{ senderName?: string | null, recipientNewName?: string | null, detail?: string }} ctx
+ * @param {{ senderName?: string | null, recipientNewName?: string | null, detail?: string, kind?: string | null }} ctx
  *   senderName: what the recipient calls the sender; recipientNewName: what the sender now calls the recipient.
  */
 export function compose(event, ctx) {
@@ -60,23 +84,45 @@ export function compose(event, ctx) {
     }
     case 'test':
       return { title: 'Test notification', body: 'Notifications reach this phone.' };
+    case 'gesture':
+      return gestureText(who, ctx.kind);
+    case 'mood': {
+      const label = Moods[ctx.kind] ?? 'Something new';
+      return { title: `${who} updated their mood`, body: ctx.detail ? `${label} \u00b7 ${ctx.detail}` : label };
+    }
     default:
       throw new Error(`unknown event ${event}`);
   }
 }
 
+function gestureText(who, kind) {
+  switch (kind) {
+    case 'hug':
+      return { title: `${who} sent you a hug`, body: 'Consider yourself hugged.' };
+    case 'forehead_kiss':
+      return { title: `${who} sent you a forehead kiss`, body: 'Delivered to your forehead.' };
+    case 'head_pats':
+      return { title: `${who} gave you head pats`, body: 'Pat, pat.' };
+    case 'tomato':
+      return { title: `${who} delivered a tomato`, body: 'One tomato, freshly delivered.' };
+    default:
+      throw new Error(`unknown gesture ${kind}`);
+  }
+}
+
 /** The FCM HTTP v1 message for one device. */
-export function fcmMessage(fid, event, text) {
+export function fcmMessage(fid, event, text, kind = null) {
   const spec = Events[event];
+  const tag = spec.tag ?? `${event}_${kind}`;
   return {
     message: {
       fid,
       notification: { title: text.title, body: text.body },
-      data: { event, category: spec.category ?? 'general' },
+      data: { event, category: spec.category ?? 'general', ...(kind ? { kind } : {}) },
       android: {
         priority: 'high',
-        collapse_key: spec.tag,
-        notification: { channel_id: spec.channel, tag: spec.tag, icon: 'ic_stat_choomhub', color: '#EDE6D6' },
+        collapse_key: tag,
+        notification: { channel_id: spec.channel, tag, icon: 'ic_stat_choomhub', color: '#EDE6D6' },
       },
     },
   };

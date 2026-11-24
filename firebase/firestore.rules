@@ -4,12 +4,14 @@ rules_version = '2';
 // Model (see docs/ARCHITECTURE.md, "Firestore data model"):
 //   users/{uid}                        -> { coupleId }               private pointer to your space
 //   users/{uid}/devices/{fid}          -> { platform, updatedAt }    phones registered for pushes (id = FCM installation id)
-//   users/{uid}/settings/notifications -> { meetup, space, updatedAt } which notifications you want
+//   users/{uid}/settings/notifications -> { gestures, moods, meetup, space, updatedAt } which notifications you want
 //   couples/{coupleId}                 -> { members, createdBy, createdAt, inviteCode }
 //   invites/{code}                     -> { coupleId, createdBy, expiresAt, usedBy }
 //   couples/{coupleId}/names/{namerId} -> { nameForPartner, updatedAt }  the name namerId gives the other
 //   couples/{coupleId}/shared/meetup   -> { at, updatedBy, updatedAt }
 //   couples/{coupleId}/shared/roles    -> { goodBoy, goodGirl, updatedAt }   uids; who receives which points
+//   couples/{coupleId}/moods/{uid}     -> { mood, note, updatedAt }  each person's current mood
+//   couples/{coupleId}/gestures/{id}   -> { kind, from, sentAt }     append-only history
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -61,7 +63,9 @@ service cloud.firestore {
       match /settings/notifications {
         allow read: if signedIn() && me() == userId;
         allow create, update: if signedIn() && me() == userId
-          && request.resource.data.keys().hasOnly(['meetup', 'space', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['gestures', 'moods', 'meetup', 'space', 'updatedAt'])
+          && request.resource.data.get('gestures', true) is bool
+          && request.resource.data.get('moods', true) is bool
           && request.resource.data.get('meetup', true) is bool
           && request.resource.data.get('space', true) is bool
           && request.resource.data.updatedAt == request.time;
@@ -115,6 +119,28 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['goodBoy', 'goodGirl', 'updatedAt'])
           && request.resource.data.updatedAt == request.time
           && rolesWriteOk(resource == null ? {} : resource.data, request.resource.data);
+      }
+
+      // Your own mood only; one of the app's moods, a short optional note.
+      match /moods/{uid} {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId) && me() == uid
+          && request.resource.data.keys().hasOnly(['mood', 'note', 'updatedAt'])
+          && request.resource.data.mood in ['cozy', 'sleepy', 'content', 'calm', 'restless', 'missing_you',
+                                            'tired', 'low', 'stressed', 'lonely', 'wired']
+          && (request.resource.data.get('note', null) == null
+              || (request.resource.data.note is string && request.resource.data.note.size() <= 80))
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      // Gestures are added as yourself and never edited or deleted.
+      match /gestures/{gestureId} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['kind', 'from', 'sentAt'])
+          && request.resource.data.kind in ['hug', 'forehead_kiss', 'head_pats', 'tomato']
+          && request.resource.data.from == me()
+          && request.resource.data.sentAt == request.time;
       }
 
       match /shared/meetup {

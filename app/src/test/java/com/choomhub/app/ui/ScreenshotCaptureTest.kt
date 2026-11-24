@@ -27,6 +27,11 @@ import com.choomhub.app.testing.FakeMeetupRepository
 import com.choomhub.app.testing.FakeProfileRepository
 import dagger.hilt.android.testing.BindValue
 import com.choomhub.app.data.di.PushModule
+import com.choomhub.app.data.di.MoodModule
+import com.choomhub.app.domain.repository.GestureRepository
+import com.choomhub.app.domain.repository.MoodRepository
+import com.choomhub.app.testing.FakeGestureRepository
+import com.choomhub.app.testing.FakeMoodRepository
 import com.choomhub.app.domain.repository.NotificationRepository
 import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.testing.FakeNotificationRepository
@@ -42,6 +47,12 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import com.choomhub.app.domain.model.AffectionKind
+import com.choomhub.app.domain.model.CoupleMoods
+import com.choomhub.app.domain.model.Gesture
+import com.choomhub.app.domain.model.Mood
+import com.choomhub.app.domain.model.MoodUpdate
+import androidx.compose.ui.test.performSemanticsAction
 
 /**
  * Renders each top-level screen on the JVM and writes PNGs to
@@ -51,9 +62,20 @@ import java.io.File
  */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class, PushModule::class, MoodModule::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreenshotCaptureTest {
+
+    private val fakeMoods = FakeMoodRepository()
+    private val fakeGestures = FakeGestureRepository()
+
+    @BindValue
+    @JvmField
+    val moodRepository: MoodRepository = fakeMoods
+
+    @BindValue
+    @JvmField
+    val gestureRepository: GestureRepository = fakeGestures
 
     @BindValue
     @JvmField
@@ -136,6 +158,24 @@ class ScreenshotCaptureTest {
         spaces.space.value = SpaceState.Waiting(spaces.me, "c1", "RVN4KEY7")
         composeRule.onNodeWithTag(TopLevelDestination.Settings.testTag).performClick()
         capture("phone_settings_waiting")
+    }
+
+    /** Home with moods and gestures in both directions, and the mood picker. */
+    @Test
+    @Config(qualifiers = "w411dp-h2000dp-xxhdpi")
+    fun moodsAndGestures() {
+        val now = Instant.now()
+        fakeMoods.moods.value = CoupleMoods(
+            mine = MoodUpdate(Mood.Calm, "tea and a long playlist", now),
+            partner = MoodUpdate(Mood.MissingYou, "rain again, crows on the wire", now.minusSeconds(720)),
+        )
+        fakeGestures.history.value = listOf(
+            Gesture("2", AffectionKind.TomatoDelivery, fromMe = true, sentAt = now.minusSeconds(60)),
+            Gesture("1", AffectionKind.Hug, fromMe = false, sentAt = now.minusSeconds(240)),
+        )
+        capture("phone_home_live")
+        composeRule.onNodeWithTag("set_my_mood").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        capture("phone_mood")
     }
 
     /** Small, older-phone size to check nothing clips. */

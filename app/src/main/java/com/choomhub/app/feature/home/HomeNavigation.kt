@@ -11,8 +11,9 @@ data object HomeRoute
 fun NavGraphBuilder.homeScreen(
     contentPadding: PaddingValues,
     showMessage: suspend (String) -> Unit,
+    onSetMood: () -> Unit,
 ) {
     composable<HomeRoute> {
-        HomeScreen(contentPadding = contentPadding, showMessage = showMessage)
+        HomeScreen(contentPadding = contentPadding, showMessage = showMessage, onSetMood = onSetMood)
     }
 }

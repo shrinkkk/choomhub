@@ -50,7 +50,8 @@ com.choomhub.app
 │   ├── push/                      PushRegistrar, ChoomHubMessagingService, PushApi, PushWorker, WorkManagerNotifier
 │   ├── space/                     DeviceOnlySpaceRepository
 │   ├── profile/, meetup/          DataStore implementations (device-only mode)
-│   ├── sample/                    SampleHomeRepository (real names + sample mood/snap/points)
+│   ├── home/                      LiveHomeRepository (real names, moods, gestures; sample snap/points/cat)
+│   ├── mood/                      device-only mood and gesture repositories
 │   └── di/                        DataModule, SpaceModule, ProfileModule, MeetupModule, PushModule, PushClientModule
 └── feature/
     ├── account/                   sign-in and pairing screens + AccountViewModel
@@ -117,6 +118,8 @@ that must be read without the Firestore SDK).
 | `couples/{id}/names/{namerUid}` | `nameForPartner` (1–24 chars), `updatedAt` | members read; only `namerUid` writes |
 | `couples/{id}/shared/meetup` | `at` (timestamp or null), `updatedBy`, `updatedAt` | members read/write, signed as themselves |
 | `couples/{id}/shared/roles` | `goodBoy`, `goodGirl` (uids), `updatedAt` | members read; each can only place themself |
+| `couples/{id}/moods/{uid}` | `mood` (one of 11 keys), `note` (≤ 80 chars or null), `updatedAt` | members read; only `uid` writes |
+| `couples/{id}/gestures/{id}` | `kind` (hug, forehead_kiss, head_pats, tomato), `from`, `sentAt` | members read; added as yourself; never edited or deleted |
 | `users/{uid}/devices/{fid}` | `platform`, `updatedAt` (doc id = FCM installation id) | only that user; the push Worker reads with server credentials |
 | `users/{uid}/settings/notifications` | `meetup`, `space` (booleans), `updatedAt` | only that user; the Worker reads it before sending |
 
@@ -134,8 +137,8 @@ you wrote and "your name" is the one they wrote. This works before the partner h
   a few hundred KB, as a Firestore `Blob`), caption, sender, `sentAt`, `bookmarkedBy`. When a person
   sends a new snap, their previous one is deleted **unless bookmarked**. Bookmarked snaps can be added
   to named **collections** (`couples/{id}/collections/{cid}`) shown in **Our World → Memory Lane**.
-- Moods, gestures, messages (text only, no voice notes, ADR-023), achievements and an append-only
-  points ledger, the shared cat.
+- Messages (text only, no voice notes, ADR-023), achievements and an append-only points ledger,
+  the shared cat.
 
 ## 6. Notifications (implemented, ADR-020, ADR-028)
 
@@ -171,7 +174,7 @@ Setup steps: [NOTIFICATIONS_SETUP.md](NOTIFICATIONS_SETUP.md).
 ## 7. Security principles
 
 - Firestore security rules on every path; default deny. Rules are tested on the emulator
-  (`firebase/test/rules.test.mjs`, 22 cases).
+  (`firebase/test/rules.test.mjs`, 24 cases).
 - Exactly two members per space, enforced by rules. Invite codes are random, single-use, expire, and
   only work together with an authenticated join. They aren't the only gate: auth, rules and the
   two-member limit apply too.

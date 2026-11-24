@@ -21,9 +21,9 @@ interface Notifier {
     /**
      * Queues a notification about something you just did. Fire and forget:
      * it waits for a connection and retries by itself. Does nothing when
-     * pushes aren't set up.
+     * pushes aren't set up. [kind] says which gesture or mood it was.
      */
-    fun notifyPartner(event: PushEvent, detail: String? = null)
+    fun notifyPartner(event: PushEvent, detail: String? = null, kind: String? = null)
 
     /** Sends a test notification to your own phone, right now. */
     suspend fun sendTest(): TestPushResult

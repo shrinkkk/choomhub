@@ -14,8 +14,8 @@ data class PartnerMood(
     val mood: Mood,
     /** Optional short status, e.g. "rewatching ghibli under a blanket". */
     val note: String?,
-    /** Server-assigned time of the update (authoritative ordering). */
-    val updatedAt: Instant,
+    /** Server-assigned time of the update; null for a moment while it syncs. */
+    val updatedAt: Instant?,
 )
 
 /** A photograph shared between the two members. */
@@ -53,17 +53,46 @@ data class HomeSnapshot(
     /** Which points you receive; null until chosen. */
     val myRole: PointsRole? = null,
     val partnerMood: PartnerMood?,
+    /** What you call your partner; null until set. */
+    val partnerName: String? = null,
+    /** Your own current mood, if you've set one. */
+    val myMood: MoodUpdate? = null,
+    /** Recent gestures in both directions, newest first. */
+    val recentGestures: List<Gesture> = emptyList(),
     val latestSnap: Snap?,
     val points: PointBalances,
     val cat: SharedCatStatus,
-    /** True when the data is local sample data rather than a synced space. */
+    /** True while snaps, points and the cat are still sample data (names, moods and gestures are real). */
     val isSampleData: Boolean,
 )
 
-/** Affection gestures available from the home screen. */
-enum class AffectionKind(val label: String) {
-    Hug("Hug"),
-    ForeheadKiss("Forehead kiss"),
-    HeadPats("Head pats"),
-    TomatoDelivery("Tomato"),
+/**
+ * Affection gestures available from the home screen. [key] is stored in
+ * Firestore and sent to the push Worker; [sent] completes "Wren …".
+ */
+enum class AffectionKind(val label: String, val key: String, val sent: String) {
+    Hug("Hug", "hug", "sent a hug"),
+    ForeheadKiss("Forehead kiss", "forehead_kiss", "sent a forehead kiss"),
+    HeadPats("Head pats", "head_pats", "gave head pats"),
+    TomatoDelivery("Tomato", "tomato", "delivered a tomato"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): AffectionKind? = entries.firstOrNull { it.key == key }
+    }
+}
+
+/** One gesture in the shared history. */
+data class Gesture(
+    val id: String,
+    val kind: AffectionKind,
+    val fromMe: Boolean,
+    /** Null only for a moment, while a just-sent gesture waits for the server's clock. */
+    val sentAt: Instant?,
+)
+
+/** Whether a gesture went out. */
+sealed interface GestureResult {
+    data object Sent : GestureResult
+    data class NotSent(val message: String) : GestureResult
 }

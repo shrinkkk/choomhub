@@ -13,7 +13,13 @@ import com.choomhub.app.data.push.InMemoryNotificationRepository
 import com.choomhub.app.data.push.NoopNotifier
 import com.choomhub.app.data.push.PushEndpoint
 import com.choomhub.app.data.push.WorkManagerNotifier
-import com.choomhub.app.data.sample.SampleHomeRepository
+import com.choomhub.app.data.home.LiveHomeRepository
+import com.choomhub.app.data.mood.LocalGestureRepository
+import com.choomhub.app.data.mood.LocalMoodRepository
+import com.choomhub.app.data.firebase.FirestoreGestureRepository
+import com.choomhub.app.data.firebase.FirestoreMoodRepository
+import com.choomhub.app.domain.repository.GestureRepository
+import com.choomhub.app.domain.repository.MoodRepository
 import com.choomhub.app.data.space.DeviceOnlySpaceRepository
 import com.choomhub.app.domain.repository.HomeRepository
 import com.choomhub.app.domain.model.PushAvailability
@@ -41,7 +47,25 @@ import javax.inject.Singleton
 abstract class DataModule {
     @Binds
     @Singleton
-    abstract fun bindHomeRepository(impl: SampleHomeRepository): HomeRepository
+    abstract fun bindHomeRepository(impl: LiveHomeRepository): HomeRepository
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object MoodModule {
+    @Provides
+    @Singleton
+    fun provideMoodRepository(
+        firestore: Provider<FirestoreMoodRepository>,
+        local: Provider<LocalMoodRepository>,
+    ): MoodRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+
+    @Provides
+    @Singleton
+    fun provideGestureRepository(
+        firestore: Provider<FirestoreGestureRepository>,
+        local: Provider<LocalGestureRepository>,
+    ): GestureRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
 }
 
 @Module

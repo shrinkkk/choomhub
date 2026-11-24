@@ -32,3 +32,16 @@ internal fun firebaseUid(): Flow<String?> = callbackFlow {
     auth.addAuthStateListener(listener)
     awaitClose { auth.removeAuthStateListener(listener) }
 }.distinctUntilChanged()
+
+/** Live query results as a Flow; cached results first, like [observe]. Errors emit null. */
+internal fun com.google.firebase.firestore.Query.observe(): Flow<com.google.firebase.firestore.QuerySnapshot?> = callbackFlow {
+    val registration = addSnapshotListener { snapshot, error ->
+        if (error != null) {
+            Log.w("ChoomHub", "Query listen failed: ${error.code}")
+            trySend(null)
+        } else {
+            trySend(snapshot)
+        }
+    }
+    awaitClose { registration.remove() }
+}

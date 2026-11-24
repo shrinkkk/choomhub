@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { Channels, MAX_DETAIL, compose, fcmMessage, parseRequest } from '../../src/events.js';
 
 test('parseRequest accepts known events and rejects everything else', () => {
-  assert.deepEqual(parseRequest({ event: 'meetup_cleared' }), { event: 'meetup_cleared', detail: '' });
+  assert.deepEqual(parseRequest({ event: 'meetup_cleared' }), { event: 'meetup_cleared', detail: '', kind: null });
+  assert.deepEqual(parseRequest({ event: 'gesture', kind: 'hug' }), { event: 'gesture', detail: '', kind: 'hug' });
+  assert.equal(parseRequest({ event: 'gesture' }), null);
+  assert.equal(parseRequest({ event: 'gesture', kind: 'slap' }), null);
+  assert.equal(parseRequest({ event: 'mood', kind: 'furious' }), null);
+  assert.deepEqual(parseRequest({ event: 'mood', kind: 'missing_you', detail: ' rain again ' }), { event: 'mood', detail: 'rain again', kind: 'missing_you' });
   assert.equal(parseRequest({ event: 'launch_missiles' }), null);
   assert.equal(parseRequest({ event: 'toString' }), null);
   assert.equal(parseRequest({ event: 'meetup_set', detail: 42 }), null);
@@ -24,6 +29,20 @@ test('compose uses the name the recipient gave the sender, with a plain fallback
   assert.equal(compose('meetup_cleared', {}).title, 'Your partner cleared the next meetup');
   assert.equal(compose('renamed', { senderName: 'Shri', recipientNewName: 'Raven' }).body, 'You\'re "Raven" to them now.');
   assert.equal(compose('partner_joined', { senderName: '' }).title, 'Your partner joined your space');
+});
+
+test('gestures and moods read plainly', () => {
+  assert.deepEqual(compose('gesture', { senderName: 'Shri', kind: 'hug' }), { title: 'Shri sent you a hug', body: 'Consider yourself hugged.' });
+  assert.equal(compose('gesture', { senderName: 'Shri', kind: 'tomato' }).title, 'Shri delivered a tomato');
+  assert.deepEqual(compose('mood', { senderName: 'Wren', kind: 'missing_you', detail: 'rain again' }), { title: 'Wren updated their mood', body: 'Missing you \u00b7 rain again' });
+  assert.equal(compose('mood', { senderName: 'Wren', kind: 'calm', detail: '' }).body, 'Calm');
+});
+
+test('each gesture kind gets its own tag', () => {
+  const hug = fcmMessage('f', 'gesture', { title: 't', body: 'b' }, 'hug').message;
+  assert.equal(hug.android.notification.tag, 'gesture_hug');
+  assert.equal(hug.android.notification.channel_id, 'gestures');
+  assert.equal(hug.data.kind, 'hug');
 });
 
 test('fcmMessage targets the installation and the right channel', () => {
