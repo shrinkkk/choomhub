@@ -2,5 +2,4 @@
 <resources>
     <!-- Only colours needed outside Compose (window, launcher icon). -->
     <color name="afterglow_night">#FF14121B</color>
-    <color name="afterglow_icon_background">#FF201C2B</color>
 </resources>
