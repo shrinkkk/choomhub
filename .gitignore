@@ -29,6 +29,7 @@ signing.properties
 .env.*
 google-services.json
 *service-account*.json
+*firebase-adminsdk*.json
 supabase/.temp/
 supabase/.env
 
@@ -47,3 +48,8 @@ Claude outputs/
 firebase/node_modules/
 firebase/*.log
 firebase/.firebase/
+
+# --- Push Worker (Cloudflare) ---
+push-worker/node_modules/
+push-worker/.wrangler/
+push-worker/.dev.vars

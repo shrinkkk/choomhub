@@ -1,0 +1,14 @@
+{
+  "name": "choomhub-push-worker",
+  "private": true,
+  "description": "Cloudflare Worker (free plan) that sends ChoomHub push notifications through FCM.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/unit/*.test.mjs\"",
+    "test:integration": "cd ../firebase && npx firebase emulators:exec --only firestore --project demo-choomhub \"node --test ../push-worker/test/integration/*.test.mjs\"",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.168.0"
+  }
+}

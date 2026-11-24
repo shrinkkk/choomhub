@@ -8,7 +8,10 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   arrayUnion,
+  collection,
+  deleteDoc,
   doc,
+  getDocs,
   getDoc,
   serverTimestamp,
   setDoc,
@@ -189,5 +192,38 @@ describe('names and meetup', () => {
   test('members cannot be removed or swapped', async () => {
     await assertFails(updateDoc(doc(db('alice'), 'couples', 'c1'), { members: ['alice', 'mallory'] }));
     await assertFails(updateDoc(doc(db('alice'), 'couples', 'c1'), { members: ['alice'] }));
+  });
+});
+
+describe('push registrations and notification settings', () => {
+  const FID = 'cX9pQ2rS-tU_vW3x';
+
+  test('you can register, list and remove only your own phones', async () => {
+    const mine = doc(db('alice'), `users/alice/devices/${FID}`);
+    await assertSucceeds(setDoc(mine, { platform: 'android', updatedAt: serverTimestamp() }));
+    await assertSucceeds(getDocs(collection(db('alice'), 'users/alice/devices')));
+    await assertSucceeds(deleteDoc(mine));
+    await assertFails(setDoc(doc(db('mallory'), `users/alice/devices/${FID}`), { platform: 'android', updatedAt: serverTimestamp() }));
+    await assertFails(getDocs(collection(db('bob'), 'users/alice/devices')));
+    await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), `users/alice/devices/${FID}`), { platform: 'android', updatedAt: serverTimestamp() }));
+  });
+
+  test('registrations hold only the expected fields', async () => {
+    const mine = doc(db('alice'), `users/alice/devices/${FID}`);
+    await assertFails(setDoc(mine, { platform: 'android', updatedAt: serverTimestamp(), note: 'x' }));
+    await assertFails(setDoc(mine, { platform: 'ios', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(mine, { platform: 'android', updatedAt: Timestamp.fromMillis(0) }));
+    await assertFails(setDoc(doc(db('alice'), 'users/alice/devices/short'), { platform: 'android', updatedAt: serverTimestamp() }));
+  });
+
+  test('notification settings are yours alone and only booleans', async () => {
+    const mine = doc(db('alice'), 'users/alice/settings/notifications');
+    await assertSucceeds(setDoc(mine, { meetup: false, space: true, updatedAt: serverTimestamp() }));
+    await assertSucceeds(getDoc(mine));
+    await assertFails(setDoc(mine, { meetup: 'no', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(mine, { meetup: true, spam: true, updatedAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db('bob'), 'users/alice/settings/notifications')));
+    await assertFails(setDoc(doc(db('bob'), 'users/alice/settings/notifications'), { meetup: true, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('alice'), 'users/alice/settings/other'), { meetup: true, updatedAt: serverTimestamp() }));
   });
 });

@@ -3,6 +3,8 @@ rules_version = '2';
 // ChoomHub security rules.
 // Model (see docs/ARCHITECTURE.md, "Firestore data model"):
 //   users/{uid}                        -> { coupleId }               private pointer to your space
+//   users/{uid}/devices/{fid}          -> { platform, updatedAt }    phones registered for pushes (id = FCM installation id)
+//   users/{uid}/settings/notifications -> { meetup, space, updatedAt } which notifications you want
 //   couples/{coupleId}                 -> { members, createdBy, createdAt, inviteCode }
 //   invites/{code}                     -> { coupleId, createdBy, expiresAt, usedBy }
 //   couples/{coupleId}/names/{namerId} -> { nameForPartner, updatedAt }  the name namerId gives the other
@@ -44,6 +46,26 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && (request.resource.data.coupleId == null
             || me() in getAfter(couplePath(request.resource.data.coupleId)).data.members);
+
+      // Your phones. Only you can see or change them; the push Worker reads them
+      // with its own server credentials, which rules don't apply to.
+      match /devices/{fid} {
+        allow read, delete: if signedIn() && me() == userId;
+        allow create, update: if signedIn() && me() == userId
+          && fid.size() >= 8 && fid.size() <= 64
+          && request.resource.data.keys().hasOnly(['platform', 'updatedAt'])
+          && request.resource.data.platform == 'android'
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      match /settings/notifications {
+        allow read: if signedIn() && me() == userId;
+        allow create, update: if signedIn() && me() == userId
+          && request.resource.data.keys().hasOnly(['meetup', 'space', 'updatedAt'])
+          && request.resource.data.get('meetup', true) is bool
+          && request.resource.data.get('space', true) is bool
+          && request.resource.data.updatedAt == request.time;
+      }
     }
 
     match /couples/{coupleId} {

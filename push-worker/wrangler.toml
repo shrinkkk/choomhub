@@ -1,0 +1,17 @@
+# Cloudflare Worker that sends ChoomHub push notifications. Free plan is plenty
+# (100k requests/day; this app sends a handful).
+#
+# Setup (one time, see docs/NOTIFICATIONS_SETUP.md):
+#   npx wrangler login
+#   npx wrangler secret put SERVICE_ACCOUNT_JSON   # paste the Firebase service-account key JSON
+#   npx wrangler deploy
+#
+# The service-account key is a Worker secret only. It never goes in this file,
+# the app, local.properties or git.
+name = "choomhub-push"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[observability]
+enabled = true
