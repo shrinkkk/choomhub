@@ -121,7 +121,7 @@ fun GestureButton(
             .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
             .padding(vertical = ChoomHubTheme.spacing.md),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.sm, Alignment.Top),
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
         Text(
@@ -129,7 +129,7 @@ fun GestureButton(
             style = MaterialTheme.typography.labelSmall,
             color = ChoomHubTheme.colors.textSecondary,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = 2,
         )
     }
 }

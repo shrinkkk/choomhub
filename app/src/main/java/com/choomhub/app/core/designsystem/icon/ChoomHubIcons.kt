@@ -99,17 +99,19 @@ object GestureIcons {
         }
     }
 
-    val Kiss: ImageVector by lazy {
-        lineIcon("Kiss") {
-            moveTo(2.5f, 12f)
-            curveTo(5f, 9f, 7.5f, 7.8f, 10f, 8.8f)
-            curveTo(11f, 9.2f, 11.5f, 9.6f, 12f, 10.2f)
-            curveTo(12.5f, 9.6f, 13f, 9.2f, 14f, 8.8f)
-            curveTo(16.5f, 7.8f, 19f, 9f, 21.5f, 12f)
-            curveTo(18.5f, 15.8f, 15.5f, 17f, 12f, 17f)
-            curveTo(8.5f, 17f, 5.5f, 15.8f, 2.5f, 12f)
+    /** A head with closed eyes and a small kiss mark on the forehead. */
+    val ForeheadKiss: ImageVector by lazy {
+        lineIcon("Forehead kiss") {
+            circle(12f, 14.5f, 7f)
+            // Closed, content eyes.
+            moveTo(8.3f, 15f); quadTo(9.6f, 16.3f, 10.9f, 15f)
+            moveTo(13.1f, 15f); quadTo(14.4f, 16.3f, 15.7f, 15f)
+            // Lips pressed to the forehead.
+            moveTo(9.2f, 6.4f)
+            curveTo(10.1f, 5f, 11.2f, 5f, 12f, 5.9f)
+            curveTo(12.8f, 5f, 13.9f, 5f, 14.8f, 6.4f)
+            curveTo(13.4f, 8f, 10.6f, 8f, 9.2f, 6.4f)
             close()
-            moveTo(2.5f, 12f); curveTo(7f, 12.8f, 17f, 12.8f, 21.5f, 12f)
         }
     }
 

@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.onboarding
 
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.testing.FakeProfileRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -49,8 +50,22 @@ class OnboardingViewModelTest {
         val viewModel = OnboardingViewModel(repository)
         viewModel.onInputChange("  Wren   the  Bold ")
         viewModel.onContinue()
+        assertEquals("Pick which one you are.", viewModel.state.value.error)
 
+        viewModel.onRoleSelected(PointsRole.GoodBoy)
+        viewModel.onContinue()
         assertTrue(viewModel.state.value.isSaving)
         assertEquals("Wren the Bold", repository.names.value.partnerName)
+        assertEquals(PointsRole.GoodBoy, repository.names.value.myRole)
+    }
+
+    @Test
+    fun `when the partner already picked, your role is decided`() {
+        repository.names.value = repository.names.value.copy(myRole = PointsRole.GoodGirl, roleChosenByPartner = true)
+        val viewModel = OnboardingViewModel(repository)
+        assertEquals(PointsRole.GoodGirl, viewModel.state.value.lockedRole)
+        viewModel.onInputChange("Rook")
+        viewModel.onContinue()
+        assertEquals("Rook", repository.names.value.partnerName)
     }
 }

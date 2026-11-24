@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import com.choomhub.app.domain.model.PointsRole
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.choomhub.app.MainActivity
@@ -62,16 +64,20 @@ class NamingFlowTest {
 
         composeRule.onNodeWithTag("onboarding_field").performTextInput("  Wren ")
         composeRule.onNodeWithTag("onboarding_continue").performClick()
+        composeRule.onNodeWithText("Pick which one you are.").assertIsDisplayed()
+        composeRule.onNodeWithTag("role_GoodBoy").performScrollTo().performClick()
+        composeRule.onNodeWithTag("onboarding_continue").performScrollTo().performClick()
         composeRule.waitForIdle()
 
         assertEquals("Wren", fake.names.value.partnerName)
+        assertEquals(PointsRole.GoodBoy, fake.names.value.myRole)
         composeRule.onNodeWithTag("screen_home").assertIsDisplayed()
         composeRule.onNodeWithText("WREN").assertIsDisplayed()
     }
 
     @Test
     fun partnerCanBeRenamedFromSettings() {
-        fake.names.value = fake.names.value.copy(partnerName = "Wren")
+        fake.names.value = fake.names.value.copy(partnerName = "Wren", myRole = PointsRole.GoodGirl)
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(TopLevelDestination.Settings.testTag).performClick()

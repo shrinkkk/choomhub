@@ -4,6 +4,8 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -51,6 +53,7 @@ import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.AffectionKind
 import com.choomhub.app.domain.model.PointBalances
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.SharedCatStatus
 import com.choomhub.app.feature.home.PartnerMoodUi
 import com.choomhub.app.feature.home.SnapUi
@@ -215,24 +218,27 @@ internal fun GestureSection(onGesture: (AffectionKind) -> Unit, modifier: Modifi
     Column(modifier.fillMaxWidth()) {
         SectionHeader(title = "Send something", eyebrow = "gestures")
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.sm)) {
+        Row(
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.sm),
+        ) {
             AffectionKind.entries.forEach { kind ->
                 GestureButton(
                     label = kind.label,
                     icon = when (kind) {
                         AffectionKind.Hug -> GestureIcons.Hug
-                        AffectionKind.Kiss -> GestureIcons.Kiss
+                        AffectionKind.ForeheadKiss -> GestureIcons.ForeheadKiss
                         AffectionKind.HeadPats -> GestureIcons.Paw
                         AffectionKind.TomatoDelivery -> GestureIcons.Tomato
                     },
                     tint = when (kind) {
                         AffectionKind.Hug -> colors.lavender
-                        AffectionKind.Kiss -> colors.pink
+                        AffectionKind.ForeheadKiss -> colors.pink
                         AffectionKind.HeadPats -> colors.lavender
                         AffectionKind.TomatoDelivery -> colors.tomato
                     },
                     onClick = { onGesture(kind) },
-                    modifier = Modifier.weight(1f).testTag("affection_${kind.name}"),
+                    modifier = Modifier.weight(1f).fillMaxHeight().testTag("affection_${kind.name}"),
                 )
             }
         }
@@ -246,22 +252,30 @@ internal fun GestureSection(onGesture: (AffectionKind) -> Unit, modifier: Modifi
 }
 
 @Composable
-internal fun PointsSection(points: PointBalances, modifier: Modifier = Modifier) {
+internal fun PointsSection(points: PointBalances, myRole: PointsRole?, partnerName: String?, modifier: Modifier = Modifier) {
     val colors = ChoomHubTheme.colors
     Column(modifier.fillMaxWidth()) {
         SectionHeader(title = "Points", eyebrow = "productivity")
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
         Row(horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.md)) {
-            PointsCard("Good Boy", points.goodBoy, colors.lavender, Modifier.weight(1f).testTag("points_good_boy"))
-            PointsCard("Good Girl", points.goodGirl, colors.pink, Modifier.weight(1f).testTag("points_good_girl"))
+            fun owner(role: PointsRole) = when (myRole) {
+                null -> null
+                role -> "you"
+                else -> partnerName
+            }
+            PointsCard("Good Boy", owner(PointsRole.GoodBoy), points.goodBoy, colors.lavender, Modifier.weight(1f).testTag("points_good_boy"))
+            PointsCard("Good Girl", owner(PointsRole.GoodGirl), points.goodGirl, colors.pink, Modifier.weight(1f).testTag("points_good_girl"))
         }
     }
 }
 
 @Composable
-private fun PointsCard(title: String, value: Int, accent: Color, modifier: Modifier = Modifier) {
+private fun PointsCard(title: String, owner: String?, value: Int, accent: Color, modifier: Modifier = Modifier) {
     ChoomHubCard(modifier = modifier, tone = CardTone.Calm) {
         Text(title.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = ChoomHubTheme.colors.textSecondary)
+        if (owner != null) {
+            Text(owner, style = ChoomHubTextStyles.Handwritten, color = ChoomHubTheme.colors.textMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         Spacer(Modifier.height(ChoomHubTheme.spacing.xs))
         Text(
             text = value.toString(),

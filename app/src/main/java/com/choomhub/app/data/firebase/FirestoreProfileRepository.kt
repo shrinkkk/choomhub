@@ -1,6 +1,7 @@
 package com.choomhub.app.data.firebase
 
 import com.choomhub.app.domain.model.CoupleNames
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.SpaceState
 import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 /**
@@ -40,8 +42,25 @@ class FirestoreProfileRepository @Inject constructor(
         } else {
             flowOf(null)
         }
-        combine(mine, theirs) { forPartner, forMe -> CoupleNames(partnerName = forPartner, myName = forMe) }
+        val roles = rolesDoc(coupleId).observe().map { snap ->
+            rolesFor(me, snap?.getString(GOOD_BOY), snap?.getString(GOOD_GIRL))
+        }
+        combine(mine, theirs, roles) { forPartner, forMe, role ->
+            CoupleNames(partnerName = forPartner, myName = forMe, myRole = role.first, roleChosenByPartner = role.second)
+        }
     }.distinctUntilChanged()
+
+    override suspend fun setMyRole(role: PointsRole): Boolean {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return false
+        val me = space.accountOrNull?.uid ?: return false
+        val current = runCatching { rolesDoc(coupleId).get().await() }.getOrNull()
+        val next = claimRole(me, role, current?.getString(GOOD_BOY), current?.getString(GOOD_GIRL)) ?: return false
+        rolesDoc(coupleId).set(
+            mapOf(GOOD_BOY to next.first, GOOD_GIRL to next.second, "updatedAt" to FieldValue.serverTimestamp()),
+        )
+        return true
+    }
 
     override suspend fun setPartnerName(name: String) {
         val space = spaceRepository.observeSpace().first()
@@ -51,10 +70,37 @@ class FirestoreProfileRepository @Inject constructor(
         namesDoc(coupleId, me).set(mapOf(FIELD to name, "updatedAt" to FieldValue.serverTimestamp()))
     }
 
+    private fun rolesDoc(coupleId: String) =
+        db.collection(FirebaseSpaceRepository.COUPLES).document(coupleId).collection("shared").document("roles")
+
     private fun namesDoc(coupleId: String, namer: String) =
         db.collection(FirebaseSpaceRepository.COUPLES).document(coupleId).collection("names").document(namer)
 
-    private companion object {
-        const val FIELD = "nameForPartner"
+    companion object {
+        private const val FIELD = "nameForPartner"
+        private const val GOOD_BOY = "goodBoy"
+        private const val GOOD_GIRL = "goodGirl"
+
+        /**
+         * Your role from couples/{id}/shared/roles {goodBoy, goodGirl} (uids).
+         * Returns (role, chosenByPartner): if only your partner has claimed, you
+         * are the other role.
+         */
+        fun rolesFor(me: String, goodBoy: String?, goodGirl: String?): Pair<PointsRole?, Boolean> = when {
+            goodBoy == me -> PointsRole.GoodBoy to false
+            goodGirl == me -> PointsRole.GoodGirl to false
+            goodBoy != null -> PointsRole.GoodGirl to true
+            goodGirl != null -> PointsRole.GoodBoy to true
+            else -> null to false
+        }
+
+        /** New (goodBoy, goodGirl) after [me] claims [role], or null if the partner holds it. */
+        fun claimRole(me: String, role: PointsRole, goodBoy: String?, goodGirl: String?): Pair<String?, String?>? {
+            val held = if (role == PointsRole.GoodBoy) goodBoy else goodGirl
+            if (held != null && held != me) return null
+            val boy = if (role == PointsRole.GoodBoy) me else goodBoy?.takeIf { it != me }
+            val girl = if (role == PointsRole.GoodGirl) me else goodGirl?.takeIf { it != me }
+            return boy to girl
+        }
     }
 }

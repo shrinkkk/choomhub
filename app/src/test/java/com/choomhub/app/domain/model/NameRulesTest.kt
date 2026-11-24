@@ -25,8 +25,10 @@ class NameRulesTest {
     }
 
     @Test
-    fun `onboarding is needed until the partner has a name`() {
-        assert(CoupleNames(partnerName = null, myName = "Rook").needsOnboarding)
-        assert(!CoupleNames(partnerName = "Wren", myName = null).needsOnboarding)
+    fun `onboarding is needed until the partner has a name and you have a role`() {
+        assert(CoupleNames(partnerName = null, myName = "Rook", myRole = PointsRole.GoodBoy).needsOnboarding)
+        assert(CoupleNames(partnerName = "Wren", myName = null).needsOnboarding)
+        assert(!CoupleNames(partnerName = "Wren", myName = null, myRole = PointsRole.GoodBoy).needsOnboarding)
+        assertEquals(PointsRole.GoodGirl, CoupleNames("Wren", null, PointsRole.GoodBoy).partnerRole)
     }
 }

@@ -1,6 +1,7 @@
 package com.choomhub.app.domain.repository
 
 import com.choomhub.app.domain.model.CoupleNames
+import com.choomhub.app.domain.model.PointsRole
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -15,4 +16,10 @@ interface ProfileRepository {
 
     /** Stores an already-validated name for your partner (see [com.choomhub.app.domain.model.NameRules]). */
     suspend fun setPartnerName(name: String)
+
+    /**
+     * Claims your points role. Fails (returns false) if your partner already
+     * holds that role; then you have the other one.
+     */
+    suspend fun setMyRole(role: PointsRole): Boolean
 }

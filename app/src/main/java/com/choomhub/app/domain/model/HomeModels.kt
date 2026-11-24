@@ -50,6 +50,8 @@ data class SharedCatStatus(
 data class HomeSnapshot(
     /** The name your partner gave you; null until it has synced. */
     val viewerName: String?,
+    /** Which points you receive; null until chosen. */
+    val myRole: PointsRole? = null,
     val partnerMood: PartnerMood?,
     val latestSnap: Snap?,
     val points: PointBalances,
@@ -61,7 +63,7 @@ data class HomeSnapshot(
 /** Affection gestures available from the home screen. */
 enum class AffectionKind(val label: String) {
     Hug("Hug"),
-    Kiss("Kiss"),
+    ForeheadKiss("Forehead kiss"),
     HeadPats("Head pats"),
     TomatoDelivery("Tomato"),
 }

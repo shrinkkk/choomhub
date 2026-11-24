@@ -32,9 +32,21 @@ class SpaceTest {
     }
 
     @Test
+    fun `roles follow the first pick and can't be stolen`() {
+        val repo = com.choomhub.app.data.firebase.FirestoreProfileRepository
+        assertEquals(PointsRole.GoodBoy to false, repo.rolesFor("me", "me", null))
+        assertEquals(PointsRole.GoodGirl to true, repo.rolesFor("me", "her", null))
+        assertEquals(null to false, repo.rolesFor("me", null, null))
+        assertEquals("me" to null, repo.claimRole("me", PointsRole.GoodBoy, null, null))
+        assertEquals(null, repo.claimRole("me", PointsRole.GoodBoy, "her", null))
+        assertEquals(null to "me", repo.claimRole("me", PointsRole.GoodGirl, "me", null))
+        assertEquals(CoupleNames("Wren", null, null).needsOnboarding, true)
+    }
+
+    @Test
     fun `gate goes sign in, pairing, naming, main`() {
         val unnamed = CoupleNames(partnerName = null, myName = null)
-        val named = CoupleNames(partnerName = "Wren", myName = null)
+        val named = CoupleNames(partnerName = "Wren", myName = null, myRole = PointsRole.GoodGirl)
         assertEquals(AppGate.SignIn, gateFor(SpaceState.SignedOut, named))
         assertEquals(AppGate.Pairing, gateFor(SpaceState.NoSpace(me), named))
         assertEquals(AppGate.Onboarding, gateFor(SpaceState.Waiting(me, "c", "X"), unnamed))

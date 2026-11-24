@@ -5,6 +5,7 @@ import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.domain.model.HomeSnapshot
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.PointBalances
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.SharedCatStatus
 import java.time.Clock
 import java.time.ZonedDateTime
@@ -22,6 +23,8 @@ sealed interface HomeUiState {
         val partner: PartnerMoodUi?,
         val snap: SnapUi?,
         val points: PointBalances,
+        val myRole: PointsRole?,
+        val partnerName: String?,
         val cat: SharedCatStatus,
         val isSampleData: Boolean,
     ) : HomeUiState
@@ -70,6 +73,8 @@ internal fun HomeSnapshot.toUiState(clock: Clock): HomeUiState.Ready {
             )
         },
         points = points,
+        myRole = myRole,
+        partnerName = partnerMood?.partner?.displayName,
         cat = cat,
         isSampleData = isSampleData,
     )

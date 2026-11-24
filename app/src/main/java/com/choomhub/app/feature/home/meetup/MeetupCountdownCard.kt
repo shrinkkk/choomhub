@@ -71,17 +71,17 @@ fun MeetupCountdownCard(
     val colors = ChoomHubTheme.colors
     var picking by rememberSaveable { mutableStateOf(false) }
     val expression = when (state) {
-        null, CountdownState.NoneScheduled -> MoonExpression.Crying
-        is CountdownState.Happening -> MoonExpression.Excited
+        null, CountdownState.NoneScheduled -> CatExpression.Crying
+        is CountdownState.Happening -> CatExpression.Excited
         is CountdownState.Upcoming -> when (state.mood) {
-            CountdownMood.Sad -> MoonExpression.Sad
-            CountdownMood.Happy -> MoonExpression.Happy
-            CountdownMood.Excited -> MoonExpression.Excited
+            CountdownMood.Sad -> CatExpression.Sad
+            CountdownMood.Happy -> CatExpression.Happy
+            CountdownMood.Excited -> CatExpression.Excited
         }
     }
     ChoomHubCard(
         modifier = modifier.fillMaxWidth().testTag("meetup_card"),
-        tone = if (expression == MoonExpression.Excited) CardTone.Glowing else CardTone.Raised,
+        tone = if (expression == CatExpression.Excited) CardTone.Glowing else CardTone.Raised,
         glowColor = colors.candle,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -103,12 +103,12 @@ fun MeetupCountdownCard(
                     }
                 }
             }
-            MoonFace(
+            CatFace(
                 expression,
                 Modifier
                     .size(72.dp)
-                    .testTag("moon_${expression.name}")
-                    .semantics { contentDescription = "Moon face, ${expression.name.lowercase()}" },
+                    .testTag("cat_${expression.name}")
+                    .semantics { contentDescription = "Cat face, ${expression.name.lowercase()}" },
             )
         }
 

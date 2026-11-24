@@ -16,6 +16,7 @@ import com.choomhub.app.core.navigation.TopLevelDestination
 import com.choomhub.app.data.di.MeetupModule
 import com.choomhub.app.data.di.ProfileModule
 import com.choomhub.app.domain.model.CoupleNames
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.Meetup
 import java.time.Duration
 import java.time.Instant
@@ -47,7 +48,7 @@ class AppNavigationTest {
 
     @BindValue
     @JvmField
-    val profileRepository: ProfileRepository = FakeProfileRepository(CoupleNames(partnerName = "Wren", myName = null))
+    val profileRepository: ProfileRepository = FakeProfileRepository(CoupleNames(partnerName = "Wren", myName = null, myRole = PointsRole.GoodBoy))
 
     private val meetups = FakeMeetupRepository()
 
@@ -78,13 +79,13 @@ class AppNavigationTest {
     fun meetupCountdownShowsNothingPlannedThenCountsDown() {
         composeRule.onNodeWithTag("meetup_card").assertIsDisplayed()
         composeRule.onNodeWithText("Nothing planned").assertIsDisplayed()
-        composeRule.onNodeWithTag("moon_Crying").assertIsDisplayed()
+        composeRule.onNodeWithTag("cat_Crying").assertIsDisplayed()
         composeRule.onNodeWithTag("meetup_schedule").assertIsDisplayed()
 
         meetups.meetup.value = Meetup(Instant.now().plus(Duration.ofDays(2)))
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("meetup_countdown").assertIsDisplayed()
-        composeRule.onNodeWithTag("moon_Excited").assertIsDisplayed()
+        composeRule.onNodeWithTag("cat_Excited").assertIsDisplayed()
         composeRule.onNodeWithTag("meetup_reschedule").assertIsDisplayed()
 
         composeRule.onNodeWithTag("meetup_clear").performClick()

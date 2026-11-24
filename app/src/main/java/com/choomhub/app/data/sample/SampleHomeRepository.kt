@@ -38,6 +38,7 @@ class SampleHomeRepository @Inject constructor(
         val partner = Member(id = "partner", displayName = names.partnerName ?: "them")
         return HomeSnapshot(
             viewerName = names.myName,
+            myRole = names.myRole,
             partnerMood = PartnerMood(
                 partner = partner,
                 mood = Mood.Sleepy,

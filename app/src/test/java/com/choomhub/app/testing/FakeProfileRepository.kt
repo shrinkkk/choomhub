@@ -1,6 +1,7 @@
 package com.choomhub.app.testing
 
 import com.choomhub.app.domain.model.CoupleNames
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,5 +16,11 @@ class FakeProfileRepository(
 
     override suspend fun setPartnerName(name: String) {
         names.value = names.value.copy(partnerName = name)
+    }
+
+    override suspend fun setMyRole(role: PointsRole): Boolean {
+        if (names.value.roleChosenByPartner && names.value.myRole != role) return false
+        names.value = names.value.copy(myRole = role)
+        return true
     }
 }

@@ -16,6 +16,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import com.choomhub.app.core.designsystem.illustration.GothicMotif
+import com.choomhub.app.feature.home.meetup.CatExpression
+import com.choomhub.app.feature.home.meetup.CatFace
 import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.core.designsystem.theme.LocalAmbientMotionEnabled
@@ -31,7 +33,7 @@ import java.io.File
 /** Renders every rotating header motif side by side for visual review. */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(qualifiers = "w411dp-h560dp-xxhdpi")
+@Config(qualifiers = "w411dp-h700dp-xxhdpi")
 class MotifGalleryCaptureTest {
 
     @get:Rule
@@ -46,6 +48,14 @@ class MotifGalleryCaptureTest {
                         Modifier.background(ChoomHubTheme.colors.night).padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            CatExpression.entries.forEach { e ->
+                                Column {
+                                    CatFace(e, Modifier.size(90.dp).background(ChoomHubTheme.colors.surfaceElevated))
+                                    Text(e.name, color = ChoomHubTheme.colors.textSecondary)
+                                }
+                            }
+                        }
                         GothicMotif.entries.chunked(3).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 row.forEach { motif ->

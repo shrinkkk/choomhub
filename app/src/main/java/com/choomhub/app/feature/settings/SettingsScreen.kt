@@ -130,6 +130,11 @@ fun SettingsContent(
                     )
                 }
                 SettingsRow(
+                    title = "Points",
+                    value = names.myRole?.let { "You're the ${it.label} \u00B7 ${names.partnerName ?: "they"} ${if (names.partnerName != null) "is" else "are"} the ${it.other.label}" }
+                        ?: "Not chosen yet",
+                )
+                SettingsRow(
                     title = "They call you",
                     value = names.myName ?: "They pick this on their phone. It shows up once you're connected.",
                     divider = false,

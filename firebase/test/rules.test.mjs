@@ -166,6 +166,26 @@ describe('names and meetup', () => {
     await assertFails(setDoc(doc(db('bob'), 'couples/c1/shared/meetup'), { at, updatedBy: 'alice', updatedAt: serverTimestamp() }));
   });
 
+  test('roles: first pick decides, nobody takes the other\'s role', async () => {
+    const roles = (uid) => doc(db(uid), 'couples/c1/shared/roles');
+    await assertSucceeds(setDoc(roles('alice'), { goodBoy: 'alice', goodGirl: null, updatedAt: serverTimestamp() }));
+    // Bob can't take Good Boy from Alice, or claim both, or edit Alice out.
+    await assertFails(setDoc(roles('bob'), { goodBoy: 'bob', goodGirl: null, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(roles('bob'), { goodBoy: null, goodGirl: 'bob', updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(roles('bob'), { goodBoy: 'alice', goodGirl: 'bob', updatedAt: serverTimestamp() }));
+    // Alice can't now switch to Good Girl (Bob holds it) or assign roles for Bob.
+    await assertFails(setDoc(roles('alice'), { goodBoy: null, goodGirl: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(roles('alice'), { goodBoy: 'bob', goodGirl: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db('mallory'), 'couples/c1/shared/roles')));
+  });
+
+  test('roles: you may switch while the other role is still free', async () => {
+    const roles = (uid) => doc(db(uid), 'couples/c1/shared/roles');
+    await assertSucceeds(setDoc(roles('alice'), { goodBoy: 'alice', goodGirl: null, updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(roles('alice'), { goodBoy: null, goodGirl: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(roles('alice'), { goodBoy: 'alice', goodGirl: 'alice', updatedAt: serverTimestamp() }));
+  });
+
   test('members cannot be removed or swapped', async () => {
     await assertFails(updateDoc(doc(db('alice'), 'couples', 'c1'), { members: ['alice', 'mallory'] }));
     await assertFails(updateDoc(doc(db('alice'), 'couples', 'c1'), { members: ['alice'] }));

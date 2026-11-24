@@ -7,6 +7,7 @@ rules_version = '2';
 //   invites/{code}                     -> { coupleId, createdBy, expiresAt, usedBy }
 //   couples/{coupleId}/names/{namerId} -> { nameForPartner, updatedAt }  the name namerId gives the other
 //   couples/{coupleId}/shared/meetup   -> { at, updatedBy, updatedAt }
+//   couples/{coupleId}/shared/roles    -> { goodBoy, goodGirl, updatedAt }   uids; who receives which points
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -17,6 +18,20 @@ service cloud.firestore {
     function invitePath(code) { return /databases/$(database)/documents/invites/$(code); }
     function isMember(coupleId) {
       return signedIn() && exists(couplePath(coupleId)) && me() in get(couplePath(coupleId)).data.members;
+    }
+    // A role slot may become me, stay as it was, or be cleared only if it was me.
+    function slotOk(next, prev) {
+      return next == me() || next == prev || (next == null && prev == me());
+    }
+    function rolesWriteOk(old, new) {
+      let nb = new.get('goodBoy', null);
+      let ng = new.get('goodGirl', null);
+      let ob = old.get('goodBoy', null);
+      let og = old.get('goodGirl', null);
+      return (nb == me()) != (ng == me())
+        && slotOk(nb, ob) && slotOk(ng, og)
+        && (nb != me() || ob == null || ob == me())
+        && (ng != me() || og == null || og == me());
     }
     function onlyChanged(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
@@ -68,6 +83,16 @@ service cloud.firestore {
           && request.resource.data.nameForPartner.size() > 0
           && request.resource.data.nameForPartner.size() <= 24
           && request.resource.data.updatedAt == request.time;
+      }
+
+      // Each person can only put themself into one role, can't take a role the
+      // partner already holds, and can't move or remove the partner.
+      match /shared/roles {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['goodBoy', 'goodGirl', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time
+          && rolesWriteOk(resource == null ? {} : resource.data, request.resource.data);
       }
 
       match /shared/meetup {

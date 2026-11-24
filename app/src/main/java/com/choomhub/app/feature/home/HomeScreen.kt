@@ -28,6 +28,7 @@ import com.choomhub.app.feature.home.meetup.MeetupCountdownCard
 import com.choomhub.app.feature.home.meetup.MeetupViewModel
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.PointBalances
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.SharedCatStatus
 import com.choomhub.app.feature.home.component.GestureSection
 import com.choomhub.app.feature.home.component.HomeHeader
@@ -73,7 +74,7 @@ fun HomeScreen(
 internal fun affectionNoticeText(kind: AffectionKind): String {
     val what = when (kind) {
         AffectionKind.Hug -> "Hugs"
-        AffectionKind.Kiss -> "Kisses"
+        AffectionKind.ForeheadKiss -> "Forehead kisses"
         AffectionKind.HeadPats -> "Head pats"
         AffectionKind.TomatoDelivery -> "Tomato deliveries"
     }
@@ -132,7 +133,7 @@ fun HomeContent(
                     item(key = "partner") { PartnerMoodCard(state.partner, gutter) }
                     item(key = "snap") { LatestSnapSection(state.snap, gutter) }
                     item(key = "gestures") { GestureSection(onAffection, gutter) }
-                    item(key = "points") { PointsSection(state.points, gutter) }
+                    item(key = "points") { PointsSection(state.points, state.myRole, state.partnerName, gutter) }
                     item(key = "cat") { SharedCatSection(state.cat, gutter) }
                     if (state.isSampleData) {
                         item(key = "sample") { SampleDataNote(gutter) }
@@ -157,6 +158,8 @@ private fun HomeContentPreview() {
                     partner = PartnerMoodUi("Wren", Mood.Sleepy, "headphones on, ignoring the rain", "12 min ago"),
                     snap = SnapUi("Wren", "the crows are back on the wire", ZonedDateTime.now(), "47 min ago", isNew = true),
                     points = PointBalances(goodBoy = 128, goodGirl = 142),
+                    myRole = PointsRole.GoodBoy,
+                    partnerName = "Wren",
                     cat = SharedCatStatus(isAdopted = false, name = null),
                     isSampleData = true,
                 ),

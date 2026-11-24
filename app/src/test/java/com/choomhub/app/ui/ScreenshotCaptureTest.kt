@@ -16,6 +16,7 @@ import com.choomhub.app.domain.model.SpaceState
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.choomhub.app.testing.FakeSpaceRepository
 import com.choomhub.app.domain.model.CoupleNames
+import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.Meetup
 import java.time.Duration
 import java.time.Instant
@@ -49,7 +50,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreenshotCaptureTest {
 
-    private val fake = FakeProfileRepository(CoupleNames(partnerName = "Wren", myName = null))
+    private val fake = FakeProfileRepository(CoupleNames(partnerName = "Wren", myName = null, myRole = PointsRole.GoodBoy))
 
     @BindValue
     @JvmField
