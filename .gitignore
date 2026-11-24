@@ -39,3 +39,6 @@ desktop.ini
 
 # --- Logs ---
 *.log
+
+# --- Files the Claude desktop app drops into the folder ---
+Claude outputs/

@@ -17,9 +17,9 @@ size. Dependencies already flow one way, so modules can be extracted later witho
 
 **Date:** 2026-11-24 · **Status:** Accepted
 
-The initial spec sketched an `app/` package. Under the `com.afterglow.app` namespace that produces
-`com.afterglow.app.app`, which reads badly, so root composables (`AfterglowApp`) live in
-`com.afterglow.app.ui`.
+The initial spec sketched an `app/` package. Under the `com.choomhub.app` namespace that produces
+`com.choomhub.app.app`, which reads badly, so root composables (`ChoomHubApp`) live in
+`com.choomhub.app.ui`.
 
 ## ADR-003: AGP 9 built-in Kotlin, KSP for annotation processing
 

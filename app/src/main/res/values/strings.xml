@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Display name. Change here to rebrand the launcher label. -->
-    <string name="app_name">Afterglow</string>
+    <string name="app_name">ChoomHub</string>
     <string name="app_tagline">A little world for two.</string>
 </resources>

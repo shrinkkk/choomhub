@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Afterglow"
+rootProject.name = "ChoomHub"
 include(":app")

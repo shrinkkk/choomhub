@@ -1,4 +1,4 @@
-# Central dependency catalog for Afterglow.
+# Central dependency catalog for ChoomHub.
 # Versions were checked against Google Maven / Maven Central / Gradle Plugin Portal
 # metadata on 2026-11-24 (latest stable, non-preview releases).
 # Only dependencies that the code actually uses live here. Future libraries

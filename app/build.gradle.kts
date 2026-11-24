@@ -25,7 +25,7 @@ fun localConfig(key: String): String =
     (localProperties.getProperty(key) ?: "").replace("\"", "\\\"")
 
 android {
-    namespace = "com.afterglow.app"
+    namespace = "com.choomhub.app"
     compileSdk {
         version = release(libs.versions.compileSdk.get().toInt()) {
             minorApiLevel = libs.versions.compileSdkMinor.get().toInt()
@@ -33,7 +33,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.afterglow.app"
+        applicationId = "com.choomhub.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
@@ -41,8 +41,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "SUPABASE_URL", "\"${localConfig("afterglow.supabase.url")}\"")
-        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${localConfig("afterglow.supabase.publishableKey")}\"")
+        buildConfigField("String", "SUPABASE_URL", "\"${localConfig("choomhub.supabase.url")}\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${localConfig("choomhub.supabase.publishableKey")}\"")
     }
 
     buildTypes {

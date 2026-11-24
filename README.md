@@ -1,8 +1,8 @@
-# Afterglow · ChoomHub
+# ChoomHub
 
 *A little world for two.*
 
-Afterglow (project name **ChoomHub**) is a private Android app for exactly two people: a small,
+ChoomHub is a private Android app for exactly two people: a small,
 cozy, slightly gloomy shared space for moods, snaps, letters, affection, playful points, a shared
 black cat and a lot of tomatoes. It is not a social network: no public profiles, feeds, ads or
 monetisation.
@@ -25,7 +25,7 @@ The full feature roadmap lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 What exists **today**:
 
-- A buildable single-module Android project (`com.afterglow.app`).
+- A buildable single-module Android project (`com.choomhub.app`).
 - A custom dark design system: palette, typography, shapes, spacing, cards, buttons, badges,
   hand-drawn Canvas illustrations (moon, sparkles, tomato, black cat, rainy window, love letter,
   polaroids) and custom navigation icons.

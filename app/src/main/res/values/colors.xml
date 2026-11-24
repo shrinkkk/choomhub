@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Only colours needed outside Compose (window, launcher icon). -->
-    <color name="afterglow_night">#FF14121B</color>
+    <color name="choomhub_night">#FF14121B</color>
 </resources>

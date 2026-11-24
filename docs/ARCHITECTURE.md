@@ -24,18 +24,18 @@ Room, Supabase and sync are planned (sections 4 to 6).
 ### Package layout (actual)
 
 ```
-com.afterglow.app
-├── AfterglowApplication.kt        @HiltAndroidApp
+com.choomhub.app
+├── ChoomHubApplication.kt        @HiltAndroidApp
 ├── MainActivity.kt                edge-to-edge, theme, reduced-motion flag
-├── ui/AfterglowApp.kt             root scaffold: backdrop, bottom bar, snackbar, NavHost
+├── ui/ChoomHubApp.kt             root scaffold: backdrop, bottom bar, snackbar, NavHost
 ├── core/
 │   ├── common/                    TimeLabels, Clock provider (Hilt)
 │   ├── designsystem/
-│   │   ├── theme/                 Color, Type, Shape, Spacing, Motion, AfterglowTheme
+│   │   ├── theme/                 Color, Type, Shape, Spacing, Motion, ChoomHubTheme
 │   │   ├── component/             cards, buttons, badges, headers, backdrop, ComingSoonScreen
 │   │   ├── illustration/          Canvas art: moon, sparkles, tomato, cat, scenes, glyphs
 │   │   └── icon/                  custom line icons (ImageVector)
-│   ├── navigation/                TopLevelDestination, AfterglowBottomBar
+│   ├── navigation/                TopLevelDestination, ChoomHubBottomBar
 │   └── network/BackendConfig.kt   build-time backend config (unused until Supabase lands)
 ├── domain/
 │   ├── model/                     Member, Mood, PartnerMood, Snap, PointBalances, ...
@@ -52,7 +52,7 @@ com.afterglow.app
 ```
 
 The original plan listed a top-level `app/` package; root UI lives in `ui/` instead, to avoid a
-`com.afterglow.app.app` package. Packages such as `core/database`, `core/sync`,
+`com.choomhub.app.app` package. Packages such as `core/database`, `core/sync`,
 `core/notifications`, `data/local`, `data/remote` and `feature/widget` are created when their
 first real code arrives, not as empty placeholders.
 
@@ -74,13 +74,13 @@ first real code arrives, not as empty placeholders.
 - **Time** comes from an injected `java.time.Clock`, so time-dependent logic is deterministic in
   tests.
 - **Navigation**: each feature owns a `@Serializable` route object and a
-  `NavGraphBuilder.xxxScreen()` extension; `AfterglowApp` composes them.
+  `NavGraphBuilder.xxxScreen()` extension; `ChoomHubApp` composes them.
   `TopLevelDestination` drives the bottom bar.
 
 ## 3. Design system (implemented)
 
-- `AfterglowTheme` wraps `MaterialTheme` with a custom dark `ColorScheme` and exposes extra tokens
-  through `AfterglowTheme.colors` and `AfterglowTheme.spacing` (CompositionLocals).
+- `ChoomHubTheme` wraps `MaterialTheme` with a custom dark `ColorScheme` and exposes extra tokens
+  through `ChoomHubTheme.colors` and `ChoomHubTheme.spacing` (CompositionLocals).
 - The app is **always dark** by design; no light theme, no dynamic colour.
 - Typography: platform serif for display/titles (letters, paperbacks), default sans for body.
   Fonts are system fonts so nothing is bundled yet.
@@ -186,8 +186,8 @@ Backend values are injected at build time from the **git-ignored** `local.proper
 ```properties
 # local.properties (never committed)
 sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
-afterglow.supabase.url=https://YOUR-PROJECT.supabase.co
-afterglow.supabase.publishableKey=YOUR_PUBLISHABLE_OR_ANON_KEY
+choomhub.supabase.url=https://YOUR-PROJECT.supabase.co
+choomhub.supabase.publishableKey=YOUR_PUBLISHABLE_OR_ANON_KEY
 ```
 
 When the keys are absent (the current state) the build still works, `BackendConfig.isConfigured`
