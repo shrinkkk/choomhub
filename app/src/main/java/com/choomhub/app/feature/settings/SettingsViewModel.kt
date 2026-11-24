@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.choomhub.app.domain.model.CoupleNames
 import com.choomhub.app.domain.model.NameRules
+import com.choomhub.app.domain.model.SpaceState
 import com.choomhub.app.domain.repository.ProfileRepository
+import com.choomhub.app.domain.repository.SpaceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +17,19 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
+    private val spaceRepository: SpaceRepository,
 ) : ViewModel() {
+
+    val space: StateFlow<SpaceState?> = spaceRepository.observeSpace()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun newInviteCode() {
+        viewModelScope.launch { spaceRepository.refreshInvite() }
+    }
+
+    fun signOut() {
+        viewModelScope.launch { spaceRepository.signOut() }
+    }
 
     val names: StateFlow<CoupleNames> = profileRepository.observeNames()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CoupleNames(partnerName = null, myName = null))

@@ -1,0 +1,45 @@
+package com.choomhub.app.domain.model
+
+import com.choomhub.app.data.firebase.FirebaseSpaceRepository.Companion.spaceStateFrom
+import com.choomhub.app.ui.AppGate
+import com.choomhub.app.ui.AppViewModel.Companion.gateFor
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class SpaceTest {
+    private val me = Account("me", null)
+
+    @Test
+    fun `invite codes are 8 unambiguous characters and survive sloppy typing`() {
+        repeat(200) {
+            val code = InviteCodes.generate()
+            assertTrue(code, InviteCodes.isWellFormed(code))
+            assertFalse(code.any { it in "01ILO" })
+        }
+        assertEquals("ABCD2345", InviteCodes.normalize(" abcd-2345 "))
+        assertEquals("ABCD 2345", InviteCodes.display("ABCD2345"))
+        assertFalse(InviteCodes.isWellFormed("ABC"))
+    }
+
+    @Test
+    fun `couple document maps to waiting, paired or no space`() {
+        assertEquals(SpaceState.Waiting(me, "c1", "CODE2345"), spaceStateFrom(me, "c1", listOf("me"), "CODE2345"))
+        assertEquals(SpaceState.Paired(me, "c1", "her"), spaceStateFrom(me, "c1", listOf("me", "her"), "CODE2345"))
+        assertEquals(SpaceState.NoSpace(me), spaceStateFrom(me, "c1", null, null))
+        assertEquals(SpaceState.NoSpace(me), spaceStateFrom(me, "c1", listOf("someone"), null))
+    }
+
+    @Test
+    fun `gate goes sign in, pairing, naming, main`() {
+        val unnamed = CoupleNames(partnerName = null, myName = null)
+        val named = CoupleNames(partnerName = "Wren", myName = null)
+        assertEquals(AppGate.SignIn, gateFor(SpaceState.SignedOut, named))
+        assertEquals(AppGate.Pairing, gateFor(SpaceState.NoSpace(me), named))
+        assertEquals(AppGate.Onboarding, gateFor(SpaceState.Waiting(me, "c", "X"), unnamed))
+        assertEquals(AppGate.Main, gateFor(SpaceState.Waiting(me, "c", "X"), named))
+        assertEquals(AppGate.Main, gateFor(SpaceState.Paired(me, "c", "her"), named))
+        assertEquals(AppGate.Onboarding, gateFor(SpaceState.DeviceOnly, unnamed))
+    }
+}

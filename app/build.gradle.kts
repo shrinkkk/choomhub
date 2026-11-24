@@ -10,11 +10,12 @@ plugins {
 
 /**
  * Backend configuration is read from the (git-ignored) local.properties file so
- * that no project URLs or keys ever land in the repository. Only values that are
- * safe to ship inside a public mobile app belong here (Supabase project URL and
- * the publishable/anon key). Service-role keys and Firebase service-account
- * credentials must NEVER be placed here; they live only in Supabase Edge
- * Function secrets. See docs/ARCHITECTURE.md -> "Configuration".
+ * that no project identifiers land in the repository. Only values that are
+ * safe to ship inside a public mobile app belong here (Firebase project id,
+ * app id, API key, Google web client id); access is enforced by Firestore
+ * security rules. The Firebase service-account key must NEVER be placed here;
+ * it lives only in the push Worker's secrets. See docs/ARCHITECTURE.md ->
+ * "Configuration".
  */
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -41,8 +42,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "SUPABASE_URL", "\"${localConfig("choomhub.supabase.url")}\"")
-        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${localConfig("choomhub.supabase.publishableKey")}\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${localConfig("choomhub.firebase.projectId")}\"")
+        buildConfigField("String", "FIREBASE_APP_ID", "\"${localConfig("choomhub.firebase.appId")}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${localConfig("choomhub.firebase.apiKey")}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localConfig("choomhub.firebase.webClientId")}\"")
     }
 
     buildTypes {
@@ -82,6 +85,14 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.androidx.datastore.preferences)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

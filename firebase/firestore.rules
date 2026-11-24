@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// ChoomHub security rules.
+// Model (see docs/ARCHITECTURE.md, "Firestore data model"):
+//   users/{uid}                        -> { coupleId }               private pointer to your space
+//   couples/{coupleId}                 -> { members, createdBy, createdAt, inviteCode }
+//   invites/{code}                     -> { coupleId, createdBy, expiresAt, usedBy }
+//   couples/{coupleId}/names/{namerId} -> { nameForPartner, updatedAt }  the name namerId gives the other
+//   couples/{coupleId}/shared/meetup   -> { at, updatedBy, updatedAt }
+// Everything not matched below is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function couplePath(coupleId) { return /databases/$(database)/documents/couples/$(coupleId); }
+    function invitePath(code) { return /databases/$(database)/documents/invites/$(code); }
+    function isMember(coupleId) {
+      return signedIn() && exists(couplePath(coupleId)) && me() in get(couplePath(coupleId)).data.members;
+    }
+    function onlyChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    match /users/{userId} {
+      allow get: if signedIn() && me() == userId;
+      allow create, update: if signedIn() && me() == userId
+        && request.resource.data.keys().hasOnly(['coupleId', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (request.resource.data.coupleId == null
+            || me() in getAfter(couplePath(request.resource.data.coupleId)).data.members);
+    }
+
+    match /couples/{coupleId} {
+      allow get: if isMember(coupleId);
+
+      // Start a space with only yourself in it; the invite is created in the same batch.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['members', 'createdBy', 'createdAt', 'inviteCode'])
+        && request.resource.data.members == [me()]
+        && request.resource.data.createdBy == me()
+        && request.resource.data.createdAt == request.time
+        && getAfter(invitePath(request.resource.data.inviteCode)).data.coupleId == coupleId;
+
+      allow update: if signedIn() && (isJoin() || isInviteRefresh());
+
+      // The second person adds themself, consuming the invite in the same batch.
+      function isJoin() {
+        return resource.data.members.size() == 1
+          && !(me() in resource.data.members)
+          && request.resource.data.members == resource.data.members.concat([me()])
+          && onlyChanged(['members'])
+          && getAfter(invitePath(resource.data.inviteCode)).data.usedBy == me();
+      }
+
+      // While still alone, the creator can swap in a fresh invite (e.g. the old one expired).
+      function isInviteRefresh() {
+        return resource.data.members == [me()]
+          && onlyChanged(['inviteCode'])
+          && getAfter(invitePath(request.resource.data.inviteCode)).data.coupleId == coupleId;
+      }
+
+      match /names/{namerId} {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId) && me() == namerId
+          && request.resource.data.keys().hasOnly(['nameForPartner', 'updatedAt'])
+          && request.resource.data.nameForPartner is string
+          && request.resource.data.nameForPartner.size() > 0
+          && request.resource.data.nameForPartner.size() <= 24
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      match /shared/meetup {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['at', 'updatedBy', 'updatedAt'])
+          && (request.resource.data.at == null || request.resource.data.at is timestamp)
+          && request.resource.data.updatedBy == me()
+          && request.resource.data.updatedAt == request.time;
+      }
+    }
+
+    // Holding the code is what lets you look it up; codes can't be listed or enumerated.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['coupleId', 'createdBy', 'expiresAt', 'usedBy'])
+        && request.resource.data.createdBy == me()
+        && request.resource.data.usedBy == null
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt < request.time + duration.value(3, 'd')
+        && getAfter(couplePath(request.resource.data.coupleId)).data.members == [me()];
+      // Single use, not expired, not by its creator, and only together with joining the couple.
+      allow update: if signedIn()
+        && resource.data.usedBy == null
+        && resource.data.expiresAt > request.time
+        && resource.data.createdBy != me()
+        && onlyChanged(['usedBy'])
+        && request.resource.data.usedBy == me()
+        && me() in getAfter(couplePath(resource.data.coupleId)).data.members;
+    }
+  }
+}

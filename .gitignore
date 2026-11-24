@@ -42,3 +42,8 @@ desktop.ini
 
 # --- Files the Claude desktop app drops into the folder ---
 Claude outputs/
+
+# --- Firebase tooling ---
+firebase/node_modules/
+firebase/*.log
+firebase/.firebase/

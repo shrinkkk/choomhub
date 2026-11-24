@@ -11,6 +11,10 @@ import com.choomhub.app.MainActivity
 import com.choomhub.app.core.navigation.TopLevelDestination
 import com.choomhub.app.data.di.MeetupModule
 import com.choomhub.app.data.di.ProfileModule
+import com.choomhub.app.data.di.SpaceModule
+import com.choomhub.app.domain.model.SpaceState
+import com.choomhub.app.domain.repository.SpaceRepository
+import com.choomhub.app.testing.FakeSpaceRepository
 import com.choomhub.app.domain.model.CoupleNames
 import com.choomhub.app.domain.model.Meetup
 import java.time.Duration
@@ -41,7 +45,7 @@ import java.io.File
  */
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
-@UninstallModules(ProfileModule::class, MeetupModule::class)
+@UninstallModules(ProfileModule::class, MeetupModule::class, SpaceModule::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScreenshotCaptureTest {
 
@@ -56,6 +60,12 @@ class ScreenshotCaptureTest {
     @BindValue
     @JvmField
     val meetupRepository: MeetupRepository = meetups
+
+    private val spaces = FakeSpaceRepository()
+
+    @BindValue
+    @JvmField
+    val spaceRepository: SpaceRepository = spaces
 
     private val hiltRule = HiltAndroidRule(this)
     private val composeRule = createAndroidComposeRule<MainActivity>()
@@ -99,6 +109,19 @@ class ScreenshotCaptureTest {
             meetups.meetup.value = Meetup(Instant.now().plus(Duration.ofDays(days)).plusSeconds(3 * 3600 + 25 * 60 + 7))
             capture("countdown_$name")
         }
+    }
+
+    /** Sign-in, pairing, and Settings while waiting for the other person. */
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-xxhdpi")
+    fun accountScreens() {
+        spaces.space.value = SpaceState.SignedOut
+        capture("phone_sign_in")
+        spaces.space.value = SpaceState.NoSpace(spaces.me)
+        capture("phone_pairing")
+        spaces.space.value = SpaceState.Waiting(spaces.me, "c1", "RVN4KEY7")
+        composeRule.onNodeWithTag(TopLevelDestination.Settings.testTag).performClick()
+        capture("phone_settings_waiting")
     }
 
     /** Small, older-phone size to check nothing clips. */

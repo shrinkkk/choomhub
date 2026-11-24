@@ -30,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -181,9 +182,13 @@ private val DigitStyle: TextStyle
 
 @Composable
 private fun longWhen(at: Instant, zone: ZoneId): String {
-    val date = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()).format(at.atZone(zone))
+    val date = DateTimeFormatter.ofPattern("EEE d MMM", currentLocale()).format(at.atZone(zone))
     return "$date · ${shortTime(at, zone)}"
 }
+
+/** The UI locale, read so Compose recomposes if the phone's language changes. */
+@Composable
+private fun currentLocale(): Locale = LocalConfiguration.current.locales[0]
 
 @Composable
 private fun shortTime(at: Instant, zone: ZoneId): String =
@@ -241,7 +246,7 @@ private fun ScheduleMeetupDialogs(
             containerColor = colors.surfaceElevated,
             title = {
                 Text(
-                    DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()).format(date),
+                    DateTimeFormatter.ofPattern("EEEE d MMMM", currentLocale()).format(date),
                     style = MaterialTheme.typography.headlineSmall,
                     color = colors.textMain,
                 )

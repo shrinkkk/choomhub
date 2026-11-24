@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -47,7 +48,9 @@ import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
-import com.choomhub.app.core.network.BackendConfig
+import com.choomhub.app.domain.model.InviteCodes
+import com.choomhub.app.domain.model.SpaceState
+import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.CoupleNames
 import kotlinx.serialization.Serializable
 
@@ -61,7 +64,17 @@ fun NavGraphBuilder.settingsScreen(contentPadding: PaddingValues) {
 @Composable
 fun SettingsScreen(contentPadding: PaddingValues, viewModel: SettingsViewModel = hiltViewModel()) {
     val names by viewModel.names.collectAsStateWithLifecycle()
-    SettingsContent(names = names, contentPadding = contentPadding, onRenamePartner = viewModel::renamePartner)
+    val space by viewModel.space.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    SettingsContent(
+        names = names,
+        space = space,
+        contentPadding = contentPadding,
+        onRenamePartner = viewModel::renamePartner,
+        onShareCode = { code -> context.shareInviteCode(code) },
+        onNewCode = viewModel::newInviteCode,
+        onSignOut = viewModel::signOut,
+    )
 }
 
 /**
@@ -73,6 +86,10 @@ fun SettingsContent(
     names: CoupleNames,
     contentPadding: PaddingValues,
     onRenamePartner: (String) -> String?,
+    space: SpaceState? = SpaceState.DeviceOnly,
+    onShareCode: (String) -> Unit = {},
+    onNewCode: () -> Unit = {},
+    onSignOut: () -> Unit = {},
 ) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
@@ -120,18 +137,37 @@ fun SettingsContent(
             }
 
             SettingsGroup("Your space") {
-                SettingsRow("Shared space", "Not connected yet", badge = "later")
-                SettingsRow(
-                    title = "Backend",
-                    value = if (BackendConfig.isConfigured) {
-                        "Configured, not used yet"
-                    } else {
-                        "Not configured · showing sample data"
-                    },
-                    badge = if (BackendConfig.isConfigured) "ready" else "sample",
-                    badgeColor = if (BackendConfig.isConfigured) colors.leaf else colors.textSecondary,
-                    divider = false,
-                )
+                when (space) {
+                    is SpaceState.Waiting -> {
+                        SettingsRow(
+                            title = "Waiting for them to join",
+                            value = "Invite code ${InviteCodes.display(space.inviteCode)} \u00B7 works once, for 48 hours",
+                            badge = "share",
+                            onClick = { onShareCode(space.inviteCode) },
+                            modifier = Modifier.testTag("settings_invite"),
+                        )
+                        SettingsRow("New code", "If the old one expired or got lost", badge = "new", onClick = onNewCode)
+                    }
+                    is SpaceState.Paired -> SettingsRow("Shared space", "Connected. Everything here syncs between your phones.", badge = "synced", badgeColor = colors.leaf)
+                    SpaceState.DeviceOnly, null -> SettingsRow(
+                        "Shared space",
+                        "Not set up in this build \u00B7 everything stays on this phone",
+                        badge = "device",
+                        badgeColor = colors.textSecondary,
+                    )
+                    else -> SettingsRow("Shared space", "Not connected yet", badge = "later")
+                }
+                val account = space?.accountOrNull
+                if (account != null) {
+                    SettingsRow(
+                        title = "Signed in",
+                        value = account.email ?: "Google account",
+                        badge = "sign out",
+                        badgeColor = colors.textSecondary,
+                        onClick = onSignOut,
+                        divider = false,
+                    )
+                }
             }
 
             SettingsGroup("Notifications") {
@@ -234,4 +270,11 @@ private fun SettingsRow(
         }
     }
     if (divider) HorizontalDivider(color = ChoomHubTheme.colors.outline.copy(alpha = 0.4f))
+}
+
+/** Opens the system share sheet with the invite code. */
+private fun android.content.Context.shareInviteCode(code: String) {
+    val text = "Join me on ChoomHub. Invite code: ${InviteCodes.display(code)} (works once, for 48 hours)"
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text)
+    startActivity(android.content.Intent.createChooser(send, "Share invite code"))
 }

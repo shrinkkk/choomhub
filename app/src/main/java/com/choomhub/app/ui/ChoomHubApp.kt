@@ -21,6 +21,8 @@ import com.choomhub.app.core.designsystem.component.NightSkyBackground
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.core.navigation.ChoomHubBottomBar
 import com.choomhub.app.core.navigation.TopLevelDestination
+import com.choomhub.app.feature.account.PairingScreen
+import com.choomhub.app.feature.account.SignInScreen
 import com.choomhub.app.feature.activities.activitiesScreen
 import com.choomhub.app.feature.home.HomeRoute
 import com.choomhub.app.feature.home.homeScreen
@@ -30,8 +32,8 @@ import com.choomhub.app.feature.settings.settingsScreen
 import com.choomhub.app.feature.world.ourWorldScreen
 
 /**
- * Root of the UI: night-sky backdrop, then either first-run onboarding or the
- * main app (bottom navigation, snackbar host and the navigation graph).
+ * Root of the UI: night-sky backdrop, then sign-in, pairing, first-run naming
+ * or the main app (bottom navigation, snackbar host and the navigation graph).
  */
 @Composable
 fun ChoomHubApp(appViewModel: AppViewModel = hiltViewModel()) {
@@ -40,6 +42,8 @@ fun ChoomHubApp(appViewModel: AppViewModel = hiltViewModel()) {
         Crossfade(targetState = gate, label = "appGate") { current ->
             when (current) {
                 AppGate.Loading -> Unit
+                AppGate.SignIn -> SignInScreen()
+                AppGate.Pairing -> PairingScreen()
                 AppGate.Onboarding -> OnboardingScreen()
                 AppGate.Main -> MainScaffold()
             }
