@@ -25,30 +25,35 @@ Room, Supabase and sync are planned (sections 4 to 6).
 
 ```
 com.choomhub.app
-├── ChoomHubApplication.kt        @HiltAndroidApp
+├── ChoomHubApplication.kt         @HiltAndroidApp
 ├── MainActivity.kt                edge-to-edge, theme, reduced-motion flag
-├── ui/ChoomHubApp.kt             root scaffold: backdrop, bottom bar, snackbar, NavHost
+├── ui/
+│   ├── ChoomHubApp.kt             root: backdrop, onboarding/main gate, bottom bar, snackbar, NavHost
+│   └── AppViewModel.kt            decides Loading / Onboarding / Main from the profile
 ├── core/
 │   ├── common/                    TimeLabels, Clock provider (Hilt)
+│   ├── datastore/                 DataStore<Preferences> provider (Hilt)
 │   ├── designsystem/
-│   │   ├── theme/                 Color, Type, Shape, Spacing, Motion, ChoomHubTheme
-│   │   ├── component/             cards, buttons, badges, headers, backdrop, ComingSoonScreen
-│   │   ├── illustration/          Canvas art: moon, sparkles, tomato, cat, scenes, glyphs
-│   │   └── icon/                  custom line icons (ImageVector)
+│   │   ├── theme/                 Color, Type (bundled fonts), Shape, Spacing, Motion, ChoomHubTheme
+│   │   ├── component/             cards, buttons, gesture tiles, text field, badges, film grain, ComingSoonScreen
+│   │   ├── illustration/          Canvas art: rotating gothic motifs, crows, cat, scenes, tomato
+│   │   └── icon/                  custom line icons (navigation + gestures)
 │   ├── navigation/                TopLevelDestination, ChoomHubBottomBar
 │   └── network/BackendConfig.kt   build-time backend config (unused until Supabase lands)
 ├── domain/
-│   ├── model/                     Member, Mood, PartnerMood, Snap, PointBalances, ...
-│   └── repository/                HomeRepository (interface)
+│   ├── model/                     CoupleNames + NameRules, Member, Mood, PartnerMood, Snap, ...
+│   └── repository/                HomeRepository, ProfileRepository (interfaces)
 ├── data/
-│   ├── sample/                    SampleHomeRepository (local sample data)
-│   └── di/                        DataModule: binds interfaces to implementations
+│   ├── profile/                   DataStoreProfileRepository (names, device-local for now)
+│   ├── sample/                    SampleHomeRepository (real names + sample content)
+│   └── di/                        DataModule, ProfileModule: interface bindings
 └── feature/
+    ├── onboarding/                "What do you call them?" first-run screen + ViewModel
     ├── home/                      HomeRoute, HomeViewModel, HomeUiState, HomeScreen, components
     ├── messages/                  placeholder
     ├── activities/                placeholder
     ├── world/                     "Our World" placeholder
-    └── settings/                  status screen
+    └── settings/                  names (inline rename) and status
 ```
 
 The original plan listed a top-level `app/` package; root UI lives in `ui/` instead, to avoid a
@@ -56,7 +61,7 @@ The original plan listed a top-level `app/` package; root UI lives in `ui/` inst
 `core/notifications`, `data/local`, `data/remote` and `feature/widget` are created when their
 first real code arrives, not as empty placeholders.
 
-## 2. MVVM and the repository pattern (implemented for Home)
+## 2. MVVM and the repository pattern (implemented for Home, Onboarding, Settings)
 
 - **Screens** come in pairs: a stateful entry (`HomeScreen`) that obtains the ViewModel with
   `hiltViewModel()` and collects state with `collectAsStateWithLifecycle()`, and a stateless
@@ -76,18 +81,34 @@ first real code arrives, not as empty placeholders.
 - **Navigation**: each feature owns a `@Serializable` route object and a
   `NavGraphBuilder.xxxScreen()` extension; `ChoomHubApp` composes them.
   `TopLevelDestination` drives the bottom bar.
+- **App gate**: onboarding is not a navigation destination. `AppViewModel` observes the profile
+  and `ChoomHubApp` shows onboarding until the partner has a name, then the main scaffold. Later
+  gates (signed out, not paired) slot in the same way.
+
+### Names: who names whom
+
+Each member's display name is chosen by the *other* member. On a device, `CoupleNames` holds
+`partnerName` (written by this person, via onboarding or Settings) and `myName` (written only by
+sync, from the partner's phone). Today both live in DataStore and `myName` stays empty. With the
+backend, each member row gets a `display_name` that only the partner may update (RLS), the
+values move to Room, and the `ProfileRepository` interface stays the same.
 
 ## 3. Design system (implemented)
 
 - `ChoomHubTheme` wraps `MaterialTheme` with a custom dark `ColorScheme` and exposes extra tokens
   through `ChoomHubTheme.colors` and `ChoomHubTheme.spacing` (CompositionLocals).
-- The app is **always dark** by design; no light theme, no dynamic colour.
-- Typography: platform serif for display/titles (letters, paperbacks), default sans for body.
-  Fonts are system fonts so nothing is bundled yet.
-- Illustrations are drawn with Compose `Canvas` (no bitmaps, no emoji), scale to any size and
-  pick up palette changes automatically.
-- `LocalAmbientMotionEnabled` turns off continuous decorative animation (twinkling stars) when the
-  system "remove animations" setting is on. Tests use this as well.
+- The app is **always dark** by design; no light theme, no dynamic colour. Accents are
+  desaturated (dusty violet, faded rose, old gold, bone) over near-black with a fine film grain.
+- Typography: **Cormorant Garamond** (display, captions; variable weight) and **Space Mono**
+  (labels, eyebrows, timestamps) are bundled under `res/font/`, subset to Latin; body text uses
+  the platform sans. Numbers that matter use lining figures.
+- Illustrations are drawn with Compose `Canvas`. Complex shapes (raven, moth, candle, cat,
+  cobweb) are SVG path data on a 100 × 100 grid in `MotifPaths.kt`, parsed once and drawn
+  through small helpers in `MotifDrawing.kt`; the launcher icon reuses the same raven paths.
+- **Rotating header art**: `GothicMotif.forDate()` picks one of six motifs per three-day window,
+  deterministically from the date, so both phones show the same one.
+- `LocalAmbientMotionEnabled` turns off continuous decorative animation (twinkling stars, candle
+  flicker) when the system "remove animations" setting is on. Tests use this as well.
 
 ## 4. Offline-first approach (planned)
 
@@ -199,12 +220,15 @@ through `supabase secrets set`, never committed.
 
 ## 10. Testing
 
-- **Unit tests** (`src/test`): pure logic (`TimeLabels`) and ViewModels with fake repositories, a
-  fixed `Clock` and `kotlinx-coroutines-test`.
-- **Robolectric UI tests** (`src/test`): launch the real `MainActivity` with Hilt on the JVM,
-  check that Home renders and walk every bottom-nav tab.
-- **Screenshot capture** (`ScreenshotCaptureTest`): renders each tab to PNG under
-  `app/build/outputs/screenshots/` for visual review without a device (no pixel comparison).
+- **Unit tests** (`src/test`): pure logic (`TimeLabels`, `NameRules`, motif rotation) and
+  ViewModels with fakes, a fixed `Clock` and `kotlinx-coroutines-test`.
+- **Robolectric UI tests** (`src/test`): launch the real `MainActivity` on the JVM with
+  `HiltTestApplication`. `@UninstallModules(ProfileModule::class)` plus `@BindValue` swap the
+  DataStore profile for `FakeProfileRepository`, so each test chooses whether onboarding has
+  happened. Covered: first-run naming, rename from Settings, every bottom-nav tab, gesture notice.
+- **Screenshot capture** (`ScreenshotCaptureTest`, `MotifGalleryCaptureTest`): renders screens and
+  all header motifs to PNG under `app/build/outputs/screenshots/` for visual review without a
+  device (no pixel comparison).
 - Instrumented (on-device) tests will be added once there is device-specific behaviour (widget,
   notifications).
 

@@ -14,13 +14,22 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Unit tests and Robolectric navigation tests
 - ✅ README, architecture, roadmap and decision docs
 
+## Milestone 1.1: Identity and visual direction ✅
+
+- ✅ Renamed to ChoomHub everywhere (package `com.choomhub.app`)
+- ✅ First-run naming: you name your partner; editable in Settings (device-local until sync)
+- ✅ Darker, less cartoonish look: muted palette, bundled Cormorant Garamond + Space Mono,
+  film grain, line-art gesture icons
+- ✅ Rotating gothic header art (raven, moth, candle, key, moon and crows, cobweb), crows in scenes
+- ✅ Raven-and-moon launcher icon; toned-down copy
+
 ## Milestone 2: Backend foundation and pairing ⬜
 
 - ⬜ Supabase project setup, SQL migrations, RLS policies (`couples`, `members`)
 - ⬜ supabase-kt + Ktor client, configuration from `local.properties`
 - ⬜ Authentication (sign-in method to be decided)
 - ⬜ Couple pairing via single-use invite and server-side validation
-- ⬜ Onboarding flow, real member names and avatars
+- ⬜ Sync names both ways (your name for them → their phone), avatars
 
 ## Milestone 3: Offline-first core ⬜
 
@@ -33,7 +42,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 
 - ⬜ Mood picker, custom description, current activity/status
 - ⬜ Partner mood on Home from real data
-- ⬜ Hugs, kisses, head pats, cuddles, thinking-of-you, comfort, custom affection buttons
+- ⬜ Hugs, kisses, head pats, tomato deliveries, cuddles, thinking-of-you, comfort, custom gestures
 - ⬜ Daily emotional check-ins, stay-with-me mode
 
 ## Milestone 5: Notifications ⬜
@@ -62,6 +71,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 
 ## Milestone 9: Shared cat ⬜
 
+- ⬜ Move the cat from Home to Our World
 - ⬜ Adoption, name, personality
 - ⬜ Feeding, petting, moods (server-validated)
 - ⬜ Accessories, unlockable decorations, animations

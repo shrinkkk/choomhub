@@ -68,7 +68,7 @@ no UI changes. No fake production credentials exist anywhere.
 
 ## ADR-008: Always-dark custom theme, Canvas illustrations, system fonts
 
-**Date:** 2026-11-24 · **Status:** Accepted
+**Date:** 2026-11-24 · **Status:** Partly superseded by ADR-016 (fonts, visual direction)
 
 The identity is intentionally dark, so there is no light theme and no dynamic colour. Artwork is
 drawn in Compose `Canvas` instead of emoji or bitmaps, so it scales, follows the palette and adds
@@ -108,3 +108,65 @@ widget and notification behaviour.
 Private photos, messages and sessions should not be copied into Google cloud backups or
 device-to-device transfers. `allowBackup="false"` plus data-extraction rules exclude everything.
 The shared space is restored from Supabase after sign-in instead.
+
+## ADR-013: One name everywhere: ChoomHub
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+The app, package (`com.choomhub.app`), application ID, code identifiers, resources, config keys
+(`choomhub.supabase.*`) and docs all use ChoomHub. The application ID changed from the first
+prototype build, so that build must be uninstalled; it held no data. Earlier git history still
+contains the working title and is left as is (history is never rewritten).
+
+## ADR-014: Each member names the other
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+On first launch you name your partner; that name is how they appear in the app, on both phones.
+Your own name is whatever your partner chose. Either can be changed at any time from Settings.
+Modelled as `CoupleNames(partnerName, myName)` behind `ProfileRepository`. Server side (later),
+a member's `display_name` will be writable only by the *other* member of the couple via RLS.
+
+## ADR-015: DataStore as interim storage for names
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+Names are needed before Room and sync exist. They are stored in a single Preferences DataStore
+now (the first use of the already-chosen DataStore technology) and will move to Room's members
+table when sync arrives, without changing the repository interface. DataStore files are excluded
+from backups by the existing data-extraction rules.
+
+## ADR-016: Visual direction: alternative-gloomy, not cute (supersedes parts of ADR-008)
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+Feedback on the first prototype: too cartoonish, slightly "AI-generated". Changes: desaturated
+palette, tighter corner radii, film grain, no faces/sparkles/bubbles, line-art gesture icons,
+silhouette-style illustrations, crows and ravens as a recurring motif, plainer copy. ADR-008's
+"system fonts" point is superseded: **Cormorant Garamond** and **Space Mono** are bundled (SIL
+OFL, subset to Latin, about 470 KB total) because type carries most of the mood. Always-dark and
+Canvas illustrations still stand.
+
+## ADR-017: Rotating header art by date
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+The header shows one of six gothic motifs, changing every three days. It is computed purely from
+the calendar date (`GothicMotif.forDate`), so it needs no storage or sync and both phones agree.
+
+## ADR-018: Inline editing instead of dialogs for simple fields
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+Renaming happens inline inside the Settings card rather than in a pop-up dialog. It is calmer,
+keeps context visible, and Compose UI tests could not reliably drive text entry inside a dialog
+window under Robolectric.
+
+## ADR-019: Hilt test bindings for UI tests
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+Robolectric UI tests run under `HiltTestApplication` (set in `robolectric.properties`) and replace
+`ProfileModule` with an in-memory fake via `@UninstallModules` + `@BindValue`. This keeps tests
+independent of on-disk DataStore state. Repository bindings that tests need to swap live in their
+own small Hilt modules for this reason.

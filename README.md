@@ -2,41 +2,46 @@
 
 *A little world for two.*
 
-ChoomHub is a private Android app for exactly two people: a small,
-cozy, slightly gloomy shared space for moods, snaps, letters, affection, playful points, a shared
-black cat and a lot of tomatoes. It is not a social network: no public profiles, feeds, ads or
-monetisation.
+ChoomHub is a private Android app for exactly two people: a small, dark, quiet shared space for
+moods, snaps, letters, gestures, playful points, a shared black cat and a fair number of tomatoes
+and crows. It is not a social network: no public profiles, feeds, ads or monetisation.
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="260" alt="Home screen" />
-  <img src="docs/screenshots/our_world.png" width="260" alt="Our World placeholder" />
-  <img src="docs/screenshots/settings.png" width="260" alt="Settings" />
+  <img src="docs/screenshots/onboarding.png" width="200" alt="First launch: naming your partner" />
+  <img src="docs/screenshots/home.png" width="200" alt="Home screen" />
+  <img src="docs/screenshots/settings.png" width="200" alt="Settings" />
+  <img src="docs/screenshots/motifs.png" width="230" alt="Rotating header motifs" />
 </p>
 
-<sub>Screenshots are rendered on the JVM by `ScreenshotCaptureTest` (Robolectric), not taken on a device.</sub>
+<sub>Screenshots are rendered on the JVM by `ScreenshotCaptureTest` / `MotifGalleryCaptureTest`
+(Robolectric), not taken on a device.</sub>
 
 ## Product vision
 
-Rainy nights, black cats, purple and muted-pink light, polaroids and handwritten letters, cute
-tomatoes. The interface should feel intimate and a little magical while staying readable and calm.
-The full feature roadmap lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+Gloomy and alternative rather than cute: rain, ravens and crows, moths and candles, polaroids,
+old-book serif type with a typewriter edge, dusty violet and faded rose on near-black. Warm without
+being sugary. The full feature roadmap lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Current status: Milestone 1 (foundation and visual prototype)
+## Current status
 
 What exists **today**:
 
 - A buildable single-module Android project (`com.choomhub.app`).
-- A custom dark design system: palette, typography, shapes, spacing, cards, buttons, badges,
-  hand-drawn Canvas illustrations (moon, sparkles, tomato, black cat, rainy window, love letter,
-  polaroids) and custom navigation icons.
-- A polished **home screen** driven by **local sample data** (clearly labelled as such):
-  partner mood, latest snap, affection buttons, Good Boy / Good Girl points, shared-cat teaser.
-- Bottom navigation between Home, Messages, Activities, Our World and Settings. The non-home
-  tabs are honest "coming soon" screens; Settings shows the real configuration status.
-- Unit tests plus Robolectric UI tests that launch the app and walk every tab.
+- A custom dark design system: muted palette, Cormorant Garamond + Space Mono (bundled, OFL),
+  film grain, line-art gesture icons, and hand-drawn Canvas illustrations: a set of six gothic
+  header motifs that rotate every three days, crows on a wire, the shared cat watching a crow
+  through a rainy window, a sealed letter, tarot cards, polaroids.
+- **Naming**: on first launch you name your partner; you can rename them in Settings. Each person
+  names the other, so the name your partner picks for you is the one you'll see once the two
+  phones are connected. Stored on the device for now.
+- A **home screen** with your partner's (real) name and **sample** mood, latest snap, gesture
+  buttons, Good Boy / Good Girl points and the shared cat, clearly labelled as sample data.
+- Bottom navigation between Home, Messages, Activities, Our World and Settings. Non-home tabs are
+  honest "coming soon" screens.
+- Unit tests plus Robolectric UI tests (onboarding, renaming, navigation, screenshot capture).
 
-What does **not** exist yet: login, Supabase, Room, sync, notifications, widgets, or any feature
-that actually sends something. The affection buttons say so when tapped.
+What does **not** exist yet: accounts, Supabase, Room, sync, notifications, widgets, or anything
+that actually sends something to the other phone. The gesture buttons say so when tapped.
 
 ## Technology stack
 
@@ -46,8 +51,9 @@ that actually sends something. The affection buttons say so when tapped.
 | Architecture | MVVM + Clean Architecture layering, feature packages | Yes |
 | DI | Hilt (KSP) | Yes |
 | Navigation | Navigation Compose with type-safe `@Serializable` routes | Yes |
+| Preferences | DataStore (Preferences) | Yes (names, interim) |
 | Build | Gradle Kotlin DSL, version catalog, AGP 9 built-in Kotlin | Yes |
-| Local DB / prefs / background | Room, DataStore, WorkManager | Planned |
+| Local DB / background | Room, WorkManager | Planned |
 | Images / widgets | Coil, Jetpack Glance | Planned |
 | Backend | Supabase (Auth, Postgres + RLS, Storage, Realtime, Edge Functions) via supabase-kt | Planned |
 | Push | Firebase Cloud Messaging (HTTP v1, sent from an Edge Function) | Planned |
@@ -80,11 +86,11 @@ From a terminal:
 ./gradlew lintDebug              # Android lint
 ```
 
-After `testDebugUnitTest`, rendered screenshots of every tab are written to
-`app/build/outputs/screenshots/`.
+After `testDebugUnitTest`, rendered screenshots of every screen (and the motif gallery) are
+written to `app/build/outputs/screenshots/`.
 
-No backend credentials are needed for this milestone. See
-[docs/ARCHITECTURE.md § Configuration](docs/ARCHITECTURE.md#configuration) for how they will be
+No backend credentials are needed yet. See
+[docs/ARCHITECTURE.md § Configuration](docs/ARCHITECTURE.md#9-configuration) for how they will be
 supplied later.
 
 ## Documentation
@@ -94,9 +100,7 @@ supplied later.
 - [docs/ROADMAP.md](docs/ROADMAP.md): milestones and status.
 - [docs/DECISIONS.md](docs/DECISIONS.md): architectural decision log.
 
-## Planned feature roadmap (summary)
+## Licences
 
-Moods and check-ins · affection gestures · snaps with a home-screen widget · messages, voice notes
-and letters · productivity achievements and a ledger-based points system · shared cat · tomato
-universe · shared room, memories, daily questions and mini-games. Details and order in
-[docs/ROADMAP.md](docs/ROADMAP.md).
+Bundled fonts: Cormorant Garamond and Space Mono, both under the SIL Open Font License 1.1
+(texts in `app/src/main/assets/licenses/`).
