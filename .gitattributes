@@ -1,0 +1,8 @@
+# Normalise line endings so the repo behaves the same on Windows and Linux.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+gradlew text eol=lf
+*.jar binary
+*.png binary
+*.webp binary

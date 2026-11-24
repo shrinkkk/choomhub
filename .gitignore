@@ -1,0 +1,41 @@
+# --- Gradle / build outputs ---
+.gradle/
+build/
+**/build/
+.kotlin/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+output-metadata.json
+
+# --- Local machine configuration (contains SDK path and backend config) ---
+local.properties
+
+# --- Android Studio / IntelliJ ---
+.idea/
+*.iml
+.navigation/
+.externalNativeBuild/
+.cxx/
+
+# --- Secrets & signing (never commit) ---
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+.env
+.env.*
+google-services.json
+*service-account*.json
+supabase/.temp/
+supabase/.env
+
+# --- OS noise ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+*.log
