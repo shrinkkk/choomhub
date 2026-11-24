@@ -31,17 +31,19 @@ What exists **today**:
   film grain, line-art gesture icons, and hand-drawn Canvas illustrations: a set of six gothic
   header motifs that rotate every three days, crows on a wire, the shared cat watching a crow
   through a rainy window, a sealed letter, tarot cards, polaroids.
-- **Naming**: on first launch you name your partner; you can rename them in Settings. Each person
-  names the other, so the name your partner picks for you is the one you'll see once the two
-  phones are connected. Stored on the device for now.
-- A **home screen** with your partner's (real) name and **sample** mood, latest snap, gesture
+- **Sign-in and pairing** (with Firebase configured): Google sign-in, then one of you starts a
+  space and the other joins with a single-use, 48-hour invite code. At most two people.
+- **Naming**: you name your partner; they name you. Synced through Firestore; editable in Settings.
+- **Meetup countdown** at the top of Home: live days/hrs/min/sec with a moon face that goes from
+  teary (nothing planned) to sad, happy and excited as the day gets closer. Synced between phones.
+- A **home screen** with your partner's real name and **sample** mood, latest snap, gesture
   buttons, Good Boy / Good Girl points and the shared cat, clearly labelled as sample data.
 - Bottom navigation between Home, Messages, Activities, Our World and Settings. Non-home tabs are
   honest "coming soon" screens.
 - Unit tests plus Robolectric UI tests (onboarding, renaming, navigation, screenshot capture).
 
-What does **not** exist yet: accounts, Supabase, Room, sync, notifications, widgets, or anything
-that actually sends something to the other phone. The gesture buttons say so when tapped.
+What does **not** exist yet: real moods, snaps, messages, points, notifications or widgets. The
+gesture buttons say so when tapped. Without Firebase config the app runs in device-only mode.
 
 ## Technology stack
 
@@ -51,12 +53,13 @@ that actually sends something to the other phone. The gesture buttons say so whe
 | Architecture | MVVM + Clean Architecture layering, feature packages | Yes |
 | DI | Hilt (KSP) | Yes |
 | Navigation | Navigation Compose with type-safe `@Serializable` routes | Yes |
-| Preferences | DataStore (Preferences) | Yes (names, interim) |
+| Preferences | DataStore (Preferences) | Yes (device-only mode) |
 | Build | Gradle Kotlin DSL, version catalog, AGP 9 built-in Kotlin | Yes |
-| Local DB / background | Room, WorkManager | Planned |
+| Offline / sync | Firestore on-device cache + queued writes | Yes |
+| Background | WorkManager | Planned (fallback sync) |
 | Images / widgets | Coil, Jetpack Glance | Planned |
-| Backend | Supabase (Auth, Postgres + RLS, Storage, Realtime, Edge Functions) via supabase-kt | Planned |
-| Push | Firebase Cloud Messaging (HTTP v1, sent from an Edge Function) | Planned |
+| Backend | Firebase, free Spark plan: Authentication (Google), Cloud Firestore + security rules | Yes |
+| Push | Firebase Cloud Messaging, sent by a free Cloudflare Worker | Planned |
 
 Exact versions are in [`gradle/libs.versions.toml`](gradle/libs.versions.toml). Only libraries the
 code actually uses are declared; the planned ones are added in the milestone that needs them.
@@ -89,9 +92,12 @@ From a terminal:
 After `testDebugUnitTest`, rendered screenshots of every screen (and the motif gallery) are
 written to `app/build/outputs/screenshots/`.
 
-No backend credentials are needed yet. See
-[docs/ARCHITECTURE.md § Configuration](docs/ARCHITECTURE.md#9-configuration) for how they will be
-supplied later.
+Backend config goes in your git-ignored `local.properties` (four Firebase values; see
+[docs/ARCHITECTURE.md § Configuration](docs/ARCHITECTURE.md#9-configuration)). Without it the app
+builds and runs in device-only mode. Firestore security rules live in `firebase/firestore.rules`;
+test them with `cd firebase && npm install && npm run test:rules` (needs Java).
+
+Everything is designed to stay on free tiers with no card on file (see ADR-020).
 
 ## Documentation
 

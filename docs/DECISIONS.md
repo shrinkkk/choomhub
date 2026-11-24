@@ -85,7 +85,7 @@ and it also keeps Compose UI tests from waiting forever on infinite animations.
 
 ## ADR-010: Backend configuration via git-ignored `local.properties`
 
-**Date:** 2026-11-24 · **Status:** Accepted
+**Date:** 2026-11-24 · **Status:** Superseded by ADR-024 (Firebase config)
 
 Supabase URL and publishable key are read from `local.properties` into `BuildConfig` at build
 time. They are public-client values protected by RLS, but keeping them out of git keeps the
@@ -129,7 +129,7 @@ a member's `display_name` will be writable only by the *other* member of the cou
 
 ## ADR-015: DataStore as interim storage for names
 
-**Date:** 2026-11-24 · **Status:** Accepted
+**Date:** 2026-11-24 · **Status:** Amended by ADR-021 (Firestore when configured; DataStore only in device-only mode)
 
 Names are needed before Room and sync exist. They are stored in a single Preferences DataStore
 now (the first use of the already-chosen DataStore technology) and will move to Room's members
@@ -170,3 +170,67 @@ Robolectric UI tests run under `HiltTestApplication` (set in `robolectric.proper
 `ProfileModule` with an in-memory fake via `@UninstallModules` + `@BindValue`. This keeps tests
 independent of on-disk DataStore state. Repository bindings that tests need to swap live in their
 own small Hilt modules for this reason.
+
+## ADR-020: Firebase (Spark) + one Cloudflare Worker instead of Supabase
+
+**Date:** 2026-11-24 · **Status:** Accepted (approved by the owner)
+
+Supabase's API domain (`*.supabase.co`) was blocked by Indian ISPs (Jio, Airtel, ACT) from 24 Feb
+2026 and, for us, the dashboard was unreachable on Jio and campus Wi-Fi in Nov 2026. Both users are on
+Indian networks, so a blockable backend is unacceptable. The owner also requires **zero cost with no
+card on file**. Firebase's Spark plan provides Authentication, Firestore (1 GiB, 50K reads / 20K
+writes per day) and FCM at no cost, but not Cloud Storage or Cloud Functions (Blaze only). So: photos
+are stored compressed inside Firestore (ADR-022), and push sending (which needs a secret service-account
+key) moves to a Cloudflare Worker on its free plan (100K requests/day, no card). Postgres RLS is
+replaced by Firestore security rules.
+
+## ADR-021: Firestore's offline cache replaces Room + custom sync queue
+
+**Date:** 2026-11-24 · **Status:** Accepted (approved by the owner)
+
+The original spec's Room source of truth plus a WorkManager sync queue was designed for Supabase,
+which has no offline support. Firestore's SDK already provides a persistent on-device cache, offline
+write queueing that survives restarts, latency compensation and server timestamps. Duplicating that
+would roughly double the backend work. Screens still only see repositories, so Room can be added
+later for a specific need.
+
+## ADR-022: Snaps are ephemeral unless bookmarked; images live in Firestore
+
+**Date:** 2026-11-24 · **Status:** Accepted (owner's product decision; implementation pending)
+
+Sending a new snap deletes your previous one unless one of you bookmarked it. Bookmarked snaps can be
+added to named collections shown in Our World → Memory Lane. Images are compressed on the phone
+(~1280 px, a few hundred KB) and stored as Firestore blobs (1 MiB document limit), since Cloud Storage
+isn't free. Ephemerality also keeps usage far below the 1 GiB free storage.
+
+## ADR-023: No voice notes for now
+
+**Date:** 2026-11-24 · **Status:** Accepted (owner's decision)
+
+Voice notes are removed from the roadmap. Messages are text (and letters) only.
+
+## ADR-024: Manual Firebase initialisation from local.properties
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+Instead of committing `google-services.json` and applying the google-services Gradle plugin, the
+project id, app id, API key and Google web client id are read from git-ignored `local.properties` into
+`BuildConfig`, and `FirebaseApp` is initialised in `ChoomHubApplication`. Without them the app runs in
+device-only mode, which also keeps CI and JVM tests independent of a real project.
+
+## ADR-025: Pairing via rule-checked client batches (no server code)
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+Without Cloud Functions, creating and joining a space are client-side batched writes. Firestore rules
+validate each batch with `getAfter()`: a space starts with only its creator, an invite is single-use,
+expires (≤ 3 days; app uses 48 h), can't be consumed by its creator, and a join must add exactly the
+caller to a one-member space while consuming the invite. Rules are covered by emulator tests.
+
+## ADR-026: Meetup countdown rules
+
+**Date:** 2026-11-24 · **Status:** Accepted
+
+One shared "next meetup", last write wins. Mood: more than 14 days away → sad; 14 days to 3 days →
+happy; under 3 days → excited; after the meetup time, "It's today." for 12 hours, then back to
+"nothing planned" (teary moon). Thresholds live in `MeetupCountdown` and are unit-tested.

@@ -1,241 +1,194 @@
 # Architecture
 
-This document separates **what exists now** from **what is planned**. Planned sections describe
-the intended design so that early code doesn't paint later milestones into a corner; they are not
-implemented yet.
+This document separates **what exists now** from **what is planned**. Planned sections describe the
+intended design so early code doesn't paint later milestones into a corner.
 
 ## 1. Overview
 
-Single Android app module, MVVM with Clean Architecture layering, organised by feature.
+Single Android app module, MVVM with Clean Architecture layering, organised by feature. The backend
+is **Firebase on the no-cost Spark plan** (Authentication, Cloud Firestore, Cloud Messaging), plus
+one **Cloudflare Worker** (free plan, planned) to send push notifications. Everything must stay free
+with no card on file; see ADR-020.
 
 ```
-UI (Compose screens)  ->  ViewModel (StateFlow<UiState>)  ->  Repository interface (domain)
-                                                                   |
-                                                    Repository implementation (data)
-                                                      |                         |
-                                           Local: Room (source of truth)   Remote: Supabase
-                                                      ^                         |
-                                                      +---- Sync (WorkManager) -+
+Compose screen ──> ViewModel (StateFlow<UiState>) ──> Repository interface (domain)
+                                                            │
+                         ┌──────────────────────────────────┴───────────────────────┐
+                         │ Firebase configured                                      │ not configured
+                         ▼                                                          ▼
+          Firestore SDK (on-device cache = source of truth,           DataStore (device-only mode)
+          offline writes queued, synced when online)
+                         │
+                         ▼
+          Cloud Firestore (security rules)  ──(planned)──>  Cloudflare Worker ──> FCM ──> partner's phone
 ```
-
-Today the data layer has a single `SampleHomeRepository` that emits in-memory sample data.
-Room, Supabase and sync are planned (sections 4 to 6).
 
 ### Package layout (actual)
 
 ```
 com.choomhub.app
-├── ChoomHubApplication.kt         @HiltAndroidApp
+├── ChoomHubApplication.kt         @HiltAndroidApp; initialises Firebase from local.properties
 ├── MainActivity.kt                edge-to-edge, theme, reduced-motion flag
 ├── ui/
-│   ├── ChoomHubApp.kt             root: backdrop, onboarding/main gate, bottom bar, snackbar, NavHost
-│   └── AppViewModel.kt            decides Loading / Onboarding / Main from the profile
+│   ├── ChoomHubApp.kt             root: backdrop, gate (sign-in / pairing / naming / main), NavHost
+│   └── AppViewModel.kt            computes the gate from SpaceState + names
 ├── core/
-│   ├── common/                    TimeLabels, Clock provider (Hilt)
-│   ├── datastore/                 DataStore<Preferences> provider (Hilt)
-│   ├── designsystem/
-│   │   ├── theme/                 Color, Type (bundled fonts), Shape, Spacing, Motion, ChoomHubTheme
-│   │   ├── component/             cards, buttons, gesture tiles, text field, badges, film grain, ComingSoonScreen
-│   │   ├── illustration/          Canvas art: rotating gothic motifs, crows, cat, scenes, tomato
-│   │   └── icon/                  custom line icons (navigation + gestures)
-│   ├── navigation/                TopLevelDestination, ChoomHubBottomBar
-│   └── network/BackendConfig.kt   build-time backend config (unused until Supabase lands)
+│   ├── common/                    TimeLabels, SecondTicker, Clock provider
+│   ├── datastore/                 DataStore<Preferences> provider
+│   ├── firebase/                  FirebaseConfig (BuildConfig), FirebaseInitializer
+│   ├── designsystem/              theme, components, illustrations, icons
+│   └── navigation/                TopLevelDestination, ChoomHubBottomBar
 ├── domain/
-│   ├── model/                     CoupleNames + NameRules, Member, Mood, PartnerMood, Snap, ...
-│   └── repository/                HomeRepository, ProfileRepository (interfaces)
+│   ├── model/                     SpaceState + InviteCodes, CoupleNames + NameRules, Meetup + MeetupCountdown, ...
+│   └── repository/                SpaceRepository, ProfileRepository, MeetupRepository, HomeRepository
 ├── data/
-│   ├── profile/                   DataStoreProfileRepository (names, device-local for now)
-│   ├── sample/                    SampleHomeRepository (real names + sample content)
-│   └── di/                        DataModule, ProfileModule: interface bindings
+│   ├── firebase/                  FirebaseSpaceRepository, FirestoreProfileRepository, FirestoreMeetupRepository
+│   ├── space/                     DeviceOnlySpaceRepository
+│   ├── profile/, meetup/          DataStore implementations (device-only mode)
+│   ├── sample/                    SampleHomeRepository (real names + sample mood/snap/points)
+│   └── di/                        DataModule, SpaceModule, ProfileModule, MeetupModule
 └── feature/
-    ├── onboarding/                "What do you call them?" first-run screen + ViewModel
-    ├── home/                      HomeRoute, HomeViewModel, HomeUiState, HomeScreen, components
-    ├── messages/                  placeholder
-    ├── activities/                placeholder
-    ├── world/                     "Our World" placeholder
-    └── settings/                  names (inline rename) and status
+    ├── account/                   sign-in and pairing screens + AccountViewModel
+    ├── onboarding/                "What do you call them?"
+    ├── home/                      home screen; meetup/ countdown card, MoonFace, MeetupViewModel
+    ├── messages/, activities/, world/   placeholders
+    └── settings/                  names, space status / invite code, sign out
+firebase/                          firestore.rules, emulator config, rules tests (Node)
 ```
 
-The original plan listed a top-level `app/` package; root UI lives in `ui/` instead, to avoid a
-`com.choomhub.app.app` package. Packages such as `core/database`, `core/sync`,
-`core/notifications`, `data/local`, `data/remote` and `feature/widget` are created when their
-first real code arrives, not as empty placeholders.
+## 2. MVVM and repositories (implemented)
 
-## 2. MVVM and the repository pattern (implemented for Home, Onboarding, Settings)
-
-- **Screens** come in pairs: a stateful entry (`HomeScreen`) that obtains the ViewModel with
-  `hiltViewModel()` and collects state with `collectAsStateWithLifecycle()`, and a stateless
-  `HomeContent(state, callbacks)` that is previewable and testable without Hilt.
-- **ViewModels** expose `StateFlow<UiState>` built with `stateIn(WhileSubscribed(5s))` and plain
-  functions for user intents (`onAffectionTapped`). No Android framework types and no network
-  calls.
-- **UI state** is a sealed `Loading | Ready` type. Mapping domain → UI is a pure function
-  (`HomeSnapshot.toUiState(clock)`) and is unit-tested.
-- **Repositories** are interfaces in `domain/repository`; implementations live in `data` and are
-  bound in `DataModule`. Swapping sample data for Room-backed data is a one-line binding change
-  with no UI changes.
-- **Use cases** are added only where they hold real business rules (e.g. validating a point
-  transaction). Pure pass-throughs are not created.
-- **Time** comes from an injected `java.time.Clock`, so time-dependent logic is deterministic in
-  tests.
-- **Navigation**: each feature owns a `@Serializable` route object and a
-  `NavGraphBuilder.xxxScreen()` extension; `ChoomHubApp` composes them.
-  `TopLevelDestination` drives the bottom bar.
-- **App gate**: onboarding is not a navigation destination. `AppViewModel` observes the profile
-  and `ChoomHubApp` shows onboarding until the partner has a name, then the main scaffold. Later
-  gates (signed out, not paired) slot in the same way.
-
-### Names: who names whom
-
-Each member's display name is chosen by the *other* member. On a device, `CoupleNames` holds
-`partnerName` (written by this person, via onboarding or Settings) and `myName` (written only by
-sync, from the partner's phone). Today both live in DataStore and `myName` stays empty. With the
-backend, each member row gets a `display_name` that only the partner may update (RLS), the
-values move to Room, and the `ProfileRepository` interface stays the same.
+- Screens come in pairs: a stateful entry (`HomeScreen`) that gets ViewModels with `hiltViewModel()`
+  and a stateless `…Content(state, callbacks)` that is previewable and testable.
+- ViewModels expose `StateFlow`s and plain intent functions. No Android framework types, no Firebase
+  calls. Composables never touch Firebase.
+- Repository interfaces live in `domain/repository`. `data/di` picks the implementation at startup:
+  **Firestore when `FirebaseConfig.isConfigured`, otherwise device-only DataStore**, so the app still
+  builds and runs without any backend config (and all JVM tests run in device-only mode).
+- **App gate** (`AppViewModel.gateFor`): `SignedOut → SignIn`, `NoSpace → Pairing`,
+  `Waiting/Paired/DeviceOnly → Onboarding` (until the partner is named) `→ Main`. Success in any step
+  needs no navigation call; the gate reacts to the repositories.
 
 ## 3. Design system (implemented)
 
-- `ChoomHubTheme` wraps `MaterialTheme` with a custom dark `ColorScheme` and exposes extra tokens
-  through `ChoomHubTheme.colors` and `ChoomHubTheme.spacing` (CompositionLocals).
-- The app is **always dark** by design; no light theme, no dynamic colour. Accents are
-  desaturated (dusty violet, faded rose, old gold, bone) over near-black with a fine film grain.
-- Typography: **Cormorant Garamond** (display, captions; variable weight) and **Space Mono**
-  (labels, eyebrows, timestamps) are bundled under `res/font/`, subset to Latin; body text uses
-  the platform sans. Numbers that matter use lining figures.
-- Illustrations are drawn with Compose `Canvas`. Complex shapes (raven, moth, candle, cat,
-  cobweb) are SVG path data on a 100 × 100 grid in `MotifPaths.kt`, parsed once and drawn
-  through small helpers in `MotifDrawing.kt`; the launcher icon reuses the same raven paths.
-- **Rotating header art**: `GothicMotif.forDate()` picks one of six motifs per three-day window,
-  deterministically from the date, so both phones show the same one.
-- `LocalAmbientMotionEnabled` turns off continuous decorative animation (twinkling stars, candle
-  flicker) when the system "remove animations" setting is on. Tests use this as well.
+Always-dark custom Material 3 theme; muted palette; Cormorant Garamond + Space Mono (bundled, OFL);
+film grain; Canvas illustrations from SVG path data on a 100 × 100 grid (`MotifPaths.kt`); six gothic
+header motifs rotating every 3 days by date; `LocalAmbientMotionEnabled` respects "remove animations".
+See ADR-016/017.
 
-## 4. Offline-first approach (planned)
+## 4. Offline-first (implemented via Firestore; ADR-021)
 
-Offline-first is a core requirement, so it is designed now even though Room isn't added yet.
+Firestore's Android SDK keeps an **on-device persistent cache** (on by default) and is the local
+source of truth:
 
-- **Room is the source of truth for every screen.** Repositories return `Flow`s from DAOs; the UI
-  never waits on the network to show previously loaded data. The `HomeRepository` contract
-  already states this.
-- **Writes are local first.** A user action writes to Room and enqueues a sync operation in the
-  same transaction; the UI updates immediately.
-- **Remote changes** (Supabase Realtime, push-triggered fetches, periodic catch-up) are written
-  into Room, and the UI updates through the same flows.
+- Screens observe repository `Flow`s built on snapshot listeners, which emit the cached copy
+  immediately, then server updates. Nothing waits for the network to show known data.
+- Writes (`set`/`update`) apply to the local cache at once (the UI updates), are **queued while
+  offline, persisted across restarts**, and sent when connectivity returns. Repositories don't await
+  them for everyday actions (names, meetup).
+- Actions that need the server to decide (joining with an invite code) do require a connection and
+  say so.
+- **Conflicts**: single shared values (meetup, names) are last-write-wins with `updatedAt`
+  server timestamps. Future append-only data (messages, point transactions) will be separate
+  documents, never overwritten; point balances are derived by summing the ledger.
 
-### Room vs Supabase responsibilities
+Room is no longer planned by default; it may be added for a feature that needs it (e.g. widget data
+that must be read without the Firestore SDK).
 
-| Concern | Room (device) | Supabase (server) |
+## 5. Firestore data model (implemented)
+
+| Path | Fields | Who can read / write |
 |---|---|---|
-| What screens read | Yes | No (never read directly by UI) |
-| Pending local writes | Yes (sync queue) | n/a |
-| Authoritative state & ordering | Cache of it | Yes (server timestamps, validation) |
-| Access control | n/a | Row Level Security |
-| Photos / voice notes | Small cache / thumbnails | Private Storage buckets |
-| Fan-out to the partner | n/a | Realtime + Edge Function → FCM |
+| `users/{uid}` | `coupleId`, `updatedAt` | only that user; `coupleId` must be a space they're in |
+| `couples/{coupleId}` | `members` (1–2 uids), `createdBy`, `createdAt`, `inviteCode` | members read; created with only yourself; one join; creator can swap the invite while alone |
+| `invites/{code}` | `coupleId`, `createdBy`, `expiresAt` (≤ 3 days, app uses 48 h), `usedBy` | any signed-in user can *get* by code (no listing); consumed once, not by its creator, only together with joining |
+| `couples/{id}/names/{namerUid}` | `nameForPartner` (1–24 chars), `updatedAt` | members read; only `namerUid` writes |
+| `couples/{id}/shared/meetup` | `at` (timestamp or null), `updatedBy`, `updatedAt` | members read/write, signed as themselves |
 
-## 5. Synchronisation design (planned)
+**Pairing** (no Cloud Functions needed): the first person writes the couple, the invite and their
+user record in one batch. The second person reads the invite by code, then in one batch marks it used,
+adds themself to `members` (`arrayUnion`) and points their user record at the space. The rules check
+each step with `getAfter()`, so a partial or forged join is rejected. A third person can never join.
 
-A single, reusable `core/sync` component:
+**Names**: each person writes only the name they give the other, so "your partner's name" is the one
+you wrote and "your name" is the one they wrote. This works before the partner has joined.
 
-- **`sync_operations` table** in Room: `id`, `type`, `payload` (JSON), `idempotencyKey` (UUID
-  created on the device), `status` (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`),
-  `attemptCount`, `lastError`, `createdAt`, `updatedAt`.
-- **`SyncWorker`** (WorkManager, `CONNECTED` constraint, unique work, exponential backoff) drains
-  pending operations through per-type `SyncHandler`s registered with Hilt multibindings. Adding a
-  feature means adding a handler, not editing the worker.
-- **Idempotency**: every remote insert carries the idempotency key, enforced unique server-side,
-  so retries can never double-apply (vital for point transactions).
-- **Conflict strategies by data type**:
+### Planned additions
 
-| Data | Strategy |
-|---|---|
-| Current mood / status | Latest valid update wins, by server timestamp |
-| Messages, letters, reactions | Append-only |
-| Point transactions | Append-only ledger; balances are derived sums, never overwritten |
-| Snap history | Preserved; newest valid snap becomes "current" |
-| Shared cat state | Server-validated operations (e.g. `feed`, `pet`) via RPC / Edge Function |
+- **Snaps** (ADR-022): `couples/{id}/snaps/{snapId}` holding a compressed image (≈1280 px JPEG/WebP,
+  a few hundred KB, as a Firestore `Blob`), caption, sender, `sentAt`, `bookmarkedBy`. When a person
+  sends a new snap, their previous one is deleted **unless bookmarked**. Bookmarked snaps can be added
+  to named **collections** (`couples/{id}/collections/{cid}`) shown in **Our World → Memory Lane**.
+- Moods, gestures, messages (text only, no voice notes, ADR-023), achievements and an append-only
+  points ledger, the shared cat.
 
-- Server-generated timestamps (`created_at default now()`) give authoritative ordering; device
-  clocks are only used for display before sync.
+## 6. Notifications (planned, ADR-020)
 
-## 6. Notification architecture (planned)
+1. A phone writes an event (e.g. a new snap) to Firestore.
+2. It calls the **Cloudflare Worker** with its Firebase ID token.
+3. The Worker verifies the token, reads the partner's FCM token and notification preferences, and
+   sends a push via the **FCM HTTP v1 API** using a service-account key stored only as a Worker secret.
+4. The phone shows it on the matching notification channel and refreshes from Firestore.
 
-1. A row is inserted in Supabase (e.g. a new snap or a hug).
-2. A database webhook or trigger invokes an **Edge Function**.
-3. The function verifies the event, finds the recipient (the *other* member of the couple) and
-   checks their per-category notification preferences.
-4. It sends a push with the **FCM HTTP v1 API**, using a service account stored only as an Edge
-   Function secret.
-5. The device receives it in a `FirebaseMessagingService`, writes or refreshes data into Room
-   (and the widget), and shows a notification on the matching channel.
-
-Android notification channels mirror the categories (mood, snaps, messages, affection, points,
-cat, …) so the user can also control them from system settings. Device FCM tokens are stored per
-member in Supabase under RLS.
+If the Worker is unreachable, nothing breaks: data still syncs while the app is open, plus a periodic
+background check. Free limits are far above two people's needs (100,000 requests/day).
 
 ## 7. Security principles
 
-- **Row Level Security on every table**: a row is visible only to members of its `couple_id`;
-  membership is checked through `auth.uid()`.
-- **Exactly two members per couple**, enforced server-side. An invite code only *starts* pairing;
-  it is single-use, expiring, and pairing is completed by an authenticated server function. The
-  code alone never grants access.
-- **Private Storage buckets** with policies scoped to the couple; images are served through signed
-  URLs.
-- **The app ships only public-client values** (Supabase URL and publishable/anon key). Service-role
-  keys and the Firebase service account live only in Edge Function secrets.
-- **No sensitive logging**: no message text, captions, image URLs or tokens in logs.
-- **Backups**: `allowBackup="false"` and data-extraction rules exclude all app data from cloud
-  backup and device transfer.
+- Firestore security rules on every path; default deny. Rules are tested on the emulator
+  (`firebase/test/rules.test.mjs`, 17 cases).
+- Exactly two members per space, enforced by rules. Invite codes are random, single-use, expire, and
+  only work together with an authenticated join. They aren't the only gate: auth, rules and the
+  two-member limit apply too.
+- The app ships only public client identifiers. The FCM service-account key will live only in the
+  Worker's secrets.
+- No sensitive logging (no messages, captions, image data or tokens).
+- `allowBackup="false"` plus data-extraction rules exclude app data from Android backups.
 - End-to-end encryption is not a current requirement.
 
-## 8. Widget architecture (planned)
+## 8. Widget (planned)
 
-A Jetpack Glance widget shows the latest received snap, caption and time.
-
-- The widget reads from Room or a small cached image file, never from the network directly.
-- Updates are **event-driven**: when a new snap arrives (push → sync → Room), the app calls
-  `GlanceAppWidget.update()`. No polling; Android's minimum periodic update interval (~30 min) is
-  only a fallback.
-- The image is downscaled and cached on-device to stay within widget memory limits.
+A Glance widget shows the latest snap. It reads cached data on the device (Firestore cache or a small
+file the app writes when a snap arrives) and is refreshed when a snap arrives (push → app → widget
+update), not by polling.
 
 ## 9. Configuration
 
-Backend values are injected at build time from the **git-ignored** `local.properties` into
-`BuildConfig` and read through `core/network/BackendConfig`:
+Firebase values are read at build time from the **git-ignored** `local.properties` into `BuildConfig`
+(`core/firebase/FirebaseConfig`). Firebase is initialised manually, so `google-services.json` and the
+google-services Gradle plugin are not used, and nothing project-specific is committed.
 
 ```properties
 # local.properties (never committed)
 sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
-choomhub.supabase.url=https://YOUR-PROJECT.supabase.co
-choomhub.supabase.publishableKey=YOUR_PUBLISHABLE_OR_ANON_KEY
+choomhub.firebase.projectId=your-project-id
+choomhub.firebase.appId=1:…:android:…          # mobilesdk_app_id in google-services.json
+choomhub.firebase.apiKey=AIza…                  # current_key in google-services.json
+choomhub.firebase.webClientId=….apps.googleusercontent.com  # Auth → Google → Web SDK configuration
 ```
 
-When the keys are absent (the current state) the build still works, `BackendConfig.isConfigured`
-is `false`, and Settings shows "Not configured · showing sample data".
+If any value is missing, the app runs in **device-only mode** (no sign-in; names and meetup stay on
+the phone). Google sign-in also needs the debug (and later release) **SHA-1** registered on the
+Android app in the Firebase console.
 
-Firebase will need `app/google-services.json` (also git-ignored). Supabase CLI files for Edge
-Functions and SQL migrations will live under a top-level `supabase/` directory, with secrets set
-through `supabase secrets set`, never committed.
+**Rules deployment**: copy `firebase/firestore.rules` into Firebase console → Firestore → Rules →
+Publish, or `cd firebase && npm install && npx firebase deploy --only firestore:rules`.
 
 ## 10. Testing
 
-- **Unit tests** (`src/test`): pure logic (`TimeLabels`, `NameRules`, motif rotation) and
-  ViewModels with fakes, a fixed `Clock` and `kotlinx-coroutines-test`.
-- **Robolectric UI tests** (`src/test`): launch the real `MainActivity` on the JVM with
-  `HiltTestApplication`. `@UninstallModules(ProfileModule::class)` plus `@BindValue` swap the
-  DataStore profile for `FakeProfileRepository`, so each test chooses whether onboarding has
-  happened. Covered: first-run naming, rename from Settings, every bottom-nav tab, gesture notice.
-- **Screenshot capture** (`ScreenshotCaptureTest`, `MotifGalleryCaptureTest`): renders screens and
-  all header motifs to PNG under `app/build/outputs/screenshots/` for visual review without a
-  device (no pixel comparison).
-- Instrumented (on-device) tests will be added once there is device-specific behaviour (widget,
-  notifications).
+- **Unit tests**: pure logic (time labels, names, motifs, countdown, invite codes, space-state mapping,
+  app gate) and ViewModels with fakes, fixed `Clock`, fake ticker, `kotlinx-coroutines-test`.
+- **Robolectric UI tests**: real `MainActivity` under `HiltTestApplication`; `@UninstallModules` +
+  `@BindValue` swap repositories for fakes (profile, meetup, space). Covered: naming flow, rename,
+  navigation, countdown states, gesture notice.
+- **Screenshot capture**: every screen, countdown moods, sign-in/pairing, motif gallery →
+  `app/build/outputs/screenshots/`.
+- **Security rules**: `cd firebase && npm install && npm run test:rules` (needs Java for the emulator).
+- **Not yet covered automatically**: the Firebase repositories against a live or emulated backend,
+  and Google sign-in. Those are verified on a device.
 
 ## 11. Future extensibility
 
-- New features add a package under `feature/`, a route plus a `NavGraphBuilder` extension, a
-  repository interface plus implementation, and (when they write data) a `SyncHandler`.
-- Splitting into Gradle modules (`:core:designsystem`, `:feature:*`) is possible later because
-  dependencies already point one way (feature → domain/core, data → domain). It is deliberately
-  deferred until build times or boundaries justify it.
+New features add a package under `feature/`, a route, a repository interface with Firestore and (if
+useful) device-only implementations, rules for their paths, and rules tests. Splitting into Gradle
+modules remains possible later.
