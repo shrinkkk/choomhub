@@ -52,10 +52,13 @@ test('snaps carry their caption', () => {
 test('points and reactions', () => {
   assert.deepEqual(parseRequest({ event: 'points', kind: '10', detail: 'dishes' }), { event: 'points', detail: 'dishes', kind: '10' });
   assert.equal(parseRequest({ event: 'points', kind: '0' }), null);
-  assert.equal(parseRequest({ event: 'points', kind: '101' }), null);
+  assert.equal(parseRequest({ event: 'points', kind: '11' }), null);
+  assert.equal(parseRequest({ event: 'points', kind: '-11' }), null);
   assert.equal(parseRequest({ event: 'points', kind: '1e2' }), null);
-  assert.deepEqual(compose('points', { senderName: 'Shri', kind: '10', detail: 'dishes', recipientRole: 'Good Girl' }), { title: 'Shri gave you 10 Good Girl points', body: 'dishes' });
-  assert.equal(compose('points', { senderName: 'Shri', kind: '1', detail: '' }).title, 'Shri gave you 1 point');
+  assert.equal(parseRequest({ event: 'points', kind: '-3' }).kind, '-3');
+  assert.deepEqual(compose('points', { senderName: 'Shri', kind: '10', detail: 'dishes', recipientRole: 'Good Girl' }), { title: 'Shri awarded you 10 Good Girl points', body: 'dishes' });
+  assert.equal(compose('points', { senderName: 'Shri', kind: '1', detail: '' }).title, 'Shri awarded you 1 point');
+  assert.deepEqual(compose('points', { senderName: 'Shri', kind: '-3', detail: '', recipientRole: 'Good Girl' }), { title: 'Shri took away 3 of your Good Girl points', body: 'No reason given.' });
   assert.equal(parseRequest({ event: 'snap_reaction', kind: 'lol' }), null);
   assert.equal(compose('snap_reaction', { senderName: 'Wren', kind: '\u{1F5A4}' }).title, 'Wren reacted \u{1F5A4} to your snap');
   const a = fcmMessage('f', 'points', { title: 't', body: 'b' }, '5').message.android.notification;

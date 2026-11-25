@@ -143,16 +143,22 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `giving points checks the amount, records it and tells them`() {
+    fun `awarding and taking away points check the amount, record it and tell them`() {
         val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock)
         assertEquals("How many points?", viewModel.award("", "dishes"))
-        assertEquals("Between 1 and 100 at a time.", viewModel.award("250", ""))
+        assertEquals("Between 1 and 10 at a time.", viewModel.award("25", ""))
         assertNull(viewModel.award("10", "  for the  dishes "))
         assertEquals(10, points.ledger.value.single().amount)
         assertEquals("for the dishes", points.ledger.value.single().reason)
-        assertEquals("10 points given.", viewModel.pendingNotice.value)
-        assertEquals(listOf<Pair<PushEvent, String?>>(PushEvent.PointsGiven to "for the dishes"), notifier.sent)
+        assertEquals("10 points awarded.", viewModel.pendingNotice.value)
+        assertEquals(listOf<Pair<PushEvent, String?>>(PushEvent.PointsAwarded to "for the dishes"), notifier.sent)
         assertEquals(listOf<String?>("10"), notifier.kinds)
+
+        viewModel.onNoticeShown()
+        assertNull(viewModel.award("3", "lights on", takeAway = true))
+        assertEquals(-3, points.ledger.value.first().amount)
+        assertEquals("3 points taken away.", viewModel.pendingNotice.value)
+        assertEquals("-3", notifier.kinds.last())
     }
 
     @Test
@@ -161,12 +167,13 @@ class HomeViewModelTest {
             com.choomhub.app.domain.model.PointAward("1", toMe = true, amount = 5, reason = null, at = null),
             com.choomhub.app.domain.model.PointAward("2", toMe = false, amount = 12, reason = null, at = null),
             com.choomhub.app.domain.model.PointAward("3", toMe = true, amount = 3, reason = null, at = null),
+            com.choomhub.app.domain.model.PointAward("4", toMe = false, amount = -20, reason = null, at = null),
         )
         val boy = com.choomhub.app.domain.model.PointRules.balances(awards, com.choomhub.app.domain.model.PointsRole.GoodBoy)
         assertEquals(8, boy.goodBoy)
-        assertEquals(12, boy.goodGirl)
+        assertEquals(-8, boy.goodGirl)
         val girl = com.choomhub.app.domain.model.PointRules.balances(awards, com.choomhub.app.domain.model.PointsRole.GoodGirl)
-        assertEquals(12, girl.goodBoy)
+        assertEquals(-8, girl.goodBoy)
         assertEquals(8, girl.goodGirl)
     }
 }

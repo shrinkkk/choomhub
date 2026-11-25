@@ -2,28 +2,32 @@ package com.choomhub.app.domain.model
 
 import java.time.Instant
 
-/** One entry in the points ledger: someone gave the other some points, maybe with a reason. */
+/**
+ * One entry in the points ledger: someone awarded the other points (positive) or
+ * took some away (negative), maybe with a reason. Totals can go below zero.
+ */
 data class PointAward(
     val id: String,
     /** True if you received it, false if you gave it. */
     val toMe: Boolean,
+    /** Positive when awarded, negative when taken away. */
     val amount: Int,
     val reason: String?,
-    /** Null only for a moment, while a just-given award waits for the server's clock. */
+    /** Null only for a moment, while a just-saved entry waits for the server's clock. */
     val at: Instant?,
 )
 
 sealed interface AwardResult {
-    data object Given : AwardResult
-    data class NotGiven(val message: String) : AwardResult
+    data object Awarded : AwardResult
+    data class NotAwarded(val message: String) : AwardResult
 }
 
 object PointRules {
     const val MIN = 1
-    const val MAX = 100
+    const val MAX = 10
     const val MAX_REASON = 140
 
-    /** Parses what was typed; an error message, or the amount. */
+    /** Parses what was typed (always a positive number; the button decides award or take away). */
     fun parseAmount(input: String): Result<Int> {
         val n = input.trim().toIntOrNull()
             ?: return Result.failure(IllegalArgumentException("How many points?"))
@@ -34,7 +38,7 @@ object PointRules {
     fun cleanReason(input: String?): String? =
         input?.replace(Regex("\\s+"), " ")?.trim()?.take(MAX_REASON)?.ifEmpty { null }
 
-    /** Totals from the ledger: what you've received, and what they have. */
+    /** Totals from the ledger: what you've received, and what they have (either can be negative). */
     fun balances(awards: List<PointAward>, myRole: PointsRole?): PointBalances {
         val mine = awards.filter { it.toMe }.sumOf { it.amount }
         val theirs = awards.filterNot { it.toMe }.sumOf { it.amount }

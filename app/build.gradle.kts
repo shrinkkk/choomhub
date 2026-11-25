@@ -25,6 +25,21 @@ val localProperties = Properties().apply {
 fun localConfig(key: String): String =
     (localProperties.getProperty(key) ?: "").replace("\"", "\\\"")
 
+/**
+ * Release versions come from git: versionCode = number of commits, so every
+ * build from a newer commit can install over the last one (Android refuses
+ * a lower or equal versionCode). Falls back to 1 if git isn't available.
+ */
+val commitCount: Int = runCatching {
+    providers.exec {
+        commandLine("git", "rev-list", "--count", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim().toInt()
+}.getOrDefault(1)
+
+/** Release signing key, from local.properties only (see docs/RELEASING.md). Never committed. */
+val releaseStoreFile: String? = localProperties.getProperty("choomhub.release.storeFile")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "com.choomhub.app"
     compileSdk {
@@ -37,8 +52,8 @@ android {
         applicationId = "com.choomhub.app"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = commitCount
+        versionName = "1.0.$commitCount"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -49,8 +64,21 @@ android {
         buildConfigField("String", "PUSH_WORKER_URL", "\"${localConfig("choomhub.push.workerUrl")}\"")
     }
 
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = localProperties.getProperty("choomhub.release.storePassword")
+                keyAlias = localProperties.getProperty("choomhub.release.keyAlias")
+                keyPassword = localProperties.getProperty("choomhub.release.keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Unsigned (and so not installable) until the release key is set in local.properties.
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

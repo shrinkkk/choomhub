@@ -86,5 +86,5 @@ class LocalPointsRepository @Inject constructor() : com.choomhub.app.domain.repo
     override fun observeAwards(): Flow<List<com.choomhub.app.domain.model.PointAward>> = flowOf(emptyList())
 
     override suspend fun award(amount: Int, reason: String?): com.choomhub.app.domain.model.AwardResult =
-        com.choomhub.app.domain.model.AwardResult.NotGiven("Points need the shared space. This build keeps everything on this phone.")
+        com.choomhub.app.domain.model.AwardResult.NotAwarded("Points need the shared space. This build keeps everything on this phone.")
 }

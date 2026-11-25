@@ -53,9 +53,9 @@ class FakePointsRepository(var refusal: String? = null) : com.choomhub.app.domai
     override fun observeAwards(): Flow<List<com.choomhub.app.domain.model.PointAward>> = ledger
 
     override suspend fun award(amount: Int, reason: String?): com.choomhub.app.domain.model.AwardResult {
-        refusal?.let { return com.choomhub.app.domain.model.AwardResult.NotGiven(it) }
+        refusal?.let { return com.choomhub.app.domain.model.AwardResult.NotAwarded(it) }
         ledger.update { listOf(com.choomhub.app.domain.model.PointAward("p${it.size}", toMe = false, amount, reason, Instant.EPOCH)) + it }
-        return com.choomhub.app.domain.model.AwardResult.Given
+        return com.choomhub.app.domain.model.AwardResult.Awarded
     }
 }
 

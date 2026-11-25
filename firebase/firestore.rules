@@ -16,7 +16,7 @@ rules_version = '2';
 //   couples/{coupleId}/snaps/{id}      -> { from, caption, sentAt, width, height, thumb, collections, kept, reactions }
 //   couples/{coupleId}/snaps/{id}/image/full -> { data }            the full JPEG
 //   couples/{coupleId}/collections/{id} -> { name, createdBy, createdAt }  Memory Lane
-//   couples/{coupleId}/points/{id}     -> { from, to, amount, reason, at }  append-only points ledger
+//   couples/{coupleId}/points/{id}     -> { from, to, amount (±1..10), reason, at }  append-only points ledger
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -199,7 +199,8 @@ service cloud.firestore {
         }
       }
 
-      // Points go only to your partner, 1-100 at a time, and can't be edited or taken back.
+      // Points go only to your partner: 1-10 awarded, or 1-10 taken away (negative), and
+      // entries can't be edited or deleted. Totals may go below zero.
       match /points/{awardId} {
         allow read: if isMember(coupleId);
         allow create: if isMember(coupleId)
@@ -208,7 +209,8 @@ service cloud.firestore {
           && request.resource.data.to != me()
           && request.resource.data.to in get(couplePath(coupleId)).data.members
           && request.resource.data.amount is int
-          && request.resource.data.amount >= 1 && request.resource.data.amount <= 100
+          && request.resource.data.amount >= -10 && request.resource.data.amount <= 10
+          && request.resource.data.amount != 0
           && (request.resource.data.reason == null
               || (request.resource.data.reason is string && request.resource.data.reason.size() <= 140))
           && request.resource.data.at == request.time;

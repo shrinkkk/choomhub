@@ -56,8 +56,8 @@ What exists **today**:
 - **Snaps** (camera only): send one with a caption; each of you has one current snap, which
   replaces your last unless one of you kept it. React to theirs; kept snaps live in collections in
   Our World → Memory Lane. A daily snap prompt, and a home-screen widget with their latest snap.
-- **Points**: give your partner Good Boy / Good Girl points with a reason; totals come from a
-  ledger nobody can edit.
+- **Points**: award your partner Good Boy / Good Girl points (or take some away) with a reason;
+  totals come from a ledger nobody can edit.
 
 What does **not** exist yet: messages, the shared cat, activities. The
 gesture buttons say so when tapped. Without Firebase config the app runs in device-only mode.
@@ -124,6 +124,7 @@ Everything is designed to stay on free tiers with no card on file (see ADR-020).
 - [docs/ROADMAP.md](docs/ROADMAP.md): milestones and status.
 - [docs/DECISIONS.md](docs/DECISIONS.md): architectural decision log.
 - [docs/NOTIFICATIONS_SETUP.md](docs/NOTIFICATIONS_SETUP.md): one-time push setup (Cloudflare + Firebase key).
+- [docs/RELEASING.md](docs/RELEASING.md): release key, versions, and sending builds through Firebase App Distribution.
 
 ## Licences
 

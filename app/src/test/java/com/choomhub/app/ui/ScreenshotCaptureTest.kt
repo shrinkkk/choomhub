@@ -228,7 +228,7 @@ class ScreenshotCaptureTest {
         composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag("home_list").fetchSemanticsNodes().isNotEmpty() }
         kotlinx.coroutines.runBlocking { fakePoints.award(15, "for the playlist") }
         composeRule.onNodeWithTag("home_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("points_good_girl"))
-        composeRule.onNodeWithTag("points_give").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("points_award").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         composeRule.onNodeWithTag("home_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("award_give"))
         capture("phone_points")
         meetups.meetup.value = Meetup(Instant.now().plus(Duration.ofDays(3)))

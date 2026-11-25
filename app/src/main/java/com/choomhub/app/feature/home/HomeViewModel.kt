@@ -83,19 +83,21 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Gives your partner points. Returns an error to show next to the form, or null
-     * once it's on its way (the snackbar confirms it).
+     * Awards your partner points, or takes some away when [takeAway]. Returns an error
+     * to show next to the form, or null once it's on its way (the snackbar confirms it).
      */
-    fun award(amountInput: String, reasonInput: String): String? {
+    fun award(amountInput: String, reasonInput: String, takeAway: Boolean = false): String? {
         val amount = PointRules.parseAmount(amountInput).getOrElse { return it.message }
+        val signed = if (takeAway) -amount else amount
         val reason = PointRules.cleanReason(reasonInput)
         viewModelScope.launch {
-            _pendingNotice.value = when (val result = pointsRepository.award(amount, reason)) {
-                AwardResult.Given -> {
-                    notifier.notifyPartner(PushEvent.PointsGiven, detail = reason, kind = amount.toString())
-                    if (amount == 1) "1 point given." else "$amount points given."
+            _pendingNotice.value = when (val result = pointsRepository.award(signed, reason)) {
+                AwardResult.Awarded -> {
+                    notifier.notifyPartner(PushEvent.PointsAwarded, detail = reason, kind = signed.toString())
+                    val points = if (amount == 1) "1 point" else "$amount points"
+                    if (takeAway) "$points taken away." else "$points awarded."
                 }
-                is AwardResult.NotGiven -> result.message
+                is AwardResult.NotAwarded -> result.message
             }
         }
         return null

@@ -205,13 +205,21 @@ class AppNavigationTest {
         assertTrue("your (Good Boy) box is on top", boy.bottom <= girl.top)
         assertEquals(boy.height, girl.height, 1f)
 
-        composeRule.onNodeWithTag("points_give").performSemanticsAction(SemanticsActions.OnClick)
-        composeRule.onNodeWithTag("award_amount_10").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("points_award").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithText("Award Wren Good Girl points").assertExists()
+        composeRule.onNodeWithTag("award_amount_3").performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithTag("award_reason").performTextInput("the playlist")
         composeRule.onNodeWithTag("award_give").performSemanticsAction(SemanticsActions.OnClick)
-        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("10 points given.").fetchSemanticsNodes().isNotEmpty() }
-        assertEquals(10, fakePoints.ledger.value.single().amount)
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("3 points awarded.").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(3, fakePoints.ledger.value.single().amount)
         assertEquals("the playlist", fakePoints.ledger.value.single().reason)
+
+        composeRule.onNodeWithTag("points_take_away").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithText("Take away Wren's Good Girl points").assertExists()
+        composeRule.onNodeWithTag("award_amount_5").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("award_give").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+        assertEquals(-5, fakePoints.ledger.value.first().amount)
     }
 
     @Test

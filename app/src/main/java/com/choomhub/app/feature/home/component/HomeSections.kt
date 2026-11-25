@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -64,6 +65,7 @@ import com.choomhub.app.core.designsystem.component.GestureButton
 import com.choomhub.app.core.designsystem.component.PillBadge
 import com.choomhub.app.core.designsystem.component.SectionHeader
 import com.choomhub.app.core.designsystem.icon.GestureIcons
+import com.choomhub.app.core.designsystem.icon.PointIcons
 import com.choomhub.app.core.designsystem.illustration.CrowsOnAWirePhoto
 import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
@@ -191,7 +193,6 @@ internal fun LatestSnapSection(
     image: ByteArray?,
     partnerName: String?,
     mySnapLabel: String?,
-    prompt: String?,
     onOpen: (String) -> Unit,
     onTakePhoto: () -> Unit,
     modifier: Modifier = Modifier,
@@ -246,11 +247,6 @@ internal fun LatestSnapSection(
             }
             Spacer(Modifier.height(ChoomHubTheme.spacing.md))
             HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
-            if (prompt != null) {
-                Spacer(Modifier.height(ChoomHubTheme.spacing.md))
-                Text("TODAY'S PROMPT", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
-                Text(prompt, style = ChoomHubTextStyles.Handwritten, color = colors.textMain, modifier = Modifier.testTag("snap_prompt"))
-            }
             Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -348,25 +344,29 @@ internal fun GestureSection(
     }
 }
 
+/** Which way the points form is going. */
+private enum class PointsAction { Award, TakeAway }
+
 @Composable
 internal fun PointsSection(
     points: PointBalances,
     myRole: PointsRole?,
     partnerName: String?,
     lastAward: AwardUi?,
-    onAward: (amount: String, reason: String) -> String?,
+    onAward: (amount: String, reason: String, takeAway: Boolean) -> String?,
     modifier: Modifier = Modifier,
 ) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
-    var awarding by rememberSaveable { mutableStateOf(false) }
+    var action by rememberSaveable { mutableStateOf<PointsAction?>(null) }
     Column(modifier.fillMaxWidth()) {
         SectionHeader(title = "Points", eyebrow = "rewards")
         Spacer(Modifier.height(spacing.md))
-        // Your own points first; theirs below, with the button to give them some.
+        // Your own points first; theirs below, with + and - to award or take away.
         val mine = myRole ?: PointsRole.GoodBoy
         listOf(mine, mine.other).forEachIndexed { i, role ->
             val isMine = myRole != null && role == myRole
+            val canAct = myRole != null && !isMine
             PointsRow(
                 title = "${role.label} points",
                 owner = when {
@@ -376,19 +376,23 @@ internal fun PointsSection(
                 },
                 value = if (role == PointsRole.GoodBoy) points.goodBoy else points.goodGirl,
                 accent = if (role == PointsRole.GoodBoy) colors.lavender else colors.pink,
-                onGive = if (myRole != null && !isMine) ({ awarding = !awarding }) else null,
-                giving = awarding,
+                action = if (canAct) action else null,
+                onAction = if (canAct) ({ picked -> action = if (action == picked) null else picked }) else null,
                 modifier = Modifier.fillMaxWidth().testTag(if (role == PointsRole.GoodBoy) "points_good_boy" else "points_good_girl"),
             )
             if (i == 0) Spacer(Modifier.height(spacing.sm))
         }
-        if (awarding && myRole != null) {
+        val current = action
+        if (current != null && myRole != null) {
             Spacer(Modifier.height(spacing.sm))
-            AwardForm(
+            PointsForm(
                 partnerName = partnerName ?: "them",
                 role = myRole.other,
-                onGive = { amount, reason -> onAward(amount, reason).also { if (it == null) awarding = false } },
-                onCancel = { awarding = false },
+                takeAway = current == PointsAction.TakeAway,
+                onSubmit = { amount, reason ->
+                    onAward(amount, reason, current == PointsAction.TakeAway).also { if (it == null) action = null }
+                },
+                onCancel = { action = null },
             )
         }
         if (lastAward != null) {
@@ -404,15 +408,15 @@ internal fun PointsSection(
     }
 }
 
-/** A short, wide box: name on the left, the total on the right. */
+/** A short, wide box: name on the left, the total on the right, and (on theirs) bold + and - marks. */
 @Composable
 private fun PointsRow(
     title: String,
     owner: String?,
     value: Int,
     accent: Color,
-    onGive: (() -> Unit)?,
-    giving: Boolean,
+    action: PointsAction?,
+    onAction: ((PointsAction) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     ChoomHubCard(
@@ -420,7 +424,8 @@ private fun PointsRow(
         tone = CardTone.Calm,
         contentPadding = PaddingValues(horizontal = ChoomHubTheme.spacing.lg, vertical = ChoomHubTheme.spacing.md),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Same height whether or not the + and - marks are there, so both boxes match.
+        Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = ChoomHubTheme.colors.textSecondary, maxLines = 1)
                 if (owner != null) {
@@ -428,36 +433,55 @@ private fun PointsRow(
                 }
             }
             Text(
-                text = value.toString(),
+                // A real minus sign, so negative totals read cleanly.
+                text = if (value < 0) "\u2212${-value}" else value.toString(),
                 // Lining figures: Cormorant's default old-style numerals make "128" read like "I28".
                 style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "lnum"),
                 color = accent,
             )
-            if (onGive != null) {
-                Spacer(Modifier.width(ChoomHubTheme.spacing.md))
-                Box(
-                    Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, accent.copy(alpha = if (giving) 0.9f else 0.5f), CircleShape)
-                        .background(if (giving) accent.copy(alpha = 0.16f) else Color.Transparent)
-                        .clickable(role = Role.Button, onClickLabel = "Give points", onClick = onGive)
-                        .testTag("points_give"),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(if (giving) "\u00D7" else "+", style = MaterialTheme.typography.titleLarge, color = accent)
-                }
+            if (onAction != null) {
+                Spacer(Modifier.width(ChoomHubTheme.spacing.sm))
+                PointsMark(
+                    icon = if (action == PointsAction.TakeAway) PointIcons.Close else PointIcons.Minus,
+                    label = if (action == PointsAction.TakeAway) "Close" else "Take away points",
+                    tint = accent,
+                    onClick = { onAction(PointsAction.TakeAway) },
+                    tag = "points_take_away",
+                )
+                PointsMark(
+                    icon = if (action == PointsAction.Award) PointIcons.Close else PointIcons.Plus,
+                    label = if (action == PointsAction.Award) "Close" else "Award points",
+                    tint = accent,
+                    onClick = { onAction(PointsAction.Award) },
+                    tag = "points_award",
+                )
             }
         }
     }
 }
 
+/** Just the mark, no circle; a comfortable 44dp tap area around it. */
+@Composable
+private fun PointsMark(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tint: Color, onClick: () -> Unit, tag: String) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            .testTag(tag),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
+    }
+}
+
 /** How many points and why, inline under the boxes. */
 @Composable
-private fun AwardForm(
+private fun PointsForm(
     partnerName: String,
     role: PointsRole,
-    onGive: (amount: String, reason: String) -> String?,
+    takeAway: Boolean,
+    onSubmit: (amount: String, reason: String) -> String?,
     onCancel: () -> Unit,
 ) {
     val colors = ChoomHubTheme.colors
@@ -465,12 +489,16 @@ private fun AwardForm(
     var amount by rememberSaveable { mutableStateOf("") }
     var reason by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    val give = { error = onGive(amount, reason) }
+    val submit = { error = onSubmit(amount, reason) }
     ChoomHubCard(modifier = Modifier.fillMaxWidth().testTag("award_form"), tone = CardTone.Raised) {
-        Text("Give $partnerName ${role.label} points", style = MaterialTheme.typography.titleMedium, color = colors.textMain)
+        Text(
+            if (takeAway) "Take away $partnerName's ${role.label} points" else "Award $partnerName ${role.label} points",
+            style = MaterialTheme.typography.titleMedium,
+            color = colors.textMain,
+        )
         Spacer(Modifier.height(spacing.md))
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            listOf(1, 5, 10, 25).forEach { n ->
+            listOf(1, 2, 3, 5).forEach { n ->
                 val selected = amount == n.toString()
                 PillBadge(
                     text = "$n",
@@ -484,8 +512,8 @@ private fun AwardForm(
         Spacer(Modifier.height(spacing.sm))
         ChoomHubTextField(
             value = amount,
-            onValueChange = { amount = it.filter(Char::isDigit).take(3); error = null },
-            label = "How many (1\u2013100)",
+            onValueChange = { amount = it.filter(Char::isDigit).take(2); error = null },
+            label = "How many (1\u2013${PointRules.MAX})",
             supportingText = error,
             isError = error != null,
             keyboardType = KeyboardType.Number,
@@ -496,15 +524,15 @@ private fun AwardForm(
             onValueChange = { reason = it.take(PointRules.MAX_REASON) },
             label = "What for (optional)",
             capitalization = KeyboardCapitalization.Sentences,
-            onDone = give,
+            onDone = submit,
             modifier = Modifier.fillMaxWidth().testTag("award_reason"),
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onCancel) {
                 Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
-            TextButton(onClick = give, modifier = Modifier.testTag("award_give")) {
-                Text("GIVE", style = MaterialTheme.typography.labelLarge, color = colors.pink)
+            TextButton(onClick = submit, modifier = Modifier.testTag("award_give")) {
+                Text(if (takeAway) "TAKE AWAY" else "AWARD", style = MaterialTheme.typography.labelLarge, color = colors.pink)
             }
         }
     }

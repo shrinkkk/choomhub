@@ -302,14 +302,17 @@ describe('snaps and Memory Lane', () => {
     await assertFails(updateDoc(ref('mallory'), { reactions: { mallory: '\u{1F5A4}' } }));
   });
 
-  test('points go only to your partner, 1 to 100, and stay put', async () => {
+  test('points go only to your partner, 1 to 10 either way, and stay put', async () => {
     const give = (uid, data) => setDoc(doc(db(uid), `couples/c1/points/${uid}-${Math.random()}`), { from: uid, to: 'bob', amount: 5, reason: 'dishes', at: serverTimestamp(), ...data });
     await assertSucceeds(give('alice', {}));
-    await assertSucceeds(give('alice', { amount: 100, reason: null }));
+    await assertSucceeds(give('alice', { amount: 10, reason: null }));
     await assertFails(give('bob', { to: 'bob' }));
     await assertFails(give('alice', { to: 'mallory' }));
+    await assertSucceeds(give('alice', { amount: -5, reason: 'left the lights on' }));
+    await assertSucceeds(give('alice', { amount: -10 }));
     await assertFails(give('alice', { amount: 0 }));
-    await assertFails(give('alice', { amount: 101 }));
+    await assertFails(give('alice', { amount: 11 }));
+    await assertFails(give('alice', { amount: -11 }));
     await assertFails(give('alice', { amount: 2.5 }));
     await assertFails(give('alice', { from: 'bob' }));
     await assertFails(give('alice', { reason: 'x'.repeat(141) }));

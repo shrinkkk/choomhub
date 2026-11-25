@@ -9,6 +9,9 @@ interface PointsRepository {
     /** Every award, newest first. */
     fun observeAwards(): Flow<List<PointAward>>
 
-    /** Gives your partner [amount] points (validated by the caller and again by the rules). */
+    /**
+     * Awards your partner [amount] points, or takes them away if it's negative
+     * (1-10 either way; validated by the caller and again by the rules).
+     */
     suspend fun award(amount: Int, reason: String?): AwardResult
 }

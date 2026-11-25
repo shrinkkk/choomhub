@@ -24,7 +24,8 @@ export const MAX_MOOD_LABEL = 24;
 /**
  * event -> { category: preference key or null (always on), channel, tag, toSelf, kinds }
  * `kinds`, when present, is the list of values the request's `kind` must be one of
- * (`'label'` means free text: a mood's name, cleaned and capped; `'amount'` a whole number 1-100);
+ * (`'label'` means free text: a mood's name, cleaned and capped; `'amount'` a whole number,
+ * 1-10 awarded or -1 to -10 taken away);
  * a null tag means one per kind (`<event>_<kind>`), so a hug doesn't replace a tomato.
  * `toSelf` events go to the caller's own devices (the test button); everything
  * else goes only to the caller's partner.
@@ -58,7 +59,9 @@ export function parseRequest(body) {
   const spec = Events[event];
   let cleanKind = null;
   if (spec.kinds === 'amount') {
-    if (typeof kind !== 'string' || !/^\d{1,3}$/.test(kind) || Number(kind) < 1 || Number(kind) > 100) return null;
+    if (typeof kind !== 'string' || !/^-?\d{1,2}$/.test(kind)) return null;
+    const n = Number(kind);
+    if (n === 0 || n < -10 || n > 10) return null;
     cleanKind = String(Number(kind));
   } else if (spec.kinds === 'label') {
     cleanKind = typeof kind === 'string' ? clean(kind, MAX_MOOD_LABEL) : '';
@@ -105,9 +108,16 @@ export function compose(event, ctx) {
     case 'snap_reaction':
       return { title: `${who} reacted ${ctx.kind} to your snap`, body: 'Open ChoomHub to see it.' };
     case 'points': {
-      const n = Number(ctx.kind);
-      const what = ctx.recipientRole ? `${ctx.recipientRole} point${n === 1 ? '' : 's'}` : `point${n === 1 ? '' : 's'}`;
-      return { title: `${who} gave you ${n} ${what}`, body: ctx.detail || 'No reason given.' };
+      const signed = Number(ctx.kind);
+      const n = Math.abs(signed);
+      const noun = `point${n === 1 ? '' : 's'}`;
+      const body = ctx.detail || 'No reason given.';
+      if (signed < 0) {
+        const whose = ctx.recipientRole ? `of your ${ctx.recipientRole} ${noun}` : `of your ${noun}`;
+        return { title: `${who} took away ${n} ${whose}`, body };
+      }
+      const what = ctx.recipientRole ? `${ctx.recipientRole} ${noun}` : noun;
+      return { title: `${who} awarded you ${n} ${what}`, body };
     }
     case 'mood': {
       const label = clean(ctx.kind || '', MAX_MOOD_LABEL) || 'Something new';

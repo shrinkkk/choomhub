@@ -164,7 +164,14 @@ private fun PathBuilder.circle(cx: Float, cy: Float, r: Float) {
     close()
 }
 
-private fun lineIcon(name: String, block: PathBuilder.() -> Unit): ImageVector =
+/** Bold marks for the points boxes: plus to award, minus to take away, cross to close the form. */
+object PointIcons {
+    val Plus: ImageVector by lazy { lineIcon("Plus", width = 3f) { moveTo(12f, 4.5f); lineTo(12f, 19.5f); moveTo(4.5f, 12f); lineTo(19.5f, 12f) } }
+    val Minus: ImageVector by lazy { lineIcon("Minus", width = 3f) { moveTo(4.5f, 12f); lineTo(19.5f, 12f) } }
+    val Close: ImageVector by lazy { lineIcon("Close", width = 3f) { moveTo(6f, 6f); lineTo(18f, 18f); moveTo(18f, 6f); lineTo(6f, 18f) } }
+}
+
+private fun lineIcon(name: String, width: Float = 1.8f, block: PathBuilder.() -> Unit): ImageVector =
     ImageVector.Builder(
         name = name,
         defaultWidth = 24.dp,
@@ -174,7 +181,7 @@ private fun lineIcon(name: String, block: PathBuilder.() -> Unit): ImageVector =
     ).path(
         fill = null,
         stroke = SolidColor(Color.Black),
-        strokeLineWidth = 1.8f,
+        strokeLineWidth = width,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round,
         pathBuilder = block,

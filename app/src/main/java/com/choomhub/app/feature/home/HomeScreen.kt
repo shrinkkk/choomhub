@@ -128,7 +128,7 @@ fun HomeContent(
     snapImage: ByteArray? = null,
     onOpenSnap: (String) -> Unit = {},
     onTakePhoto: () -> Unit = {},
-    onAward: (String, String) -> String? = { _, _ -> null },
+    onAward: (amount: String, reason: String, takeAway: Boolean) -> String? = { _, _, _ -> null },
 ) {
     when (state) {
         HomeUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -183,7 +183,6 @@ fun HomeContent(
                             image = snapImage,
                             partnerName = state.partnerName,
                             mySnapLabel = state.mySnapLabel,
-                            prompt = state.snapPrompt,
                             onOpen = onOpenSnap,
                             onTakePhoto = onTakePhoto,
                             modifier = gutter,

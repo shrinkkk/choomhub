@@ -347,14 +347,15 @@ their length; the Worker sends the label as written.
 
 ## ADR-033: Points are a ledger you can only add to
 
-**Date:** 2026-11-25 · **Status:** Accepted (owner's request)
+**Date:** 2026-11-25 · **Status:** Accepted (owner's request; revised the same day)
 
-Points live in `couples/{id}/points` as append-only entries `{from, to, amount, reason, at}`. Rules
-only let you give points to your partner, 1–100 at a time, with an optional reason; nothing can be
-edited or deleted. Totals are summed on the phone from the ledger and never stored, so there's no
-number to tamper with. Home shows two short, wide boxes stacked (yours on top, so neither wraps),
-with a + on your partner's to give points inline. The push names the recipient's role (the Worker
-reads `shared/roles`).
+Points live in `couples/{id}/points` as append-only entries `{from, to, amount, reason, at}`. You can
+award your partner 1–10 points or take 1–10 away (a negative amount), with an optional reason;
+rules enforce both limits and that it's for your partner, and nothing can be edited or deleted.
+Totals are summed on the phone from the ledger, never stored, and can go below zero. Home shows two
+short, wide boxes stacked (yours on top, always the same height), with bold − and + marks on your
+partner's to open the form inline; quick picks are 1, 2, 3 and 5. The push names the recipient's
+role ("awarded you 3 Good Girl points" / "took away 2 of your Good Girl points").
 
 ## ADR-034: Anything that undoes your own work asks first
 
@@ -374,7 +375,18 @@ crying cat). Small, easily redone actions (removing one mood) don't ask.
   rules only let you set or remove your own. The sender gets a push.
 - **Daily prompt**: picked from a list by the date, at a time between 12:00 and 20:00 seeded by the
   date, so both phones agree without a server. A local notification (WorkManager) on its own
-  channel; on by default, switch in Settings. Snaps are camera-only, by the owner's choice.
+  channel; on by default, switch in Settings. It is not shown on Home (owner's choice). Snaps are
+  camera-only, by the owner's choice.
 - **Widget** (Glance): their latest snap, caption and "from … · 5 min ago". New-snap pushes are
   data-only so the app wakes up, shows the notification itself and refreshes the widget; it also
   refreshes when you leave the app and hourly as a fallback.
+
+## ADR-036: Releases through Firebase App Distribution, signed with one key, versioned by git
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner's choice)
+
+App Distribution is free and gives her one-tap updates through the App Tester app, without a Play
+developer account. Releases are APKs (not bundles, which would need Play's internal app sharing on
+her phone), signed with a release key whose location and passwords live only in `local.properties`;
+without them the release build stays unsigned. `versionCode` is the git commit count (computed by
+the build) so every newer build installs over the previous one. Steps: docs/RELEASING.md.

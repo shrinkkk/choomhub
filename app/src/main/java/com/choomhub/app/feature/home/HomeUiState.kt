@@ -3,7 +3,6 @@ package com.choomhub.app.feature.home
 import com.choomhub.app.core.common.TimeLabels
 import com.choomhub.app.domain.model.AffectionKind
 import com.choomhub.app.domain.model.HomeSnapshot
-import com.choomhub.app.domain.model.SnapPrompts
 import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.PointBalances
 import com.choomhub.app.domain.model.PointsRole
@@ -31,11 +30,9 @@ sealed interface HomeUiState {
         /** The latest gesture from them, and the latest from you. */
         val lastReceived: GestureUi? = null,
         val lastSent: GestureUi? = null,
-        /** Today's snap prompt (same on both phones). */
-        val snapPrompt: String? = null,
         /** e.g. "You sent one 5 min ago"; null if you haven't. */
         val mySnapLabel: String? = null,
-        /** The newest award either way, e.g. "Wren gave you 5" + "for the dishes" + "2 h ago". */
+        /** The newest ledger entry either way, e.g. "Wren awarded you 5" + "for the dishes" + "2 h ago". */
         val lastAward: AwardUi? = null,
     ) : HomeUiState
 }
@@ -96,13 +93,18 @@ internal fun HomeSnapshot.toUiState(clock: Clock): HomeUiState.Ready {
         },
         lastAward = awards.firstOrNull()?.let { a ->
             val who = partnerName ?: "They"
+            val n = kotlin.math.abs(a.amount)
             AwardUi(
-                text = if (a.toMe) "$who gave you ${a.amount}" else "You gave $who ${a.amount}",
+                text = when {
+                    a.toMe && a.amount > 0 -> "$who awarded you $n"
+                    a.toMe -> "$who took $n from you"
+                    a.amount > 0 -> "You awarded $who $n"
+                    else -> "You took $n from $who"
+                },
                 reason = a.reason,
                 whenLabel = TimeLabels.relative(a.at ?: now, now, zone),
             )
         },
-        snapPrompt = SnapPrompts.forDate(localNow.toLocalDate()),
         mySnapLabel = mySnap?.let {
             "You sent one ${TimeLabels.relative(it.sentAt ?: now, now, zone)}" +
                 (it.partnerReaction?.let { r -> " \u00B7 ${partnerName ?: "they"} $r" } ?: "")

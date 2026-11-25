@@ -80,7 +80,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Keep → collections in Our World → Memory Lane (create, toggle per snap, grid per collection)
 - ✅ Push notification for new snaps (Snaps switch)
 - ✅ Reactions (one each, from 🖤 🥺 😭 😂 🔥 🍅), pushed to the sender
-- ✅ Daily snap prompt: same prompt and time on both phones (12:00–20:00), local notification, switch in Settings
+- ✅ Daily snap prompt: same prompt and time on both phones (12:00–20:00), a local notification only, switch in Settings
 - ✅ Home-screen widget with their latest snap; refreshes when a snap arrives, when you leave the app, and hourly
 
 ## Milestone 6: Messages ⬜
@@ -92,7 +92,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 ## Milestone 7: Productivity and points 🟡
 
 - ✅ Points ledger (append-only; totals are summed, never stored), stacked boxes with yours on top
-- ✅ Give points to your partner (1–100, optional reason), pushed with the role named
+- ✅ Award or take away your partner's points (1–10, optional reason; totals can go negative), pushed with the role named
 - ⬜ Achievements with descriptions
 - ⬜ Points history; custom rewards and a point shop
 

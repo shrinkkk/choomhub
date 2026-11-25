@@ -105,8 +105,8 @@ test('a mood change carries the mood and the note', async () => {
 
 test('points name the role the recipient holds', async () => {
   await put('couples/c1/shared/roles', { goodBoy: 'alice', goodGirl: 'bob' });
-  await notify('alice', { event: 'points', kind: '25', detail: 'for the playlist' });
-  assert.equal(sent[0].notification.title, 'Shri gave you 25 Good Girl points');
+  await notify('alice', { event: 'points', kind: '5', detail: 'for the playlist' });
+  assert.equal(sent[0].notification.title, 'Shri awarded you 5 Good Girl points');
   assert.equal(sent[0].notification.body, 'for the playlist');
 });
 

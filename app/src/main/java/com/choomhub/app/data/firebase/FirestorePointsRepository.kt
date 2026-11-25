@@ -21,8 +21,8 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /**
- * couples/{id}/points/{autoId}: { from, to, amount, reason, at }. Rules only allow giving points
- * to your partner, 1–100 at a time; entries can't be edited or deleted.
+ * couples/{id}/points/{autoId}: { from, to, amount, reason, at }. Rules only allow awarding (or
+ * taking away) your partner's points, 1–10 at a time; entries can't be edited or deleted.
  */
 class FirestorePointsRepository @Inject constructor(
     private val spaceRepository: SpaceRepository,
@@ -44,7 +44,7 @@ class FirestorePointsRepository @Inject constructor(
 
     override suspend fun award(amount: Int, reason: String?): AwardResult {
         val space = spaceRepository.observeSpace().first()
-        if (space !is SpaceState.Paired) return AwardResult.NotGiven("They haven't joined your space yet.")
+        if (space !is SpaceState.Paired) return AwardResult.NotAwarded("They haven't joined your space yet.")
         ledger(space.coupleId).add(
             mapOf(
                 "from" to space.account.uid,
@@ -54,7 +54,7 @@ class FirestorePointsRepository @Inject constructor(
                 "at" to FieldValue.serverTimestamp(),
             ),
         )
-        return AwardResult.Given
+        return AwardResult.Awarded
     }
 
     companion object {
