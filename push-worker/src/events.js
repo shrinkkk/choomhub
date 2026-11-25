@@ -2,7 +2,18 @@
 // I/O so it can be unit-tested. Copy is plain on purpose (see docs/DECISIONS.md).
 
 /** Android notification channels; must match NotificationChannels.kt in the app. */
-export const Channels = Object.freeze({ gestures: 'gestures', snaps: 'snaps', moods: 'moods', meetup: 'meetup', space: 'space', general: 'general' });
+export const Channels = Object.freeze({
+  gestures: 'gestures',
+  snaps: 'snaps',
+  points: 'points',
+  moods: 'moods',
+  meetup: 'meetup',
+  space: 'space',
+  general: 'general',
+});
+
+/** Snap reactions; must match SnapRules.REACTIONS in the app and the Firestore rules. */
+export const Reactions = Object.freeze(['\u{1F5A4}', '\u{1F97A}', '\u{1F62D}', '\u{1F602}', '\u{1F525}', '\u{1F345}']);
 
 /** Gesture kinds the app may name; must match AffectionKind in the app. */
 export const Gestures = Object.freeze(['hug', 'forehead_kiss', 'head_pats', 'tomato']);
@@ -13,7 +24,7 @@ export const MAX_MOOD_LABEL = 24;
 /**
  * event -> { category: preference key or null (always on), channel, tag, toSelf, kinds }
  * `kinds`, when present, is the list of values the request's `kind` must be one of
- * (`'label'` means free text: a mood's name, cleaned and capped);
+ * (`'label'` means free text: a mood's name, cleaned and capped; `'amount'` a whole number 1-100);
  * a null tag means one per kind (`<event>_<kind>`), so a hug doesn't replace a tomato.
  * `toSelf` events go to the caller's own devices (the test button); everything
  * else goes only to the caller's partner.
@@ -25,7 +36,10 @@ export const Events = Object.freeze({
   renamed: { category: 'space', channel: Channels.space, tag: 'renamed', toSelf: false, takesDetail: false },
   test: { category: null, channel: Channels.general, tag: 'test', toSelf: true, takesDetail: false },
   gesture: { category: 'gestures', channel: Channels.gestures, tag: null, toSelf: false, takesDetail: false, kinds: Gestures },
-  snap: { category: 'snaps', channel: Channels.snaps, tag: 'snap', toSelf: false, takesDetail: true },
+  // Data-only, so the app wakes up for it (to refresh the home-screen widget) and shows it itself.
+  snap: { category: 'snaps', channel: Channels.snaps, tag: 'snap', toSelf: false, takesDetail: true, dataOnly: true },
+  snap_reaction: { category: 'snaps', channel: Channels.snaps, tag: 'snap_reaction', toSelf: false, takesDetail: false, kinds: Reactions },
+  points: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: 'amount' },
   mood: { category: 'moods', channel: Channels.moods, tag: 'mood', toSelf: false, takesDetail: true, kinds: 'label' },
 });
 
@@ -43,7 +57,10 @@ export function parseRequest(body) {
   if (detail !== undefined && detail !== null && typeof detail !== 'string') return null;
   const spec = Events[event];
   let cleanKind = null;
-  if (spec.kinds === 'label') {
+  if (spec.kinds === 'amount') {
+    if (typeof kind !== 'string' || !/^\d{1,3}$/.test(kind) || Number(kind) < 1 || Number(kind) > 100) return null;
+    cleanKind = String(Number(kind));
+  } else if (spec.kinds === 'label') {
     cleanKind = typeof kind === 'string' ? clean(kind, MAX_MOOD_LABEL) : '';
     if (!cleanKind) return null;
   } else if (spec.kinds) {
@@ -63,7 +80,7 @@ function clean(text, max) {
 /**
  * The notification text.
  * @param {string} event
- * @param {{ senderName?: string | null, recipientNewName?: string | null, detail?: string, kind?: string | null }} ctx
+ * @param {{ senderName?: string | null, recipientNewName?: string | null, detail?: string, kind?: string | null, recipientRole?: string | null }} ctx
  *   senderName: what the recipient calls the sender; recipientNewName: what the sender now calls the recipient.
  */
 export function compose(event, ctx) {
@@ -85,6 +102,13 @@ export function compose(event, ctx) {
       return gestureText(who, ctx.kind);
     case 'snap':
       return { title: `${who} sent a snap`, body: ctx.detail || 'Open ChoomHub to see it.' };
+    case 'snap_reaction':
+      return { title: `${who} reacted ${ctx.kind} to your snap`, body: 'Open ChoomHub to see it.' };
+    case 'points': {
+      const n = Number(ctx.kind);
+      const what = ctx.recipientRole ? `${ctx.recipientRole} point${n === 1 ? '' : 's'}` : `point${n === 1 ? '' : 's'}`;
+      return { title: `${who} gave you ${n} ${what}`, body: ctx.detail || 'No reason given.' };
+    }
     case 'mood': {
       const label = clean(ctx.kind || '', MAX_MOOD_LABEL) || 'Something new';
       return { title: `${who} updated their mood`, body: ctx.detail ? `${label} \u00b7 ${ctx.detail}` : label };
@@ -92,6 +116,17 @@ export function compose(event, ctx) {
     default:
       throw new Error(`unknown event ${event}`);
   }
+}
+
+function dataOnlyMessage(fid, event, text) {
+  const spec = Events[event];
+  return {
+    message: {
+      fid,
+      data: { event, category: spec.category ?? 'general', title: text.title, body: text.body, channel: spec.channel, tag: spec.tag },
+      android: { priority: 'high', collapse_key: spec.tag },
+    },
+  };
 }
 
 function gestureText(who, kind) {
@@ -111,9 +146,11 @@ function gestureText(who, kind) {
 
 /** The FCM HTTP v1 message for one device. */
 export function fcmMessage(fid, event, text, kind = null) {
+  if (Events[event].dataOnly) return dataOnlyMessage(fid, event, text);
   const spec = Events[event];
-  const tag = spec.tag ?? `${event}_${kind}`;
-  const kindData = kind && spec.kinds !== 'label' ? { kind } : {};
+  // Points stack (each award is its own notification); gestures collapse per kind.
+  const tag = spec.tag ?? (event === 'points' ? `points_${Date.now()}` : `${event}_${kind}`);
+  const kindData = kind && Array.isArray(spec.kinds) ? { kind } : {};
   return {
     message: {
       fid,

@@ -20,6 +20,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.size
+import com.choomhub.app.core.designsystem.component.InkDialog
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
+import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -70,6 +77,23 @@ fun MoodOptionsContent(
 ) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
+    // Restoring throws away every custom mood, so it asks first (as everything that undoes manual work does).
+    var confirmRestore by rememberSaveable { mutableStateOf(false) }
+    if (confirmRestore) {
+        InkDialog(
+            title = "Restore the defaults?",
+            message = "Your list goes back to the 11 original moods. Moods you added will be gone from it, for both of you.",
+            confirm = "Keep our list",
+            onConfirm = { confirmRestore = false },
+            dismissive = "Restore defaults",
+            onDismissive = {
+                confirmRestore = false
+                onRestoreDefaults()
+            },
+            onDismissRequest = { confirmRestore = false },
+            modifier = Modifier.testTag("mood_options_restore_confirm"),
+        ) { GothicMotifArt(GothicMotif.Candle, Modifier.size(88.dp)) }
+    }
     Box(Modifier.fillMaxSize().testTag("screen_mood_options"), contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier
@@ -114,7 +138,7 @@ fun MoodOptionsContent(
                 color = colors.textSecondary,
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                TextButton(onClick = onRestoreDefaults, modifier = Modifier.testTag("mood_options_defaults")) {
+                TextButton(onClick = { confirmRestore = true }, modifier = Modifier.testTag("mood_options_defaults")) {
                     Text("RESTORE DEFAULTS", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
                 }
             }

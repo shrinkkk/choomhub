@@ -10,6 +10,8 @@ import com.choomhub.app.domain.model.SnapInfo
 import com.choomhub.app.domain.model.SnapRules
 import com.choomhub.app.domain.repository.ProfileRepository
 import com.choomhub.app.domain.repository.SnapRepository
+import com.choomhub.app.domain.repository.Notifier
+import com.choomhub.app.domain.model.PushEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +39,7 @@ class SnapViewerViewModel @Inject constructor(
     private val snapRepository: SnapRepository,
     profileRepository: ProfileRepository,
     private val seenSnaps: SeenSnaps,
+    private val notifier: Notifier,
 ) : ViewModel() {
 
     val snapId: String = savedStateHandle.toRoute<SnapViewerRoute>().id
@@ -62,6 +65,17 @@ class SnapViewerViewModel @Inject constructor(
         viewModelScope.launch {
             val snap = snapRepository.observeSnap(snapId).filterNotNull().first()
             if (!snap.fromMe) seenSnaps.markSeen(snap.id)
+        }
+    }
+
+    /** React to their snap; tapping your current reaction again removes it. */
+    fun react(reaction: String) {
+        val snap = state.value.snap ?: return
+        if (snap.fromMe || reaction !in SnapRules.REACTIONS) return
+        val next = if (snap.myReaction == reaction) null else reaction
+        viewModelScope.launch {
+            snapRepository.react(snap.id, next)
+            if (next != null) notifier.notifyPartner(PushEvent.SnapReaction, kind = next)
         }
     }
 

@@ -103,6 +103,7 @@ fun MoodContent(
                 label = "What's going on (optional)",
                 supportingText = "${state.note.length}/${MoodRules.MAX_NOTE}",
                 onDone = onSave,
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
                 modifier = Modifier.fillMaxWidth().testTag("mood_note"),
             )
             if (state.error != null) {

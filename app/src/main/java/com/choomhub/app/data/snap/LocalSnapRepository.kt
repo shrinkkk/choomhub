@@ -19,5 +19,6 @@ class LocalSnapRepository @Inject constructor() : SnapRepository {
     override fun observeCollections(): Flow<List<SnapCollection>> = flowOf(emptyList())
     override fun observeKept(): Flow<List<SnapInfo>> = flowOf(emptyList())
     override suspend fun createCollection(name: String): String? = null
+    override suspend fun react(snapId: String, reaction: String?) = Unit
     override suspend fun setCollections(snapId: String, collectionIds: List<String>) = Unit
 }

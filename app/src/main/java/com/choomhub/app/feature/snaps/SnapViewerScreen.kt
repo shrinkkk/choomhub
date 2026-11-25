@@ -24,6 +24,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.size
+import com.choomhub.app.core.designsystem.component.InkDialog
+import com.choomhub.app.core.designsystem.illustration.GothicMotif
+import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +51,7 @@ import com.choomhub.app.core.designsystem.component.SnapPhoto
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.SnapCollection
+import com.choomhub.app.domain.model.SnapRules
 import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.ZoneId
@@ -63,6 +71,23 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
     val newCollection by viewModel.newCollection.collectAsStateWithLifecycle()
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
+    // Taking a snap out of its last collection means it can be replaced (and gone for good), so ask first.
+    var confirmUnkeep by rememberSaveable { mutableStateOf<String?>(null) }
+    confirmUnkeep?.let { collectionId ->
+        InkDialog(
+            title = "Stop keeping it?",
+            message = "This was its last collection. Once it's not kept, the next snap from whoever sent it replaces it for good.",
+            confirm = "Keep it",
+            onConfirm = { confirmUnkeep = null },
+            dismissive = "Remove it",
+            onDismissive = {
+                confirmUnkeep = null
+                viewModel.toggle(collectionId)
+            },
+            onDismissRequest = { confirmUnkeep = null },
+            modifier = Modifier.testTag("snap_unkeep_confirm"),
+        ) { GothicMotifArt(GothicMotif.Moth, Modifier.size(88.dp)) }
+    }
     Box(Modifier.fillMaxSize().testTag("screen_snap"), contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier
@@ -99,6 +124,30 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
                 Spacer(Modifier.height(spacing.md))
                 Text(snap.caption, style = ChoomHubTextStyles.Handwritten, color = colors.textMain)
             }
+            Spacer(Modifier.height(spacing.md))
+            if (snap.fromMe) {
+                Text(
+                    snap.partnerReaction?.let { "${state.partnerName ?: "They"} reacted $it" } ?: "No reaction yet",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    modifier = Modifier.testTag("snap_their_reaction"),
+                )
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    SnapRules.REACTIONS.forEach { r ->
+                        val selected = snap.myReaction == r
+                        Box(
+                            Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(if (selected) colors.pink.copy(alpha = 0.18f) else colors.surface)
+                                .border(1.dp, if (selected) colors.pink else colors.outline, MaterialTheme.shapes.small)
+                                .toggleable(value = selected, role = Role.Checkbox, onValueChange = { viewModel.react(r) })
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .testTag("react_$r"),
+                        ) { Text(r, style = MaterialTheme.typography.titleLarge) }
+                    }
+                }
+            }
             Spacer(Modifier.height(spacing.xl))
             Text("Keep it", style = MaterialTheme.typography.titleLarge, color = colors.textMain)
             Text(
@@ -110,7 +159,13 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
             if (state.collections.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     state.collections.forEach { c ->
-                        CollectionChip(c, selected = c.id in snap.collections, onToggle = { viewModel.toggle(c.id) })
+                        CollectionChip(
+                            c,
+                            selected = c.id in snap.collections,
+                            onToggle = {
+                                if (snap.collections == listOf(c.id)) confirmUnkeep = c.id else viewModel.toggle(c.id)
+                            },
+                        )
                     }
                 }
                 Spacer(Modifier.height(spacing.md))

@@ -20,6 +20,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Box
+import com.choomhub.app.feature.home.AwardUi
+import com.choomhub.app.domain.model.PointRules
+import com.choomhub.app.core.designsystem.component.ChoomHubTextField
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.choomhub.app.core.designsystem.component.SnapPhoto
 import androidx.compose.material3.TextButton
 import com.choomhub.app.feature.home.GestureUi
@@ -178,9 +191,9 @@ internal fun LatestSnapSection(
     image: ByteArray?,
     partnerName: String?,
     mySnapLabel: String?,
+    prompt: String?,
     onOpen: (String) -> Unit,
     onTakePhoto: () -> Unit,
-    onPickPhoto: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ChoomHubTheme.colors
@@ -233,6 +246,11 @@ internal fun LatestSnapSection(
             }
             Spacer(Modifier.height(ChoomHubTheme.spacing.md))
             HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
+            if (prompt != null) {
+                Spacer(Modifier.height(ChoomHubTheme.spacing.md))
+                Text("TODAY'S PROMPT", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+                Text(prompt, style = ChoomHubTextStyles.Handwritten, color = colors.textMain, modifier = Modifier.testTag("snap_prompt"))
+            }
             Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -242,10 +260,7 @@ internal fun LatestSnapSection(
                     modifier = Modifier.weight(1f),
                 )
                 TextButton(onClick = onTakePhoto, modifier = Modifier.testTag("snap_camera")) {
-                    Text("CAMERA", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
-                }
-                TextButton(onClick = onPickPhoto, modifier = Modifier.testTag("snap_gallery")) {
-                    Text("GALLERY", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                    Text("TAKE A SNAP", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
                 }
             }
         }
@@ -334,37 +349,164 @@ internal fun GestureSection(
 }
 
 @Composable
-internal fun PointsSection(points: PointBalances, myRole: PointsRole?, partnerName: String?, modifier: Modifier = Modifier) {
+internal fun PointsSection(
+    points: PointBalances,
+    myRole: PointsRole?,
+    partnerName: String?,
+    lastAward: AwardUi?,
+    onAward: (amount: String, reason: String) -> String?,
+    modifier: Modifier = Modifier,
+) {
     val colors = ChoomHubTheme.colors
+    val spacing = ChoomHubTheme.spacing
+    var awarding by rememberSaveable { mutableStateOf(false) }
     Column(modifier.fillMaxWidth()) {
-        SectionHeader(title = "Points", eyebrow = "rewards", trailing = { PillBadge(text = "sample", color = colors.textSecondary) })
-        Spacer(Modifier.height(ChoomHubTheme.spacing.md))
-        Row(horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.md)) {
-            fun owner(role: PointsRole) = when (myRole) {
-                null -> null
-                role -> "you"
-                else -> partnerName
+        SectionHeader(title = "Points", eyebrow = "rewards")
+        Spacer(Modifier.height(spacing.md))
+        // Your own points first; theirs below, with the button to give them some.
+        val mine = myRole ?: PointsRole.GoodBoy
+        listOf(mine, mine.other).forEachIndexed { i, role ->
+            val isMine = myRole != null && role == myRole
+            PointsRow(
+                title = "${role.label} points",
+                owner = when {
+                    myRole == null -> null
+                    isMine -> "you"
+                    else -> partnerName ?: "them"
+                },
+                value = if (role == PointsRole.GoodBoy) points.goodBoy else points.goodGirl,
+                accent = if (role == PointsRole.GoodBoy) colors.lavender else colors.pink,
+                onGive = if (myRole != null && !isMine) ({ awarding = !awarding }) else null,
+                giving = awarding,
+                modifier = Modifier.fillMaxWidth().testTag(if (role == PointsRole.GoodBoy) "points_good_boy" else "points_good_girl"),
+            )
+            if (i == 0) Spacer(Modifier.height(spacing.sm))
+        }
+        if (awarding && myRole != null) {
+            Spacer(Modifier.height(spacing.sm))
+            AwardForm(
+                partnerName = partnerName ?: "them",
+                role = myRole.other,
+                onGive = { amount, reason -> onAward(amount, reason).also { if (it == null) awarding = false } },
+                onCancel = { awarding = false },
+            )
+        }
+        if (lastAward != null) {
+            Spacer(Modifier.height(spacing.md))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("last_award")) {
+                Text(lastAward.text, style = MaterialTheme.typography.bodySmall, color = colors.textMain)
+                Text(" \u00B7 ${lastAward.whenLabel}", style = MaterialTheme.typography.labelSmall, color = colors.textFaint)
             }
-            PointsCard("Good Boy points", owner(PointsRole.GoodBoy), points.goodBoy, colors.lavender, Modifier.weight(1f).testTag("points_good_boy"))
-            PointsCard("Good Girl points", owner(PointsRole.GoodGirl), points.goodGirl, colors.pink, Modifier.weight(1f).testTag("points_good_girl"))
+            if (lastAward.reason != null) {
+                Text(lastAward.reason, style = ChoomHubTextStyles.Handwritten, color = colors.textSecondary)
+            }
         }
     }
 }
 
+/** A short, wide box: name on the left, the total on the right. */
 @Composable
-private fun PointsCard(title: String, owner: String?, value: Int, accent: Color, modifier: Modifier = Modifier) {
-    ChoomHubCard(modifier = modifier, tone = CardTone.Calm) {
-        Text(title.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = ChoomHubTheme.colors.textSecondary)
-        if (owner != null) {
-            Text(owner, style = ChoomHubTextStyles.Handwritten, color = ChoomHubTheme.colors.textMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun PointsRow(
+    title: String,
+    owner: String?,
+    value: Int,
+    accent: Color,
+    onGive: (() -> Unit)?,
+    giving: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    ChoomHubCard(
+        modifier = modifier,
+        tone = CardTone.Calm,
+        contentPadding = PaddingValues(horizontal = ChoomHubTheme.spacing.lg, vertical = ChoomHubTheme.spacing.md),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = ChoomHubTheme.colors.textSecondary, maxLines = 1)
+                if (owner != null) {
+                    Text(owner, style = ChoomHubTextStyles.Handwritten, color = ChoomHubTheme.colors.textMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Text(
+                text = value.toString(),
+                // Lining figures: Cormorant's default old-style numerals make "128" read like "I28".
+                style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "lnum"),
+                color = accent,
+            )
+            if (onGive != null) {
+                Spacer(Modifier.width(ChoomHubTheme.spacing.md))
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, accent.copy(alpha = if (giving) 0.9f else 0.5f), CircleShape)
+                        .background(if (giving) accent.copy(alpha = 0.16f) else Color.Transparent)
+                        .clickable(role = Role.Button, onClickLabel = "Give points", onClick = onGive)
+                        .testTag("points_give"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (giving) "\u00D7" else "+", style = MaterialTheme.typography.titleLarge, color = accent)
+                }
+            }
         }
-        Spacer(Modifier.height(ChoomHubTheme.spacing.xs))
-        Text(
-            text = value.toString(),
-            // Lining figures: Cormorant's default old-style numerals make "128" read like "I28".
-            style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "lnum"),
-            color = accent,
+    }
+}
+
+/** How many points and why, inline under the boxes. */
+@Composable
+private fun AwardForm(
+    partnerName: String,
+    role: PointsRole,
+    onGive: (amount: String, reason: String) -> String?,
+    onCancel: () -> Unit,
+) {
+    val colors = ChoomHubTheme.colors
+    val spacing = ChoomHubTheme.spacing
+    var amount by rememberSaveable { mutableStateOf("") }
+    var reason by rememberSaveable { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val give = { error = onGive(amount, reason) }
+    ChoomHubCard(modifier = Modifier.fillMaxWidth().testTag("award_form"), tone = CardTone.Raised) {
+        Text("Give $partnerName ${role.label} points", style = MaterialTheme.typography.titleMedium, color = colors.textMain)
+        Spacer(Modifier.height(spacing.md))
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            listOf(1, 5, 10, 25).forEach { n ->
+                val selected = amount == n.toString()
+                PillBadge(
+                    text = "$n",
+                    color = if (selected) colors.pink else colors.textSecondary,
+                    modifier = Modifier
+                        .clickable(role = Role.RadioButton) { amount = n.toString(); error = null }
+                        .testTag("award_amount_$n"),
+                )
+            }
+        }
+        Spacer(Modifier.height(spacing.sm))
+        ChoomHubTextField(
+            value = amount,
+            onValueChange = { amount = it.filter(Char::isDigit).take(3); error = null },
+            label = "How many (1\u2013100)",
+            supportingText = error,
+            isError = error != null,
+            keyboardType = KeyboardType.Number,
+            modifier = Modifier.fillMaxWidth().testTag("award_amount"),
         )
+        ChoomHubTextField(
+            value = reason,
+            onValueChange = { reason = it.take(PointRules.MAX_REASON) },
+            label = "What for (optional)",
+            capitalization = KeyboardCapitalization.Sentences,
+            onDone = give,
+            modifier = Modifier.fillMaxWidth().testTag("award_reason"),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onCancel) {
+                Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+            }
+            TextButton(onClick = give, modifier = Modifier.testTag("award_give")) {
+                Text("GIVE", style = MaterialTheme.typography.labelLarge, color = colors.pink)
+            }
+        }
     }
 }
 

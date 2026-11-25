@@ -73,6 +73,11 @@ class ScreenshotCaptureTest {
 
     private val fakeMoods = FakeMoodRepository()
     private val fakeGestures = FakeGestureRepository()
+    private val fakePoints = com.choomhub.app.testing.FakePointsRepository()
+
+    @BindValue
+    @JvmField
+    val pointsRepository: com.choomhub.app.domain.repository.PointsRepository = fakePoints
     private val fakeSnaps = FakeSnapRepository()
 
     @BindValue
@@ -214,6 +219,30 @@ class ScreenshotCaptureTest {
         capture("phone_snap_viewer")
         composeRule.onNodeWithTag(TopLevelDestination.OurWorld.testTag).performClick()
         capture("phone_memory_lane")
+    }
+
+    /** Points (stacked, giving form open) and both "cancel the meetup?" pop-ups. */
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-xxhdpi")
+    fun pointsAndConfirmations() {
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag("home_list").fetchSemanticsNodes().isNotEmpty() }
+        kotlinx.coroutines.runBlocking { fakePoints.award(15, "for the playlist") }
+        composeRule.onNodeWithTag("home_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("points_good_girl"))
+        composeRule.onNodeWithTag("points_give").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("home_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("award_give"))
+        capture("phone_points")
+        meetups.meetup.value = Meetup(Instant.now().plus(Duration.ofDays(3)))
+        composeRule.onNodeWithTag("home_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("meetup_card"))
+        composeRule.onNodeWithTag("meetup_clear").performClick()
+        captureDialog("dialog_cancel_1")
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        captureDialog("dialog_cancel_2")
+    }
+
+    private fun captureDialog(name: String) {
+        composeRule.waitForIdle()
+        val bitmap = composeRule.onNode(androidx.compose.ui.test.isDialog()).captureToImage().asAndroidBitmap()
+        File(screenshotDir(), "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     /** Small, older-phone size to check nothing clips. */

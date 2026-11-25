@@ -10,6 +10,9 @@ import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.core.designsystem.theme.LocalAmbientMotionEnabled
 import com.choomhub.app.ui.ChoomHubApp
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.lifecycle.lifecycleScope
+import com.choomhub.app.feature.widget.LatestSnapWidget
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import com.choomhub.app.core.designsystem.theme.SkyPhase
@@ -20,6 +23,12 @@ import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    /** Leaving the app is a good moment to bring the home-screen widget up to date. */
+    override fun onStop() {
+        super.onStop()
+        lifecycleScope.launch { LatestSnapWidget.refresh(applicationContext) }
+    }
 
     @Inject lateinit var clock: Clock
 

@@ -75,6 +75,9 @@ background on first launch) and try again.
 | Change what you call them | "*Name* changed your name" · You're "…" to them now | Space |
 | Send a hug / forehead kiss / head pats / tomato | "*Name* sent you a hug" · Consider yourself hugged. | Gestures |
 | Send a snap | "*Name* sent a snap" · its caption | Snaps |
+| React to their snap | "*Name* reacted 🖤 to your snap" | Snaps |
+| Give them points | "*Name* gave you 10 Good Girl points" · the reason | Points |
+| (nobody) | "Snap prompt" · today's prompt, made on the phone at the day's prompt time | Settings → Daily snap prompt |
 | Change your mood | "*Name* updated their mood" · Missing you · rain again | Moods |
 
 *Name* is whatever **they** call **you**. Each person's switches are in Settings and respected by the

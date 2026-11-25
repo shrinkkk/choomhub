@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -63,6 +64,7 @@ class SnapFlowTest {
     @BindValue @JvmField val snapRepository: SnapRepository = snaps
     @BindValue @JvmField val moodRepository: MoodRepository = FakeMoodRepository()
     @BindValue @JvmField val gestureRepository: GestureRepository = FakeGestureRepository()
+    @BindValue @JvmField val pointsRepository: com.choomhub.app.domain.repository.PointsRepository = com.choomhub.app.testing.FakePointsRepository()
     @BindValue @JvmField val notifier: Notifier = FakeNotifier()
     @BindValue @JvmField val notificationRepository: NotificationRepository = FakeNotificationRepository()
     @BindValue @JvmField val meetupRepository: MeetupRepository = FakeMeetupRepository()
@@ -74,6 +76,12 @@ class SnapFlowTest {
 
     @get:Rule
     val rules: RuleChain = RuleChain.outerRule(hiltRule).around(DisableAmbientAnimationsRule()).around(composeRule)
+
+    /** Home draws once its first data (names, moods, gestures, snaps, points) is in. */
+    @org.junit.Before
+    fun waitForHome() {
+        composeRule.waitUntil(10_000) { composeRule.onAllNodesWithTag("home_list").fetchSemanticsNodes().isNotEmpty() }
+    }
 
     private fun jpeg(): ByteArray {
         val bitmap = Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.DKGRAY) }
@@ -104,8 +112,8 @@ class SnapFlowTest {
     }
 
     @Test
-    fun withNoSnapsHomeSaysSoAndOffersBothWaysToSend() {
-        composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("snap_gallery"))
+    fun withNoSnapsHomeSaysSoAndOffersTheCamera() {
+        composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("snap_camera"))
         composeRule.onNodeWithText("Nothing from Wren yet").assertExists()
         composeRule.onNodeWithTag("snap_camera").assertExists()
     }

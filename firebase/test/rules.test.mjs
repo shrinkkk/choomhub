@@ -291,6 +291,35 @@ describe('snaps and Memory Lane', () => {
     await assertSucceeds(cleanup.commit());
   });
 
+  test('you react to a snap with one of the reactions, only as yourself', async () => {
+    await send('alice', 's1');
+    const ref = (uid) => doc(db(uid), 'couples/c1/snaps/s1');
+    await assertSucceeds(updateDoc(ref('bob'), { reactions: { bob: '\u{1F5A4}' } }));
+    await assertSucceeds(updateDoc(ref('alice'), { reactions: { bob: '\u{1F5A4}', alice: '\u{1F345}' } }));
+    await assertFails(updateDoc(ref('bob'), { reactions: { bob: '\u{1F5A4}', alice: '\u{1F525}' } }));
+    await assertFails(updateDoc(ref('bob'), { reactions: { bob: 'lol', alice: '\u{1F345}' } }));
+    await assertSucceeds(updateDoc(ref('bob'), { reactions: { alice: '\u{1F345}' } }));
+    await assertFails(updateDoc(ref('mallory'), { reactions: { mallory: '\u{1F5A4}' } }));
+  });
+
+  test('points go only to your partner, 1 to 100, and stay put', async () => {
+    const give = (uid, data) => setDoc(doc(db(uid), `couples/c1/points/${uid}-${Math.random()}`), { from: uid, to: 'bob', amount: 5, reason: 'dishes', at: serverTimestamp(), ...data });
+    await assertSucceeds(give('alice', {}));
+    await assertSucceeds(give('alice', { amount: 100, reason: null }));
+    await assertFails(give('bob', { to: 'bob' }));
+    await assertFails(give('alice', { to: 'mallory' }));
+    await assertFails(give('alice', { amount: 0 }));
+    await assertFails(give('alice', { amount: 101 }));
+    await assertFails(give('alice', { amount: 2.5 }));
+    await assertFails(give('alice', { from: 'bob' }));
+    await assertFails(give('alice', { reason: 'x'.repeat(141) }));
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples/c1/points/p1'), { from: 'alice', to: 'bob', amount: 3, reason: null, at: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples/c1/points/p1'), { amount: 99 }));
+    await assertFails(deleteDoc(doc(db('alice'), 'couples/c1/points/p1')));
+    await assertSucceeds(getDocs(collection(db('bob'), 'couples/c1/points')));
+    await assertFails(getDocs(collection(db('mallory'), 'couples/c1/points')));
+  });
+
   test('collections are made and renamed by either of you', async () => {
     const ref = (uid) => doc(db(uid), 'couples/c1/collections/k1');
     await assertSucceeds(setDoc(ref('alice'), { name: 'crows', createdBy: 'alice', createdAt: serverTimestamp() }));

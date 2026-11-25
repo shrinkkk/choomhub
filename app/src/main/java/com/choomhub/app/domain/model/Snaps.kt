@@ -18,12 +18,16 @@ data class SnapInfo(
     val thumb: ByteArray?,
     /** Memory Lane collections it's kept in. Kept snaps are never replaced. */
     val collections: List<String>,
+    /** Reactions, one each: yours and theirs (see [SnapRules.REACTIONS]). */
+    val myReaction: String? = null,
+    val partnerReaction: String? = null,
 ) {
     val isKept: Boolean get() = collections.isNotEmpty()
 
     // ByteArray has identity equality; compare by id and the fields that change.
     override fun equals(other: Any?): Boolean =
-        other is SnapInfo && other.id == id && other.collections == collections && other.sentAt == sentAt && other.caption == caption
+        other is SnapInfo && other.id == id && other.collections == collections && other.sentAt == sentAt &&
+            other.caption == caption && other.myReaction == myReaction && other.partnerReaction == partnerReaction
     override fun hashCode(): Int = id.hashCode()
 }
 
@@ -39,6 +43,9 @@ sealed interface SnapSendResult {
 }
 
 object SnapRules {
+    /** The reactions on offer; the rules and the push Worker accept only these. */
+    val REACTIONS = listOf("\uD83D\uDDA4", "\uD83E\uDD7A", "\uD83D\uDE2D", "\uD83D\uDE02", "\uD83D\uDD25", "\uD83C\uDF45")
+
     const val MAX_CAPTION = 140
     const val MAX_COLLECTION_NAME = 40
     const val MAX_COLLECTIONS_PER_SNAP = 20

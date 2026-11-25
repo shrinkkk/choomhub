@@ -43,7 +43,24 @@ test('gestures and moods read plainly', () => {
 test('snaps carry their caption', () => {
   assert.deepEqual(compose('snap', { senderName: 'Wren', detail: 'crows again' }), { title: 'Wren sent a snap', body: 'crows again' });
   assert.equal(compose('snap', { senderName: 'Wren', detail: '' }).body, 'Open ChoomHub to see it.');
-  assert.equal(fcmMessage('f', 'snap', { title: 't', body: 'b' }).message.android.notification.channel_id, 'snaps');
+  const snapMessage = fcmMessage('f', 'snap', { title: 'Wren sent a snap', body: 'crows' }).message;
+  assert.equal(snapMessage.notification, undefined, 'snaps are data-only so the app can refresh its widget');
+  assert.deepEqual(snapMessage.data, { event: 'snap', category: 'snaps', title: 'Wren sent a snap', body: 'crows', channel: 'snaps', tag: 'snap' });
+  assert.equal(snapMessage.android.priority, 'high');
+});
+
+test('points and reactions', () => {
+  assert.deepEqual(parseRequest({ event: 'points', kind: '10', detail: 'dishes' }), { event: 'points', detail: 'dishes', kind: '10' });
+  assert.equal(parseRequest({ event: 'points', kind: '0' }), null);
+  assert.equal(parseRequest({ event: 'points', kind: '101' }), null);
+  assert.equal(parseRequest({ event: 'points', kind: '1e2' }), null);
+  assert.deepEqual(compose('points', { senderName: 'Shri', kind: '10', detail: 'dishes', recipientRole: 'Good Girl' }), { title: 'Shri gave you 10 Good Girl points', body: 'dishes' });
+  assert.equal(compose('points', { senderName: 'Shri', kind: '1', detail: '' }).title, 'Shri gave you 1 point');
+  assert.equal(parseRequest({ event: 'snap_reaction', kind: 'lol' }), null);
+  assert.equal(compose('snap_reaction', { senderName: 'Wren', kind: '\u{1F5A4}' }).title, 'Wren reacted \u{1F5A4} to your snap');
+  const a = fcmMessage('f', 'points', { title: 't', body: 'b' }, '5').message.android.notification;
+  assert.equal(a.channel_id, 'points');
+  assert.match(a.tag, /^points_/);
 });
 
 test('each gesture kind gets its own tag', () => {

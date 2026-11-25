@@ -1,6 +1,7 @@
 package com.choomhub.app.data.push
 
 import com.choomhub.app.core.notifications.AppNotifications
+import com.choomhub.app.feature.widget.WidgetRefreshWorker
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,13 +28,22 @@ class ChoomHubMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) = Unit
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val notification = message.notification ?: return
-        AppNotifications.show(
-            context = this,
-            title = notification.title.orEmpty(),
-            body = notification.body.orEmpty(),
-            channelId = notification.channelId,
-            tag = notification.tag ?: message.data["event"] ?: "general",
-        )
+        val notification = message.notification
+        if (notification != null) {
+            AppNotifications.show(
+                context = this,
+                title = notification.title.orEmpty(),
+                body = notification.body.orEmpty(),
+                channelId = notification.channelId,
+                tag = notification.tag ?: message.data["event"] ?: "general",
+            )
+            return
+        }
+        // Data-only messages (snaps) reach the app even in the background, so it can refresh
+        // the home-screen widget as well as show the notification.
+        val data = message.data
+        val title = data["title"] ?: return
+        AppNotifications.show(this, title, data["body"].orEmpty(), data["channel"], data["tag"] ?: data["event"] ?: "general")
+        if (data["event"] == "snap") WidgetRefreshWorker.enqueue(this)
     }
 }

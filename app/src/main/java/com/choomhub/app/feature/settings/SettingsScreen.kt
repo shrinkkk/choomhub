@@ -78,6 +78,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}, 
     val names by viewModel.names.collectAsStateWithLifecycle()
     val space by viewModel.space.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
+    val snapPromptsOn by viewModel.snapPromptsOn.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Whether this phone lets the app post notifications; re-checked whenever you come back.
@@ -116,6 +117,8 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}, 
         onCategoryToggle = viewModel::setNotificationsEnabled,
         onSendTest = viewModel::sendTestNotification,
         onEditMoods = onEditMoods,
+        snapPromptsOn = snapPromptsOn,
+        onSnapPrompts = viewModel::setSnapPrompts,
     )
 }
 
@@ -138,6 +141,8 @@ fun SettingsContent(
     onCategoryToggle: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onSendTest: () -> Unit = {},
     onEditMoods: () -> Unit = {},
+    snapPromptsOn: Boolean = true,
+    onSnapPrompts: (Boolean) -> Unit = {},
 ) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
@@ -241,6 +246,8 @@ fun SettingsContent(
                     onPermission = onNotificationPermission,
                     onToggle = onCategoryToggle,
                     onSendTest = onSendTest,
+                    snapPromptsOn = snapPromptsOn,
+                    onSnapPrompts = onSnapPrompts,
                 )
             }
 
@@ -267,6 +274,8 @@ private fun NotificationSettings(
     onPermission: () -> Unit,
     onToggle: (NotificationCategory, Boolean) -> Unit,
     onSendTest: () -> Unit,
+    snapPromptsOn: Boolean,
+    onSnapPrompts: (Boolean) -> Unit,
 ) {
     val colors = ChoomHubTheme.colors
     if (ui.availability == PushAvailability.DeviceOnly) {
@@ -286,6 +295,13 @@ private fun NotificationSettings(
         badgeColor = if (canPost) colors.textSecondary else colors.lavender,
         onClick = onPermission,
         modifier = Modifier.testTag("notifications_permission"),
+    )
+    SwitchRow(
+        title = "Daily snap prompt",
+        description = "A nudge once a day, at the same time on both phones",
+        checked = snapPromptsOn,
+        onToggle = { onSnapPrompts(!snapPromptsOn) },
+        tag = "notifications_snap_prompt",
     )
     NotificationCategory.entries.forEach { category ->
         val enabled = ui.prefs.isEnabled(category)
@@ -341,6 +357,37 @@ private fun NotificationSettings(
             )
         }
     }
+}
+
+@Composable
+private fun SwitchRow(title: String, description: String, checked: Boolean, onToggle: () -> Unit, tag: String) {
+    val colors = ChoomHubTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Switch, onClick = onToggle)
+            .padding(vertical = ChoomHubTheme.spacing.md)
+            .testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = colors.textMain)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+        }
+        Spacer(Modifier.size(ChoomHubTheme.spacing.sm))
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = colors.night,
+                checkedTrackColor = colors.lavender,
+                uncheckedThumbColor = colors.textSecondary,
+                uncheckedTrackColor = colors.night,
+                uncheckedBorderColor = colors.outline,
+            ),
+        )
+    }
+    HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
 }
 
 /** Edits the partner's name in place, inside the Names card. */

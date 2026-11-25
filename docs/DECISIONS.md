@@ -344,3 +344,37 @@ their length; the Worker sends the label as written.
   shared with FileProvider; the gallery uses the system photo picker (no storage permission).
 - "New" is tracked on each phone (last of their snaps you opened).
 - Later: reactions, snap prompts, the home-screen widget.
+
+## ADR-033: Points are a ledger you can only add to
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner's request)
+
+Points live in `couples/{id}/points` as append-only entries `{from, to, amount, reason, at}`. Rules
+only let you give points to your partner, 1–100 at a time, with an optional reason; nothing can be
+edited or deleted. Totals are summed on the phone from the ledger and never stored, so there's no
+number to tamper with. Home shows two short, wide boxes stacked (yours on top, so neither wraps),
+with a + on your partner's to give points inline. The push names the recipient's role (the Worker
+reads `shared/roles`).
+
+## ADR-034: Anything that undoes your own work asks first
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner's rule, applies to all future features)
+
+Actions that would throw away or quietly lose things you made by hand get a confirmation in the
+app's own pop-up style (`InkDialog`: dark card, ink art, bone "keep it" button, quiet text button
+for the destructive choice). Today: restoring the default mood list, taking a snap out of its last
+collection (it could then be replaced), and clearing the meetup (twice: the bored cat, then the
+crying cat). Small, easily redone actions (removing one mood) don't ask.
+
+## ADR-035: Snap reactions, daily prompts and the widget
+
+**Date:** 2026-11-25 · **Status:** Accepted
+
+- **Reactions**: a `reactions` map on the snap, one entry per person from a fixed list of six;
+  rules only let you set or remove your own. The sender gets a push.
+- **Daily prompt**: picked from a list by the date, at a time between 12:00 and 20:00 seeded by the
+  date, so both phones agree without a server. A local notification (WorkManager) on its own
+  channel; on by default, switch in Settings. Snaps are camera-only, by the owner's choice.
+- **Widget** (Glance): their latest snap, caption and "from … · 5 min ago". New-snap pushes are
+  data-only so the app wakes up, shows the notification itself and refreshes the widget; it also
+  refreshes when you leave the app and hourly as a fallback.

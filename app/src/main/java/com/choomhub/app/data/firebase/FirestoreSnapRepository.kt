@@ -130,6 +130,13 @@ class FirestoreSnapRepository @Inject constructor(
         return ref.id
     }
 
+    override suspend fun react(snapId: String, reaction: String?) {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return
+        val me = space.accountOrNull?.uid ?: return
+        snaps(coupleId).document(snapId).update("reactions.$me", reaction ?: FieldValue.delete())
+    }
+
     override suspend fun setCollections(snapId: String, collectionIds: List<String>) {
         val coupleId = spaceRepository.observeSpace().first().coupleIdOrNull ?: return
         snaps(coupleId).document(snapId).update(mapOf("collections" to collectionIds, "kept" to collectionIds.isNotEmpty()))
@@ -142,6 +149,8 @@ class FirestoreSnapRepository @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         fun snapFrom(doc: DocumentSnapshot, me: String): SnapInfo? {
             val from = doc.getString("from") ?: return null
+            val reactions = (doc.get("reactions") as? Map<*, *>).orEmpty()
+                .mapNotNull { (k, v) -> if (k is String && v is String) k to v else null }.toMap()
             return SnapInfo(
                 id = doc.id,
                 fromMe = from == me,
@@ -151,6 +160,8 @@ class FirestoreSnapRepository @Inject constructor(
                 height = doc.getLong("height")?.toInt() ?: 0,
                 thumb = doc.getBlob("thumb")?.toBytes(),
                 collections = (doc.get("collections") as? List<*>)?.filterIsInstance<String>().orEmpty(),
+                myReaction = reactions[me],
+                partnerReaction = reactions.entries.firstOrNull { it.key != me }?.value,
             )
         }
     }

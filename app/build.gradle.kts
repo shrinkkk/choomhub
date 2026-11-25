@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.exifinterface)
+    implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
     implementation(libs.kotlinx.coroutines.play.services)

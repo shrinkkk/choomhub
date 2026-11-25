@@ -23,6 +23,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Home-screen widget: their latest snap. -->
+        <receiver
+            android:name=".feature.widget.LatestSnapWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_latest_snap_description">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/latest_snap_widget_info" />
+        </receiver>
+
         <!-- Lets the camera app write a photo into the app's cache (see CaptureFiles). -->
         <provider
             android:name="androidx.core.content.FileProvider"

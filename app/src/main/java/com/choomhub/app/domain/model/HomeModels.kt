@@ -45,6 +45,8 @@ data class HomeSnapshot(
     val partnerName: String? = null,
     /** Your own current mood, if you've set one. */
     val myMood: MoodUpdate? = null,
+    /** The points ledger, newest first. */
+    val awards: List<PointAward> = emptyList(),
     /** Recent gestures in both directions, newest first. */
     val recentGestures: List<Gesture> = emptyList(),
     /** Their current snap, and yours. */

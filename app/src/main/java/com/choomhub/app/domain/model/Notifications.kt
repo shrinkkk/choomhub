@@ -7,7 +7,8 @@ package com.choomhub.app.domain.model
  */
 enum class NotificationCategory(val key: String, val channelId: String, val label: String, val description: String) {
     Gestures("gestures", "gestures", "Gestures", "Hugs, forehead kisses, head pats and tomatoes"),
-    Snaps("snaps", "snaps", "Snaps", "When they send a snap"),
+    Snaps("snaps", "snaps", "Snaps", "When they send a snap or react to yours"),
+    Points("points", "points", "Points", "When they give you points"),
     Moods("moods", "moods", "Moods", "When they change their mood"),
     Meetup("meetup", "meetup", "Meetup", "When the next meetup is set, moved or cleared"),
     Space("space", "space", "Space", "When they join, or change what they call you"),
@@ -31,6 +32,8 @@ enum class PushEvent(val wire: String, val collapseKey: String) {
     Gesture("gesture", "gesture"),
     MoodChanged("mood", "mood"),
     SnapSent("snap", "snap"),
+    SnapReaction("snap_reaction", "snap_reaction"),
+    PointsGiven("points", "points"),
     Test("test", "test"),
     ;
 

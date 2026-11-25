@@ -73,14 +73,15 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ⬜ New categories as features land (moods, gestures, snaps, messages)
 - ⬜ Fallback: periodic background check, only if pushes prove unreliable
 
-## Milestone 5: Snaps and widget 🟡
+## Milestone 5: Snaps and widget ✅
 
-- ✅ Camera / gallery, caption, on-phone compression (≤ 1280 px, < 850 KB), stored in Firestore
+- ✅ Camera only (no gallery, by choice), caption, on-phone compression (≤ 1280 px, < 850 KB), stored in Firestore
 - ✅ Partner's latest snap on Home ("new" until opened); sending a new one removes your previous unless kept
 - ✅ Keep → collections in Our World → Memory Lane (create, toggle per snap, grid per collection)
 - ✅ Push notification for new snaps (Snaps switch)
-- ⬜ Reactions, random snap prompts
-- ⬜ Glance home-screen widget with event-driven refresh
+- ✅ Reactions (one each, from 🖤 🥺 😭 😂 🔥 🍅), pushed to the sender
+- ✅ Daily snap prompt: same prompt and time on both phones (12:00–20:00), local notification, switch in Settings
+- ✅ Home-screen widget with their latest snap; refreshes when a snap arrives, when you leave the app, and hourly
 
 ## Milestone 6: Messages ⬜
 
@@ -88,11 +89,12 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ⬜ Letters, open-when letters, time capsules, random compliments
 - ~~Voice notes~~ (dropped, ADR-023)
 
-## Milestone 7: Productivity and points ⬜
+## Milestone 7: Productivity and points 🟡
 
+- ✅ Points ledger (append-only; totals are summed, never stored), stacked boxes with yours on top
+- ✅ Give points to your partner (1–100, optional reason), pushed with the role named
 - ⬜ Achievements with descriptions
-- ⬜ Append-only point ledger (award / deduct), history
-- ⬜ Custom rewards and point shop
+- ⬜ Points history; custom rewards and a point shop
 
 ## Milestone 8: Shared cat ⬜
 

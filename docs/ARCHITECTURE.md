@@ -120,8 +120,9 @@ that must be read without the Firestore SDK).
 | `couples/{id}/shared/roles` | `goodBoy`, `goodGirl` (uids), `updatedAt` | members read; each can only place themself |
 | `couples/{id}/moods/{uid}` | `mood` (key), `label` (≤ 24), `note` (≤ 80 or null), `updatedAt` | members read; only `uid` writes |
 | `couples/{id}/shared/moodOptions` | `options` (1–40 `{key, label}`), `updatedBy`, `updatedAt` | members read/write; missing = the 11 defaults |
-| `couples/{id}/snaps/{id}` | `from`, `caption` (≤ 140), `sentAt`, `width`, `height`, `thumb` (JPEG ≤ 60 KB), `collections`, `kept` | members read; created as yourself; only `collections`/`kept` change; the sender may delete it while unkept |
+| `couples/{id}/snaps/{id}` | `from`, `caption` (≤ 140), `sentAt`, `width`, `height`, `thumb` (JPEG ≤ 60 KB), `collections`, `kept`, `reactions` | members read; created as yourself; only keeping (`collections`/`kept`) or your own reaction can change; the sender may delete it while unkept |
 | `couples/{id}/snaps/{id}/image/full` | `data` (JPEG ≤ 900 KB) | members read; created with its snap; deleted with it |
+| `couples/{id}/points/{id}` | `from`, `to`, `amount` (1–100), `reason` (≤ 140 or null), `at` | members read; given only to your partner; never edited or deleted |
 | `couples/{id}/collections/{id}` | `name` (≤ 40), `createdBy`, `createdAt` | members read, create, rename |
 | `couples/{id}/gestures/{id}` | `kind` (hug, forehead_kiss, head_pats, tomato), `from`, `sentAt` | members read; added as yourself; never edited or deleted |
 | `users/{uid}/devices/{fid}` | `platform`, `updatedAt` (doc id = FCM installation id) | only that user; the push Worker reads with server credentials |
@@ -174,7 +175,7 @@ Setup steps: [NOTIFICATIONS_SETUP.md](NOTIFICATIONS_SETUP.md).
 ## 7. Security principles
 
 - Firestore security rules on every path; default deny. Rules are tested on the emulator
-  (`firebase/test/rules.test.mjs`, 28 cases).
+  (`firebase/test/rules.test.mjs`, 30 cases).
 - Exactly two members per space, enforced by rules. Invite codes are random, single-use, expire, and
   only work together with an authenticated join. They aren't the only gate: auth, rules and the
   two-member limit apply too.

@@ -68,6 +68,11 @@ class NotificationSettingsTest {
 
     private val fakeMoods = FakeMoodRepository()
     private val fakeGestures = FakeGestureRepository()
+    private val fakePoints = com.choomhub.app.testing.FakePointsRepository()
+
+    @BindValue
+    @JvmField
+    val pointsRepository: com.choomhub.app.domain.repository.PointsRepository = fakePoints
     private val fakeSnaps = FakeSnapRepository()
 
     @BindValue

@@ -80,3 +80,11 @@ class LocalGestureRepository @Inject constructor() : GestureRepository {
     override suspend fun send(kind: AffectionKind): GestureResult =
         GestureResult.NotSent("Gestures need the shared space. This build keeps everything on this phone.")
 }
+
+/** Device-only builds have no one to give points to. */
+class LocalPointsRepository @Inject constructor() : com.choomhub.app.domain.repository.PointsRepository {
+    override fun observeAwards(): Flow<List<com.choomhub.app.domain.model.PointAward>> = flowOf(emptyList())
+
+    override suspend fun award(amount: Int, reason: String?): com.choomhub.app.domain.model.AwardResult =
+        com.choomhub.app.domain.model.AwardResult.NotGiven("Points need the shared space. This build keeps everything on this phone.")
+}

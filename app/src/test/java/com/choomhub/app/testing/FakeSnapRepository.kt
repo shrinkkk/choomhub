@@ -42,6 +42,10 @@ class FakeSnapRepository(var refusal: String? = null) : SnapRepository {
         return id
     }
 
+    override suspend fun react(snapId: String, reaction: String?) {
+        snaps.update { list -> list.map { if (it.id == snapId) it.copy(myReaction = reaction) else it } }
+    }
+
     override suspend fun setCollections(snapId: String, collectionIds: List<String>) {
         snaps.update { list -> list.map { if (it.id == snapId) it.copy(collections = collectionIds) else it } }
     }

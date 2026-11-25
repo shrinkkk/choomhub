@@ -3,4 +3,5 @@
     <!-- Display name. Change here to rebrand the launcher label. -->
     <string name="app_name">ChoomHub</string>
     <string name="app_tagline">A little world for two.</string>
+    <string name="widget_latest_snap_description">Their latest snap</string>
 </resources>

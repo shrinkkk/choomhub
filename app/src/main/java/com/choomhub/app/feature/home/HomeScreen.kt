@@ -3,7 +3,6 @@ package com.choomhub.app.feature.home
 import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,10 +74,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Photos: the system picker needs no permission; the camera app writes into a file we share with it.
-    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) onComposeSnap(uri)
-    }
+    // Snaps are camera-only: the camera app writes into a file we share with it (no permission needed).
     var pendingCapture by rememberSaveable { mutableStateOf<String?>(null) }
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         val uri = pendingCapture?.let(Uri::parse)
@@ -103,6 +99,7 @@ fun HomeScreen(
         onSetMood = onSetMood,
         snapImage = snapImage,
         onOpenSnap = onOpenSnap,
+        onAward = viewModel::award,
         onTakePhoto = {
             val uri = CaptureFiles.newCaptureUri(context)
             pendingCapture = uri.toString()
@@ -113,7 +110,6 @@ fun HomeScreen(
                 scope.launch { showMessage("No camera app found on this phone.") }
             }
         },
-        onPickPhoto = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
     )
 }
 
@@ -132,7 +128,7 @@ fun HomeContent(
     snapImage: ByteArray? = null,
     onOpenSnap: (String) -> Unit = {},
     onTakePhoto: () -> Unit = {},
-    onPickPhoto: () -> Unit = {},
+    onAward: (String, String) -> String? = { _, _ -> null },
 ) {
     when (state) {
         HomeUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -187,14 +183,14 @@ fun HomeContent(
                             image = snapImage,
                             partnerName = state.partnerName,
                             mySnapLabel = state.mySnapLabel,
+                            prompt = state.snapPrompt,
                             onOpen = onOpenSnap,
                             onTakePhoto = onTakePhoto,
-                            onPickPhoto = onPickPhoto,
                             modifier = gutter,
                         )
                     }
                     item(key = "gestures") { GestureSection(onAffection, state.lastReceived, state.lastSent, gutter) }
-                    item(key = "points") { PointsSection(state.points, state.myRole, state.partnerName, gutter) }
+                    item(key = "points") { PointsSection(state.points, state.myRole, state.partnerName, state.lastAward, onAward, gutter) }
                     item(key = "cat") { SharedCatSection(state.cat, gutter) }
                     if (state.isSampleData) {
                         item(key = "sample") { SampleDataNote(gutter) }

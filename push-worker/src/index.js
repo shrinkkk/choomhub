@@ -87,6 +87,10 @@ export async function handle(request, env, deps) {
     if (parsed.event === 'renamed') {
       ctx.recipientNewName = field.string(await db.get(`couples/${coupleId}/names/${uid}`), 'nameForPartner');
     }
+    if (parsed.event === 'points') {
+      const roles = await db.get(`couples/${coupleId}/shared/roles`);
+      ctx.recipientRole = field.string(roles, 'goodBoy') === recipient ? 'Good Boy' : field.string(roles, 'goodGirl') === recipient ? 'Good Girl' : null;
+    }
   }
   const text = compose(parsed.event, ctx);
 

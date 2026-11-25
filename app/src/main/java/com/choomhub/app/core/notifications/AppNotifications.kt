@@ -20,12 +20,17 @@ object AppNotifications {
     /** Channel for things that fit no category (e.g. the test notification). */
     const val GENERAL_CHANNEL = "general"
 
+    /** The daily snap prompt (made on the phone, not pushed). */
+    const val PROMPTS_CHANNEL = "prompts"
+
     fun createChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val channels = NotificationCategory.entries.map { category ->
             NotificationChannel(category.channelId, category.label, NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = category.description
             }
+        } + NotificationChannel(PROMPTS_CHANNEL, "Snap prompts", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "One nudge a day to send a snap"
         } + NotificationChannel(GENERAL_CHANNEL, "Other", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "Test notifications and anything else"
         }
@@ -41,7 +46,7 @@ object AppNotifications {
 
     fun show(context: Context, title: String, body: String, channelId: String?, tag: String) {
         if (!canPost(context)) return
-        val known = NotificationCategory.entries.map { it.channelId } + GENERAL_CHANNEL
+        val known = NotificationCategory.entries.map { it.channelId } + PROMPTS_CHANNEL + GENERAL_CHANNEL
         val channel = channelId?.takeIf { it in known } ?: GENERAL_CHANNEL
         val open = PendingIntent.getActivity(
             context,

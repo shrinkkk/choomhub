@@ -45,3 +45,24 @@ class FakeGestureRepository(var refusal: String? = null) : GestureRepository {
         return GestureResult.Sent
     }
 }
+
+/** Awards go straight into the ledger unless [refusal] is set. */
+class FakePointsRepository(var refusal: String? = null) : com.choomhub.app.domain.repository.PointsRepository {
+    val ledger = MutableStateFlow<List<com.choomhub.app.domain.model.PointAward>>(emptyList())
+
+    override fun observeAwards(): Flow<List<com.choomhub.app.domain.model.PointAward>> = ledger
+
+    override suspend fun award(amount: Int, reason: String?): com.choomhub.app.domain.model.AwardResult {
+        refusal?.let { return com.choomhub.app.domain.model.AwardResult.NotGiven(it) }
+        ledger.update { listOf(com.choomhub.app.domain.model.PointAward("p${it.size}", toMe = false, amount, reason, Instant.EPOCH)) + it }
+        return com.choomhub.app.domain.model.AwardResult.Given
+    }
+}
+
+class FakeSnapPromptSettings(initial: Boolean = true) : com.choomhub.app.feature.snaps.prompt.SnapPromptSettings {
+    val enabled = MutableStateFlow(initial)
+    override fun observeEnabled(): Flow<Boolean> = enabled
+    override suspend fun setEnabled(enabled: Boolean) {
+        this.enabled.value = enabled
+    }
+}

@@ -19,6 +19,9 @@ import com.choomhub.app.data.snap.LocalSnapRepository
 import com.choomhub.app.domain.repository.SnapRepository
 import com.choomhub.app.data.mood.LocalGestureRepository
 import com.choomhub.app.data.mood.LocalMoodRepository
+import com.choomhub.app.data.mood.LocalPointsRepository
+import com.choomhub.app.data.firebase.FirestorePointsRepository
+import com.choomhub.app.domain.repository.PointsRepository
 import com.choomhub.app.data.firebase.FirestoreGestureRepository
 import com.choomhub.app.data.firebase.FirestoreMoodRepository
 import com.choomhub.app.domain.repository.GestureRepository
@@ -80,6 +83,13 @@ object MoodModule {
         firestore: Provider<FirestoreGestureRepository>,
         local: Provider<LocalGestureRepository>,
     ): GestureRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+
+    @Provides
+    @Singleton
+    fun providePointsRepository(
+        firestore: Provider<FirestorePointsRepository>,
+        local: Provider<LocalPointsRepository>,
+    ): PointsRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
 }
 
 @Module

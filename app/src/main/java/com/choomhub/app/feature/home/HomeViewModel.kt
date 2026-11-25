@@ -9,6 +9,9 @@ import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.HomeRepository
 import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.domain.repository.SnapRepository
+import com.choomhub.app.domain.repository.PointsRepository
+import com.choomhub.app.domain.model.AwardResult
+import com.choomhub.app.domain.model.PointRules
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,6 +34,7 @@ class HomeViewModel @Inject constructor(
     homeRepository: HomeRepository,
     private val gestureRepository: GestureRepository,
     private val snapRepository: SnapRepository,
+    private val pointsRepository: PointsRepository,
     private val notifier: Notifier,
     private val clock: Clock,
 ) : ViewModel() {
@@ -76,6 +80,25 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Gives your partner points. Returns an error to show next to the form, or null
+     * once it's on its way (the snackbar confirms it).
+     */
+    fun award(amountInput: String, reasonInput: String): String? {
+        val amount = PointRules.parseAmount(amountInput).getOrElse { return it.message }
+        val reason = PointRules.cleanReason(reasonInput)
+        viewModelScope.launch {
+            _pendingNotice.value = when (val result = pointsRepository.award(amount, reason)) {
+                AwardResult.Given -> {
+                    notifier.notifyPartner(PushEvent.PointsGiven, detail = reason, kind = amount.toString())
+                    if (amount == 1) "1 point given." else "$amount points given."
+                }
+                is AwardResult.NotGiven -> result.message
+            }
+        }
+        return null
     }
 
     fun onNoticeShown() {

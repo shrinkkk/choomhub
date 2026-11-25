@@ -85,6 +85,7 @@ fun SnapComposeScreen(contentPadding: PaddingValues, onClose: () -> Unit, viewMo
                 supportingText = state.error ?: "${state.caption.length}/${SnapRules.MAX_CAPTION}",
                 isError = state.error != null,
                 onDone = viewModel::send,
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
                 modifier = Modifier.fillMaxWidth().testTag("snap_caption"),
             )
             Spacer(Modifier.height(spacing.lg))

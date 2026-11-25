@@ -24,6 +24,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,6 +43,7 @@ import com.choomhub.app.core.common.TimeLabels
 import com.choomhub.app.core.designsystem.component.CardTone
 import com.choomhub.app.core.designsystem.component.ChoomHubCard
 import com.choomhub.app.core.designsystem.component.ChoomHubPrimaryButton
+import com.choomhub.app.core.designsystem.component.InkDialog
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.CountdownMood
@@ -70,6 +72,8 @@ fun MeetupCountdownCard(
 ) {
     val colors = ChoomHubTheme.colors
     var picking by rememberSaveable { mutableStateOf(false) }
+    // Clearing takes two confirmations: 0 = none, 1 = "are you sure?", 2 = "are you REALLY sure?"
+    var clearStep by rememberSaveable { mutableIntStateOf(0) }
     val expression = when (state) {
         null, CountdownState.NoneScheduled -> CatExpression.Crying
         is CountdownState.Happening -> CatExpression.Ecstatic
@@ -136,11 +140,38 @@ fun MeetupCountdownCard(
                         color = colors.lavender,
                     )
                 }
-                TextButton(onClick = onClear, modifier = Modifier.testTag("meetup_clear")) {
+                TextButton(onClick = { clearStep = 1 }, modifier = Modifier.testTag("meetup_clear")) {
                     Text("CLEAR", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
                 }
             }
         }
+    }
+
+    when (clearStep) {
+        1 -> InkDialog(
+            title = "Cancel the meetup?",
+            message = "Are you sure you want to cancel?",
+            confirm = "Keep it",
+            onConfirm = { clearStep = 0 },
+            dismissive = "Yes, cancel",
+            onDismissive = { clearStep = 2 },
+            onDismissRequest = { clearStep = 0 },
+            modifier = Modifier.testTag("meetup_clear_confirm_1"),
+        ) { CatFace(CatExpression.Bored, Modifier.size(128.dp)) }
+        2 -> InkDialog(
+            title = "Are you REALLY sure?",
+            whisper = "the cat is not taking this well",
+            message = "Are you REALLY sure you want to cancel?",
+            confirm = "No, keep it",
+            onConfirm = { clearStep = 0 },
+            dismissive = "Yes, really",
+            onDismissive = {
+                clearStep = 0
+                onClear()
+            },
+            onDismissRequest = { clearStep = 0 },
+            modifier = Modifier.testTag("meetup_clear_confirm_2"),
+        ) { CatFace(CatExpression.Crying, Modifier.size(128.dp)) }
     }
 
     if (picking) {

@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 
 /** Single-line text input styled for the dark theme. */
@@ -22,6 +23,8 @@ fun ChoomHubTextField(
     supportingText: String? = null,
     isError: Boolean = false,
     onDone: () -> Unit = {},
+    keyboardType: KeyboardType = KeyboardType.Text,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.Words,
 ) {
     val colors = ChoomHubTheme.colors
     OutlinedTextField(
@@ -34,7 +37,11 @@ fun ChoomHubTextField(
         singleLine = true,
         textStyle = MaterialTheme.typography.headlineSmall,
         shape = MaterialTheme.shapes.small,
-        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+        keyboardOptions = KeyboardOptions(
+            capitalization = if (keyboardType == KeyboardType.Number) KeyboardCapitalization.None else capitalization,
+            keyboardType = keyboardType,
+            imeAction = ImeAction.Done,
+        ),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = colors.textMain,

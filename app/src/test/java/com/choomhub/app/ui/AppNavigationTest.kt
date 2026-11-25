@@ -14,6 +14,9 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import org.junit.Assert.assertEquals
+import androidx.compose.ui.test.performScrollTo
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.MainActivity
 import com.choomhub.app.core.navigation.TopLevelDestination
@@ -65,6 +68,11 @@ class AppNavigationTest {
 
     private val fakeMoods = FakeMoodRepository()
     private val fakeGestures = FakeGestureRepository()
+    private val fakePoints = com.choomhub.app.testing.FakePointsRepository()
+
+    @BindValue
+    @JvmField
+    val pointsRepository: com.choomhub.app.domain.repository.PointsRepository = fakePoints
     private val fakeSnaps = FakeSnapRepository()
 
     @BindValue
@@ -103,6 +111,12 @@ class AppNavigationTest {
     @get:Rule
     val rules: RuleChain = RuleChain.outerRule(hiltRule).around(DisableAmbientAnimationsRule()).around(composeRule)
 
+    /** Home draws once its first data (names, moods, gestures, snaps, points) is in. */
+    @org.junit.Before
+    fun waitForHome() {
+        composeRule.waitUntil(10_000) { composeRule.onAllNodesWithTag("home_list").fetchSemanticsNodes().isNotEmpty() }
+    }
+
     @Test
     fun appLaunchesOnHomeWithAllSections() {
         // Home waits for its first data (names, moods, gestures, snaps) before drawing.
@@ -132,6 +146,8 @@ class AppNavigationTest {
         composeRule.onNodeWithTag("meetup_reschedule").assertIsDisplayed()
 
         composeRule.onNodeWithTag("meetup_clear").performClick()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Nothing planned").assertIsDisplayed()
     }
@@ -179,5 +195,60 @@ class AppNavigationTest {
         assertEquals(Mood.Sleepy.option, fakeMoods.moods.value.mine?.mood)
         composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("set_my_mood"))
         composeRule.onNodeWithText("Sleepy \u00B7 rain again").assertExists()
+    }
+
+    @Test
+    fun pointsStackWithYoursFirstAndCanBeGiven() {
+        composeRule.onNodeWithTag("home_list").performScrollToNode(hasTestTag("points_good_girl"))
+        val boy = composeRule.onNodeWithTag("points_good_boy").fetchSemanticsNode().boundsInRoot
+        val girl = composeRule.onNodeWithTag("points_good_girl").fetchSemanticsNode().boundsInRoot
+        assertTrue("your (Good Boy) box is on top", boy.bottom <= girl.top)
+        assertEquals(boy.height, girl.height, 1f)
+
+        composeRule.onNodeWithTag("points_give").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("award_amount_10").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("award_reason").performTextInput("the playlist")
+        composeRule.onNodeWithTag("award_give").performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("10 points given.").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(10, fakePoints.ledger.value.single().amount)
+        assertEquals("the playlist", fakePoints.ledger.value.single().reason)
+    }
+
+    @Test
+    fun clearingTheMeetupAsksTwice() {
+        meetups.meetup.value = Meetup(Instant.now().plus(Duration.ofDays(3)))
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("meetup_clear").performClick()
+        composeRule.onNodeWithText("Are you sure you want to cancel?").assertIsDisplayed()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        composeRule.onNodeWithText("Are you REALLY sure you want to cancel?").assertIsDisplayed()
+        // Backing out at the second step keeps it.
+        composeRule.onNodeWithTag("dialog_confirm").performClick()
+        composeRule.waitForIdle()
+        assertTrue(meetups.meetup.value != null)
+
+        composeRule.onNodeWithTag("meetup_clear").performClick()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        composeRule.waitForIdle()
+        assertNull(meetups.meetup.value)
+    }
+
+    @Test
+    fun restoringDefaultMoodsAsksFirst() {
+        composeRule.onNodeWithTag(TopLevelDestination.Settings.testTag).performClick()
+        composeRule.onNodeWithTag("settings_mood_list").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("mood_option_input").performTextInput("very sad")
+        composeRule.onNodeWithTag("mood_option_add").performClick()
+        composeRule.onNodeWithTag("mood_options_defaults").performScrollTo().performClick()
+        composeRule.onNodeWithText("Restore the defaults?").assertIsDisplayed()
+        composeRule.onNodeWithTag("dialog_confirm").performClick()
+        composeRule.waitForIdle()
+        assertTrue(fakeMoods.options.value.any { it.label == "very sad" })
+        composeRule.onNodeWithTag("mood_options_defaults").performScrollTo().performClick()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        composeRule.waitForIdle()
+        assertTrue(fakeMoods.options.value.none { it.label == "very sad" })
     }
 }

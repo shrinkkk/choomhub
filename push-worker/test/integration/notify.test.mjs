@@ -103,6 +103,13 @@ test('a mood change carries the mood and the note', async () => {
   assert.equal(sent[0].notification.body, 'Sleepy \u00b7 headphones on');
 });
 
+test('points name the role the recipient holds', async () => {
+  await put('couples/c1/shared/roles', { goodBoy: 'alice', goodGirl: 'bob' });
+  await notify('alice', { event: 'points', kind: '25', detail: 'for the playlist' });
+  assert.equal(sent[0].notification.title, 'Shri gave you 25 Good Girl points');
+  assert.equal(sent[0].notification.body, 'for the playlist');
+});
+
 test('renamed tells the partner their new name', async () => {
   await notify('alice', { event: 'renamed' });
   assert.equal(sent[0].notification.body, 'You\'re "Raven" to them now.');
