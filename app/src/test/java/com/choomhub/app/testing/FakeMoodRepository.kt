@@ -58,11 +58,3 @@ class FakePointsRepository(var refusal: String? = null) : com.choomhub.app.domai
         return com.choomhub.app.domain.model.AwardResult.Awarded
     }
 }
-
-class FakeSnapPromptSettings(initial: Boolean = true) : com.choomhub.app.feature.snaps.prompt.SnapPromptSettings {
-    val enabled = MutableStateFlow(initial)
-    override fun observeEnabled(): Flow<Boolean> = enabled
-    override suspend fun setEnabled(enabled: Boolean) {
-        this.enabled.value = enabled
-    }
-}

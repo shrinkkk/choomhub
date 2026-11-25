@@ -8,9 +8,7 @@ import com.choomhub.app.core.firebase.FirebaseInitializer
 import com.choomhub.app.core.notifications.AppNotifications
 import com.choomhub.app.data.push.PushRegistrar
 import dagger.hilt.android.HiltAndroidApp
-import com.choomhub.app.feature.snaps.prompt.SnapPromptScheduler
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
+import androidx.work.WorkManager
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -22,8 +20,6 @@ class ChoomHubApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var pushRegistrar: Provider<PushRegistrar>
 
-    @Inject lateinit var snapPrompts: Provider<SnapPromptScheduler>
-
     /** WorkManager starts on demand with Hilt's factory (its default initializer is removed in the manifest). */
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
@@ -33,7 +29,7 @@ class ChoomHubApplication : Application(), Configuration.Provider {
         FirebaseInitializer.initialize(this)
         AppNotifications.createChannels(this)
         if (FirebaseConfig.isConfigured) pushRegistrar.get().start()
-        // Keeps the daily snap prompt booked (WorkManager drops nothing on restart, but the first run needs this).
-        MainScope().launch { snapPrompts.get().scheduleNext() }
+        // Snap prompts were removed; cancel any still booked from an earlier version.
+        WorkManager.getInstance(this).cancelUniqueWork("snap-prompt")
     }
 }

@@ -16,7 +16,7 @@ Two rules that hold for every release, forever:
 
 ### 1. Make the release key (2 minutes)
 
-Android Studio → **Build → Generate Signed App Bundle or APK…** → **APK** → **Next** → under *Key
+Android Studio → **☰ (top-left, the hidden menu bar) → Build → Generate Signed App Bundle or APK…** → **APK** → **Next** → under *Key
 store path* click **Create new…**:
 
 - **Key store path:** somewhere outside the project and backed up, e.g.
@@ -25,6 +25,13 @@ store path* click **Create new…**:
 - **Key alias:** `choomhub`, its own password (can be the same), validity 25+ years, your name.
 
 Click **OK**, then **Cancel** the wizard (the build below uses the key automatically).
+
+**Or skip the wizard** and make the key from Android Studio's Terminal tab (it asks for the
+password and your name):
+
+```powershell
+keytool -genkeypair -v -keystore C:\Shri\projects\Assets\keys\choomhub-release.jks -alias choomhub -keyalg RSA -keysize 2048 -validity 10000
+```
 
 Back up the `.jks` file and the passwords (e.g. a private cloud folder *and* a USB stick). Never put
 the key in the project folder or git (`*.jks` is git-ignored anyway).

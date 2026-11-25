@@ -14,7 +14,6 @@ import com.choomhub.app.domain.repository.NotificationRepository
 import com.choomhub.app.domain.repository.Notifier
 import com.choomhub.app.domain.repository.ProfileRepository
 import com.choomhub.app.domain.repository.SpaceRepository
-import com.choomhub.app.feature.snaps.prompt.SnapPromptSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,15 +42,7 @@ class SettingsViewModel @Inject constructor(
     private val spaceRepository: SpaceRepository,
     private val notificationRepository: NotificationRepository,
     private val notifier: Notifier,
-    private val snapPrompts: SnapPromptSettings,
 ) : ViewModel() {
-
-    val snapPromptsOn: StateFlow<Boolean> = snapPrompts.observeEnabled()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
-
-    fun setSnapPrompts(enabled: Boolean) {
-        viewModelScope.launch { snapPrompts.setEnabled(enabled) }
-    }
 
     private val testState = MutableStateFlow<TestSendState>(TestSendState.Idle)
 

@@ -78,7 +78,6 @@ background on first launch) and try again.
 | React to their snap | "*Name* reacted 🖤 to your snap" | Snaps |
 | Award them points | "*Name* awarded you 3 Good Girl points" · the reason | Points |
 | Take points away | "*Name* took away 2 of your Good Girl points" · the reason | Points |
-| (nobody) | "Snap prompt" · today's prompt, made on the phone at the day's prompt time | Settings → Daily snap prompt |
 | Change your mood | "*Name* updated their mood" · Missing you · rain again | Moods |
 
 *Name* is whatever **they** call **you**. Each person's switches are in Settings and respected by the

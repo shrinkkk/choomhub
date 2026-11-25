@@ -39,7 +39,7 @@ class SettingsViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun vm() = SettingsViewModel(profile, space, prefs, notifier, com.choomhub.app.testing.FakeSnapPromptSettings())
+    private fun vm() = SettingsViewModel(profile, space, prefs, notifier)
 
     @Test
     fun `turning a category off is saved and shown`() = runTest {

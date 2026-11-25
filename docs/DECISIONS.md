@@ -367,16 +367,15 @@ for the destructive choice). Today: restoring the default mood list, taking a sn
 collection (it could then be replaced), and clearing the meetup (twice: the bored cat, then the
 crying cat). Small, easily redone actions (removing one mood) don't ask.
 
-## ADR-035: Snap reactions, daily prompts and the widget
+## ADR-035: Snap reactions and the widget (daily prompts removed)
 
 **Date:** 2026-11-25 · **Status:** Accepted
 
 - **Reactions**: a `reactions` map on the snap, one entry per person from a fixed list of six;
   rules only let you set or remove your own. The sender gets a push.
-- **Daily prompt**: picked from a list by the date, at a time between 12:00 and 20:00 seeded by the
-  date, so both phones agree without a server. A local notification (WorkManager) on its own
-  channel; on by default, switch in Settings. It is not shown on Home (owner's choice). Snaps are
-  camera-only, by the owner's choice.
+- **Daily prompts** were built (same prompt and time on both phones) and then removed at the owner's
+  request: they felt robotic. The app cancels any prompt still booked and deletes their channel.
+  Snaps are camera-only, by the owner's choice.
 - **Widget** (Glance): their latest snap, caption and "from … · 5 min ago". New-snap pushes are
   data-only so the app wakes up, shows the notification itself and refreshes the widget; it also
   refreshes when you leave the app and hourly as a fallback.
