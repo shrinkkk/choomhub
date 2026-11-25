@@ -58,6 +58,8 @@ import com.choomhub.app.domain.model.Gesture
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.MoodUpdate
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
 
 /**
  * Renders each top-level screen on the JVM and writes PNGs to
@@ -219,6 +221,68 @@ class ScreenshotCaptureTest {
         capture("phone_snap_viewer")
         composeRule.onNodeWithTag(TopLevelDestination.OurWorld.testTag).performClick()
         capture("phone_memory_lane")
+    }
+
+    /** A little scene to stand in for a photo: sky, a moon or lamp, a horizon. */
+    private fun scene(seed: Int): ByteArray {
+        val w = 800
+        val h = 800
+        val skies = intArrayOf(0xFF3A2F45.toInt(), 0xFF4A2B33.toInt(), 0xFF2D3A36.toInt(), 0xFF6B5A6E.toInt(), 0xFF45392B.toInt())
+        val grounds = intArrayOf(0xFF141218.toInt(), 0xFF2B1D16.toInt(), 0xFF1D2622.toInt(), 0xFF231A25.toInt())
+        val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawPaint(android.graphics.Paint().apply {
+            shader = android.graphics.LinearGradient(0f, 0f, 0f, h.toFloat(), skies[seed % skies.size], 0xFFC9A98E.toInt(), android.graphics.Shader.TileMode.CLAMP)
+        })
+        val light = android.graphics.Paint().apply { color = 0xFFF3E7CF.toInt(); isAntiAlias = true }
+        canvas.drawCircle(w * (0.25f + 0.13f * (seed % 4)), h * 0.3f, 70f + 10f * (seed % 3), light)
+        val ground = android.graphics.Paint().apply { color = grounds[seed % grounds.size]; isAntiAlias = true }
+        val path = android.graphics.Path().apply {
+            moveTo(0f, h * 0.68f)
+            quadTo(w * 0.4f, h * (0.58f + 0.04f * (seed % 3)), w.toFloat(), h * 0.66f)
+            lineTo(w.toFloat(), h.toFloat())
+            lineTo(0f, h.toFloat())
+            close()
+        }
+        canvas.drawPath(path, ground)
+        return java.io.ByteArrayOutputStream().also { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it) }.toByteArray()
+    }
+
+    /** Memory Lane: closed stacks, one collection unfolded, and its pop-ups. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xxhdpi")
+    fun memoryLane() {
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag("home_list").fetchSemanticsNodes().isNotEmpty() }
+        val zone = java.time.ZoneId.systemDefault()
+        val t0 = java.time.LocalDateTime.of(2026, 11, 24, 21, 47).atZone(zone).toInstant()
+        val walks = kotlinx.coroutines.runBlocking { fakeSnaps.createCollection("late walks") }
+        val food = kotlinx.coroutines.runBlocking { fakeSnaps.createCollection("food we ate") }
+        kotlinx.coroutines.runBlocking { fakeSnaps.createCollection("rainy days") }
+        val captions = listOf(
+            "the long way home",
+            null,
+            "street cat judged us the entire time and honestly fair enough, we deserved it",
+            "too cold for this",
+            null,
+        )
+        captions.forEachIndexed { i, caption ->
+            fakeSnaps.keep("w$i", caption, scene(i), t0.minus(java.time.Duration.ofHours(30L * i + 3L * i * i)), walks, fromMe = i % 2 == 0)
+        }
+        fakeSnaps.keep("f0", "3am maggi", scene(7), t0.minus(java.time.Duration.ofDays(9)), food)
+        fakeSnaps.keep("f1", "burnt it a little", scene(8), t0.minus(java.time.Duration.ofDays(12)), food)
+        composeRule.onNodeWithTag(TopLevelDestination.OurWorld.testTag).performClick()
+        capture("lane_closed")
+        composeRule.onNodeWithTag("collection_card_late walks").performClick()
+        composeRule.mainClock.advanceTimeBy(2_000)
+        capture("lane_open")
+        composeRule.onNodeWithTag("collection_snap_w2").performTouchInput { longClick() }
+        captureDialog("lane_snap_menu")
+        composeRule.onNodeWithTag("snap_remove").performClick()
+        captureDialog("lane_snap_delete")
+        composeRule.onNodeWithTag("dialog_confirm").performClick()
+        composeRule.onNodeWithTag("collection_card_late walks").performTouchInput { longClick() }
+        composeRule.onNodeWithTag("collection_delete").performClick()
+        captureDialog("lane_collection_delete")
     }
 
     /** Points (stacked, giving form open) and both "cancel the meetup?" pop-ups. */

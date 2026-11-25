@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import kotlinx.coroutines.Dispatchers
@@ -41,11 +42,12 @@ fun SnapPhoto(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    colorFilter: ColorFilter? = null,
 ) {
     val image = rememberDecodedImage(bytes)
     val shaped = modifier.aspectRatio(aspect.coerceIn(0.5f, 2f))
     if (image != null) {
-        Image(image, contentDescription, shaped, contentScale = contentScale)
+        Image(image, contentDescription, shaped, contentScale = contentScale, colorFilter = colorFilter)
     } else {
         Box(shaped.background(ChoomHubTheme.colors.nightDeep), contentAlignment = Alignment.Center) {
             Text("developing…", style = MaterialTheme.typography.labelSmall, color = ChoomHubTheme.colors.textFaint)

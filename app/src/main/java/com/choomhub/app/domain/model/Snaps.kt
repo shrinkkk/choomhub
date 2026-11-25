@@ -31,8 +31,8 @@ data class SnapInfo(
     override fun hashCode(): Int = id.hashCode()
 }
 
-/** A named group of kept snaps, shown in Our World → Memory Lane. */
-data class SnapCollection(val id: String, val name: String, val createdAt: Instant?)
+/** A named group of kept snaps, shown in Our World → Memory Lane. [cover] is the snap shown on top of its stack. */
+data class SnapCollection(val id: String, val name: String, val createdAt: Instant?, val cover: String? = null)
 
 /** A photo ready to send: compressed full image and thumbnail. */
 class PreparedSnap(val full: ByteArray, val thumb: ByteArray, val width: Int, val height: Int)
@@ -65,4 +65,24 @@ object SnapRules {
 
     fun cleanCollectionName(input: String): String? =
         input.replace(Regex("\\s+"), " ").trim().take(MAX_COLLECTION_NAME).ifEmpty { null }
+
+    /**
+     * Whether [snap] is its sender's current snap (their newest), judged from [recent], the
+     * newest snaps of you both. If the sender has nothing in [recent] we can't tell, so it
+     * counts as current: a current snap is never deleted.
+     */
+    fun isCurrent(snap: SnapInfo, recent: List<SnapInfo>): Boolean {
+        val sentAt = snap.sentAt ?: return true
+        val newest = recent.filter { it.fromMe == snap.fromMe }.maxByOrNull { it.sentAt ?: Instant.MAX } ?: return true
+        val newestAt = newest.sentAt ?: return false
+        return newest.id == snap.id || !newestAt.isAfter(sentAt)
+    }
+
+    /** Taking [snap] out of [collectionId] deletes it for good: it's in no other collection and isn't anyone's current snap. */
+    fun deletesForGood(snap: SnapInfo, collectionId: String, recent: List<SnapInfo>): Boolean =
+        (snap.collections - collectionId).isEmpty() && !isCurrent(snap, recent)
+
+    /** The snap shown on top of a collection's stack: its chosen cover if it's still in there, else the newest. */
+    fun coverOf(collection: SnapCollection, snaps: List<SnapInfo>): SnapInfo? =
+        snaps.firstOrNull { it.id == collection.cover } ?: snaps.maxByOrNull { it.sentAt ?: Instant.MAX }
 }

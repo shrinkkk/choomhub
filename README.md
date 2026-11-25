@@ -54,8 +54,8 @@ What exists **today**:
   forehead kisses, head pats and tomatoes. Both notify the other phone.
 
 - **Snaps** (camera only): send one with a caption; each of you has one current snap, which
-  replaces your last unless one of you kept it. React to theirs; kept snaps live in collections in
-  Our World → Memory Lane. A home-screen widget shows their latest snap.
+  replaces your last unless one of you kept it. React to theirs; kept snaps hang in collections in
+  Our World → Memory Lane, as strings of polaroids that unfold in place. A home-screen widget shows their latest snap.
 - **Points**: award your partner Good Boy / Good Girl points (or take some away) with a reason;
   totals come from a ledger nobody can edit.
 

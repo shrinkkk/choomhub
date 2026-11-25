@@ -79,10 +79,24 @@ class SnapViewerViewModel @Inject constructor(
         }
     }
 
+    private val recent: StateFlow<List<SnapInfo>> = snapRepository.observeRecent()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Whether taking this snap out of [collectionId] deletes it for good (see [SnapRules.deletesForGood]). */
+    fun deletesForGood(collectionId: String): Boolean {
+        val snap = state.value.snap ?: return false
+        return SnapRules.deletesForGood(snap, collectionId, recent.value)
+    }
+
     fun toggle(collectionId: String) {
         val snap = state.value.snap ?: return
-        val next = if (collectionId in snap.collections) snap.collections - collectionId else snap.collections + collectionId
-        viewModelScope.launch { snapRepository.setCollections(snap.id, next.take(SnapRules.MAX_COLLECTIONS_PER_SNAP)) }
+        viewModelScope.launch {
+            if (collectionId in snap.collections) {
+                snapRepository.removeFromCollection(snap, collectionId)
+            } else {
+                snapRepository.setCollections(snap.id, (snap.collections + collectionId).take(SnapRules.MAX_COLLECTIONS_PER_SNAP))
+            }
+        }
     }
 
     fun onNewCollectionChange(value: String) = _newCollection.update { value.take(SnapRules.MAX_COLLECTION_NAME) }

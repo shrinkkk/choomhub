@@ -3,6 +3,7 @@ package com.choomhub.app.data.firebase
 import com.choomhub.app.domain.model.PreparedSnap
 import com.choomhub.app.domain.model.SnapCollection
 import com.choomhub.app.domain.model.SnapInfo
+import com.choomhub.app.domain.model.SnapRules
 import com.choomhub.app.domain.model.SnapSendResult
 import com.choomhub.app.domain.model.SpaceState
 import com.choomhub.app.domain.model.accountOrNull
@@ -110,7 +111,12 @@ class FirestoreSnapRepository @Inject constructor(
             .map { snap ->
                 snap?.documents.orEmpty().mapNotNull { doc ->
                     val name = doc.getString("name") ?: return@mapNotNull null
-                    SnapCollection(doc.id, name, doc.getTimestamp("createdAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.toInstant())
+                    SnapCollection(
+                        doc.id,
+                        name,
+                        doc.getTimestamp("createdAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.toInstant(),
+                        cover = doc.getString("cover"),
+                    )
                 }
             }
     }.distinctUntilChanged()
@@ -140,6 +146,63 @@ class FirestoreSnapRepository @Inject constructor(
     override suspend fun setCollections(snapId: String, collectionIds: List<String>) {
         val coupleId = spaceRepository.observeSpace().first().coupleIdOrNull ?: return
         snaps(coupleId).document(snapId).update(mapOf("collections" to collectionIds, "kept" to collectionIds.isNotEmpty()))
+    }
+
+    override suspend fun renameCollection(collectionId: String, name: String) {
+        val coupleId = spaceRepository.observeSpace().first().coupleIdOrNull ?: return
+        couple(coupleId).collection("collections").document(collectionId).update("name", name)
+    }
+
+    override suspend fun setCover(collectionId: String, snapId: String) {
+        val coupleId = spaceRepository.observeSpace().first().coupleIdOrNull ?: return
+        couple(coupleId).collection("collections").document(collectionId).update("cover", snapId)
+    }
+
+    override suspend fun removeFromCollection(snap: SnapInfo, collectionId: String) {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return
+        val me = space.accountOrNull?.uid ?: return
+        val remaining = snap.collections - collectionId
+        snaps(coupleId).document(snap.id).update(mapOf("collections" to remaining, "kept" to remaining.isNotEmpty()))
+        if (remaining.isEmpty() && !SnapRules.isCurrent(snap, recent(coupleId, me))) deleteForGood(coupleId, listOf(snap.id))
+    }
+
+    override suspend fun deleteCollection(collectionId: String) {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return
+        val me = space.accountOrNull?.uid ?: return
+        val inIt = runCatching { snaps(coupleId).whereArrayContains("collections", collectionId).get().await().documents }
+            .getOrDefault(emptyList())
+            .mapNotNull { snapFrom(it, me) }
+        // First un-keep (so the rules allow the deletes), then delete what nothing keeps any more.
+        val batch = db.batch()
+        batch.delete(couple(coupleId).collection("collections").document(collectionId))
+        inIt.forEach { snap ->
+            val remaining = snap.collections - collectionId
+            batch.update(snaps(coupleId).document(snap.id), mapOf("collections" to remaining, "kept" to remaining.isNotEmpty()))
+        }
+        batch.commit()
+        val recent = recent(coupleId, me)
+        deleteForGood(coupleId, inIt.filter { SnapRules.deletesForGood(it, collectionId, recent) }.map { it.id })
+    }
+
+    /** The newest snaps of you both; empty if they can't be read (then nothing counts as deletable). */
+    private suspend fun recent(coupleId: String, me: String): List<SnapInfo> = runCatching {
+        snaps(coupleId).orderBy("sentAt", Query.Direction.DESCENDING).limit(RECENT).get().await()
+            .documents.mapNotNull { snapFrom(it, me) }
+    }.getOrDefault(emptyList())
+
+    private fun deleteForGood(coupleId: String, ids: List<String>) {
+        if (ids.isEmpty()) return
+        // Not awaited, like every write here: it applies at once and syncs when there's a connection.
+        ids.chunked(200).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { id ->
+                batch.delete(image(coupleId, id))
+                batch.delete(snaps(coupleId).document(id))
+            }
+            batch.commit()
+        }
     }
 
     companion object {

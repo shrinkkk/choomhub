@@ -21,4 +21,8 @@ class LocalSnapRepository @Inject constructor() : SnapRepository {
     override suspend fun createCollection(name: String): String? = null
     override suspend fun react(snapId: String, reaction: String?) = Unit
     override suspend fun setCollections(snapId: String, collectionIds: List<String>) = Unit
+    override suspend fun renameCollection(collectionId: String, name: String) = Unit
+    override suspend fun setCover(collectionId: String, snapId: String) = Unit
+    override suspend fun removeFromCollection(snap: SnapInfo, collectionId: String) = Unit
+    override suspend fun deleteCollection(collectionId: String) = Unit
 }

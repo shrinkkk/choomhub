@@ -39,7 +39,6 @@ import com.choomhub.app.feature.snaps.SnapComposeRoute
 import com.choomhub.app.feature.snaps.SnapViewerRoute
 import com.choomhub.app.feature.snaps.snapComposeScreen
 import com.choomhub.app.feature.snaps.snapViewerScreen
-import com.choomhub.app.feature.world.CollectionRoute
 import com.choomhub.app.feature.mood.MoodRoute
 import com.choomhub.app.feature.mood.moodOptionsScreen
 import com.choomhub.app.feature.mood.moodScreen
@@ -126,7 +125,6 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
             activitiesScreen(contentPadding = padding)
             ourWorldScreen(
                 contentPadding = padding,
-                onOpenCollection = { id -> navController.navigate(CollectionRoute(id)) },
                 onOpenSnap = { id -> navController.navigate(SnapViewerRoute(id)) },
             )
             settingsScreen(contentPadding = padding, onEditMoods = { navController.navigate(MoodOptionsRoute) })

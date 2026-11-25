@@ -80,6 +80,9 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Camera only (no gallery, by choice), caption, on-phone compression (≤ 1280 px, < 850 KB), stored in Firestore
 - ✅ Partner's latest snap on Home ("new" until opened); sending a new one removes your previous unless kept
 - ✅ Keep → collections in Our World → Memory Lane (create, toggle per snap, grid per collection)
+- ✅ Memory Lane as polaroid strings: closed stacks that unfold in place, date on the frame, time
+  stamped on the photo, a polaroid look on kept photos; long-press to rename/delete a collection
+  or to set a cover / remove a photo; empty collections from + New; keep picker on the snap screen
 - ✅ Push notification for new snaps (Snaps switch)
 - ✅ Reactions (one each, from 🖤 🥺 😭 😂 🔥 🍅), pushed to the sender
 - ✅ Home-screen widget with their latest snap; refreshes when a snap arrives, when you leave the app, and hourly

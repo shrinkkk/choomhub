@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,6 +15,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -45,6 +50,23 @@ fun InkDialog(
 ) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
+    InkPanel(onDismissRequest, modifier) {
+        InkPanelHeading(title, whisper, art)
+        Spacer(Modifier.height(spacing.sm))
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(spacing.xl))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            ChoomHubPrimaryButton(text = confirm, onClick = onConfirm, modifier = Modifier.fillMaxWidth().testTag("dialog_confirm"))
+            InkQuietButton(dismissive, onDismissive, Modifier.testTag("dialog_dismissive"))
+        }
+    }
+}
+
+/** The card every ink pop-up sits on: dark, moonlit hairline, film grain, centred content. */
+@Composable
+fun InkPanel(onDismissRequest: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val colors = ChoomHubTheme.colors
+    val spacing = ChoomHubTheme.spacing
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
             modifier = modifier.widthIn(max = 360.dp).fillMaxWidth(),
@@ -55,23 +77,95 @@ fun InkDialog(
             Column(
                 Modifier.filmGrain(0.05f).padding(horizontal = spacing.xl, vertical = spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(contentAlignment = Alignment.Center) { art() }
-                Spacer(Modifier.height(spacing.md))
-                Text(title, style = MaterialTheme.typography.headlineMedium, color = colors.textMain, textAlign = TextAlign.Center)
-                if (whisper != null) {
-                    Text(whisper, style = ChoomHubTextStyles.Handwritten, color = colors.pink, textAlign = TextAlign.Center)
-                }
-                Spacer(Modifier.height(spacing.sm))
-                Text(message, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(spacing.xl))
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    ChoomHubPrimaryButton(text = confirm, onClick = onConfirm, modifier = Modifier.fillMaxWidth().testTag("dialog_confirm"))
-                    TextButton(onClick = onDismissive, modifier = Modifier.fillMaxWidth().testTag("dialog_dismissive")) {
-                        Text(dismissive.uppercase(), style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
-                    }
-                }
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
+private fun InkPanelHeading(title: String, whisper: String?, art: @Composable () -> Unit) {
+    val colors = ChoomHubTheme.colors
+    val spacing = ChoomHubTheme.spacing
+    Box(contentAlignment = Alignment.Center) { art() }
+    Spacer(Modifier.height(spacing.md))
+    Text(title, style = MaterialTheme.typography.headlineMedium, color = colors.textMain, textAlign = TextAlign.Center)
+    if (whisper != null) {
+        Text(whisper, style = ChoomHubTextStyles.Handwritten, color = colors.pink, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun InkQuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+        Text(text.uppercase(), style = MaterialTheme.typography.labelLarge, color = ChoomHubTheme.colors.textSecondary)
+    }
+}
+
+/** One choice in an [InkMenu]. [tag] is its test tag. */
+class InkMenuOption(val label: String, val tag: String, val onClick: () -> Unit)
+
+/** A few choices in the ink style (what a long-press opens), with a quiet "Never mind". */
+@Composable
+fun InkMenu(
+    title: String,
+    options: List<InkMenuOption>,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    whisper: String? = null,
+    art: @Composable () -> Unit,
+) {
+    val spacing = ChoomHubTheme.spacing
+    InkPanel(onDismissRequest, modifier) {
+        InkPanelHeading(title, whisper, art)
+        Spacer(Modifier.height(spacing.lg))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            options.forEach { option ->
+                ChoomHubSecondaryButton(text = option.label, onClick = option.onClick, modifier = Modifier.fillMaxWidth().testTag(option.tag))
             }
+            InkQuietButton("Never mind", onDismissRequest, Modifier.testTag("dialog_dismissive"))
+        }
+    }
+}
+
+/** Asks for a short name (a new collection, or renaming one). Empty names can't be saved. */
+@Composable
+fun InkNameDialog(
+    title: String,
+    initial: String,
+    confirm: String,
+    maxLength: Int,
+    onConfirm: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = "Name",
+    supportingText: String? = null,
+    art: @Composable () -> Unit,
+) {
+    val spacing = ChoomHubTheme.spacing
+    var value by rememberSaveable { mutableStateOf(initial) }
+    val clean = value.replace(Regex("\\s+"), " ").trim()
+    val submit = { if (clean.isNotEmpty()) onConfirm(clean) }
+    InkPanel(onDismissRequest, modifier) {
+        InkPanelHeading(title, null, art)
+        Spacer(Modifier.height(spacing.lg))
+        ChoomHubTextField(
+            value = value,
+            onValueChange = { value = it.take(maxLength) },
+            label = label,
+            supportingText = supportingText ?: "${value.length}/$maxLength",
+            onDone = submit,
+            modifier = Modifier.fillMaxWidth().testTag("dialog_name"),
+        )
+        Spacer(Modifier.height(spacing.lg))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            ChoomHubPrimaryButton(
+                text = confirm,
+                onClick = submit,
+                enabled = clean.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().testTag("dialog_confirm"),
+            )
+            InkQuietButton("Never mind", onDismissRequest, Modifier.testTag("dialog_dismissive"))
         }
     }
 }

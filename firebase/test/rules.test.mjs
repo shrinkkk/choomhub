@@ -275,10 +275,14 @@ describe('snaps and Memory Lane', () => {
     await assertFails(getDoc(doc(db('mallory'), 'couples/c1/snaps/s1/image/full')));
   });
 
-  test("a new snap can remove the sender's last one, unless either of you kept it", async () => {
+  test('unkept snaps can be removed by either of you, kept ones by nobody', async () => {
+    await send('alice', 's0');
+    await assertSucceeds(deleteDoc(doc(db('bob'), 'couples/c1/snaps/s0/image/full')));
+    await assertSucceeds(deleteDoc(doc(db('bob'), 'couples/c1/snaps/s0')));
     await send('alice', 's1');
-    await assertFails(deleteDoc(doc(db('bob'), 'couples/c1/snaps/s1')));
+    await assertFails(deleteDoc(doc(db('mallory'), 'couples/c1/snaps/s1')));
     await assertSucceeds(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: ['c9'], kept: true }));
+    await assertFails(deleteDoc(doc(db('bob'), 'couples/c1/snaps/s1')));
     await assertFails(deleteDoc(doc(db('alice'), 'couples/c1/snaps/s1/image/full')));
     await assertFails(deleteDoc(doc(db('alice'), 'couples/c1/snaps/s1')));
     await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { caption: 'edited' }));
@@ -330,6 +334,17 @@ describe('snaps and Memory Lane', () => {
     await assertFails(updateDoc(ref('bob'), { createdBy: 'bob' }));
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/collections/k2'), { name: '', createdBy: 'alice', createdAt: serverTimestamp() }));
     await assertFails(setDoc(doc(db('mallory'), 'couples/c1/collections/k3'), { name: 'x', createdBy: 'mallory', createdAt: serverTimestamp() }));
+  });
+
+  test('collections get a cover and can be deleted by either of you', async () => {
+    const ref = (uid) => doc(db(uid), 'couples/c1/collections/k1');
+    await assertSucceeds(setDoc(ref('alice'), { name: 'crows', createdBy: 'alice', createdAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref('bob'), { cover: 's1' }));
+    await assertSucceeds(updateDoc(ref('alice'), { cover: null }));
+    await assertFails(updateDoc(ref('bob'), { cover: 5 }));
+    await assertFails(updateDoc(ref('bob'), { cover: 'x'.repeat(65) }));
+    await assertFails(deleteDoc(ref('mallory')));
+    await assertSucceeds(deleteDoc(ref('bob')));
   });
 });
 

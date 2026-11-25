@@ -364,7 +364,7 @@ role ("awarded you 3 Good Girl points" / "took away 2 of your Good Girl points")
 Actions that would throw away or quietly lose things you made by hand get a confirmation in the
 app's own pop-up style (`InkDialog`: dark card, ink art, bone "keep it" button, quiet text button
 for the destructive choice). Today: restoring the default mood list, taking a snap out of its last
-collection (it could then be replaced), and clearing the meetup (twice: the bored cat, then the
+collection (it could then be deleted), deleting a collection or a photo in one, and clearing the meetup (twice: the bored cat, then the
 crying cat). Small, easily redone actions (removing one mood) don't ask.
 
 ## ADR-035: Snap reactions and the widget (daily prompts removed)
@@ -389,3 +389,25 @@ developer account. Releases are APKs (not bundles, which would need Play's inter
 her phone), signed with a release key whose location and passwords live only in `local.properties`;
 without them the release build stays unsigned. `versionCode` is the git commit count (computed by
 the build) so every newer build installs over the previous one. Steps: docs/RELEASING.md.
+
+## ADR-037: Memory Lane as polaroid strings; snaps nobody keeps are deleted
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner's design, from an approved preview)
+
+- **Look**: each collection is a small fanned stack (its cover on top). Tapping it unfolds the
+  string in place, pushing the collections below down; tapping it again folds it back. Polaroids
+  hang on pegs from one twine, tilted and overlapping; the typed date is on the frame, the time is
+  an orange film stamp on the photo, and captions stop at two lines.
+- **Filter**: a mild polaroid look (warmer, slightly faded and desaturated, vignette, grain;
+  "medium" from the preview) is applied when kept photos are drawn in Memory Lane. The stored photo
+  is untouched, and the snap screen shows the original.
+- **Deleting**: a snap that's in no collection and isn't anyone's current (newest) snap is deleted
+  for good, at once. That happens when you take a photo out of its last collection, or delete a
+  collection (snaps also in another collection stay there). The rules now let either of you delete
+  any unkept snap; the app never deletes a current one, and when it can't tell (the sender has
+  nothing among the 12 newest snaps), it treats the snap as current. Every one of these asks first
+  (ADR-034).
+- **Covers**: `cover` on the collection document; if that snap is gone, the newest is shown.
+- **Lists**: Our World is one lazy list; the card and twine are drawn by the list behind the
+  items, so polaroids can overlap and the string rejoins when one is removed.
+

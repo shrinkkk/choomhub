@@ -15,7 +15,7 @@ rules_version = '2';
 //   couples/{coupleId}/gestures/{id}   -> { kind, from, sentAt }     append-only history
 //   couples/{coupleId}/snaps/{id}      -> { from, caption, sentAt, width, height, thumb, collections, kept, reactions }
 //   couples/{coupleId}/snaps/{id}/image/full -> { data }            the full JPEG
-//   couples/{coupleId}/collections/{id} -> { name, createdBy, createdAt }  Memory Lane
+//   couples/{coupleId}/collections/{id} -> { name, createdBy, createdAt, cover? }  Memory Lane; cover is a snap id
 //   couples/{coupleId}/points/{id}     -> { from, to, amount (±1..10), reason, at }  append-only points ledger
 // Everything not matched below is denied.
 service cloud.firestore {
@@ -153,8 +153,10 @@ service cloud.firestore {
       }
 
       // Snaps. Sent as yourself; either of you can keep one in collections (and only that
-      // can change); the sender's unkept snaps can be removed (that's how a new one replaces
-      // the last). The picture sits in a sub-document so lists stay small.
+      // can change). Unkept snaps can be removed by either of you: a new snap replaces the
+      // sender's last, and a snap taken out of its last collection is deleted for good (the
+      // app never deletes anyone's current snap). The picture sits in a sub-document so lists
+      // stay small.
       match /snaps/{snapId} {
         allow read: if isMember(coupleId);
         allow create: if isMember(coupleId)
@@ -183,7 +185,7 @@ service cloud.firestore {
             && after.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([me()])
             && (!(me() in after) || after[me()] in ['🖤', '🥺', '😭', '😂', '🔥', '🍅']);
         }
-        allow delete: if isMember(coupleId) && resource.data.from == me() && resource.data.kept == false;
+        allow delete: if isMember(coupleId) && resource.data.kept == false;
 
         match /image/{part} {
           function snapPath() { return /databases/$(database)/documents/couples/$(coupleId)/snaps/$(snapId); }
@@ -193,9 +195,7 @@ service cloud.firestore {
             && request.resource.data.data is bytes
             && request.resource.data.data.size() <= 900000
             && getAfter(snapPath()).data.from == me();
-          allow delete: if isMember(coupleId)
-            && get(snapPath()).data.from == me()
-            && get(snapPath()).data.kept == false;
+          allow delete: if isMember(coupleId) && get(snapPath()).data.kept == false;
         }
       }
 
@@ -224,10 +224,15 @@ service cloud.firestore {
           && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
           && request.resource.data.createdBy == me()
           && request.resource.data.createdAt == request.time;
+        // Rename, or pick the snap shown on top of the stack.
         allow update: if isMember(coupleId)
-          && onlyChanged(['name'])
+          && onlyChanged(['name', 'cover'])
           && request.resource.data.name is string
-          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40;
+          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+          && (request.resource.data.get('cover', null) == null
+              || (request.resource.data.cover is string && request.resource.data.cover.size() <= 64));
+        // Deleting a collection; the app also deletes snaps that were only in it.
+        allow delete: if isMember(coupleId);
       }
 
       // The mood list both people pick from; either can edit it.

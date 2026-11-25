@@ -29,6 +29,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.size
 import com.choomhub.app.core.designsystem.component.InkDialog
+import com.choomhub.app.core.designsystem.component.InkPanel
+import com.choomhub.app.core.designsystem.component.ChoomHubPrimaryButton
+import com.choomhub.app.core.designsystem.component.ChoomHubSecondaryButton
+import com.choomhub.app.feature.home.meetup.CatExpression
+import com.choomhub.app.feature.home.meetup.CatFace
 import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import androidx.compose.ui.Alignment
@@ -44,8 +49,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.choomhub.app.core.common.TimeLabels
-import com.choomhub.app.core.designsystem.component.CardTone
-import com.choomhub.app.core.designsystem.component.ChoomHubCard
 import com.choomhub.app.core.designsystem.component.ChoomHubTextField
 import com.choomhub.app.core.designsystem.component.SnapPhoto
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
@@ -71,22 +74,43 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
     val newCollection by viewModel.newCollection.collectAsStateWithLifecycle()
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
-    // Taking a snap out of its last collection means it can be replaced (and gone for good), so ask first.
+    var picking by rememberSaveable { mutableStateOf(false) }
+    // Taking a snap out of its last collection can delete it for good, so ask first.
     var confirmUnkeep by rememberSaveable { mutableStateOf<String?>(null) }
     confirmUnkeep?.let { collectionId ->
+        val forGood = viewModel.deletesForGood(collectionId)
         InkDialog(
-            title = "Stop keeping it?",
-            message = "This was its last collection. Once it's not kept, the next snap from whoever sent it replaces it for good.",
+            title = if (forGood) "Delete it for good?" else "Stop keeping it?",
+            whisper = if (forGood) "this one can't be undone" else null,
+            message = if (forGood) {
+                "This was its last collection, so it will be deleted for good, for both of you."
+            } else {
+                "This was its last collection. It's still the newest snap, so it stays on Home until a newer one replaces it, then it's gone."
+            },
             confirm = "Keep it",
             onConfirm = { confirmUnkeep = null },
-            dismissive = "Remove it",
+            dismissive = if (forGood) "Delete for good" else "Stop keeping it",
             onDismissive = {
                 confirmUnkeep = null
                 viewModel.toggle(collectionId)
             },
             onDismissRequest = { confirmUnkeep = null },
             modifier = Modifier.testTag("snap_unkeep_confirm"),
-        ) { GothicMotifArt(GothicMotif.Moth, Modifier.size(88.dp)) }
+        ) { CatFace(if (forGood) CatExpression.Crying else CatExpression.Sad, Modifier.size(96.dp)) }
+    }
+    val pickingSnap = state.snap
+    if (picking && pickingSnap != null && confirmUnkeep == null) {
+        KeepPicker(
+            collections = state.collections,
+            keptIn = pickingSnap.collections,
+            newName = newCollection,
+            onNewNameChange = viewModel::onNewCollectionChange,
+            onCreate = viewModel::createAndKeep,
+            onToggle = { c ->
+                if (pickingSnap.collections == listOf(c.id)) confirmUnkeep = c.id else viewModel.toggle(c.id)
+            },
+            onDismiss = { picking = false },
+        )
     }
     Box(Modifier.fillMaxSize().testTag("screen_snap"), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -100,12 +124,12 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
             val snap = state.snap
             if (snap == null) {
                 Text(
-                    if (state.gone) "This snap has been replaced" else "Opening…",
+                    if (state.gone) "This snap is gone" else "Opening…",
                     style = MaterialTheme.typography.titleLarge,
                     color = colors.textMain,
                 )
                 if (state.gone) {
-                    Text("Nobody kept it, so it went when a newer one arrived.", style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                    Text("It was deleted, or replaced by a newer one while nobody kept it.", style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
                 }
                 return@Column
             }
@@ -149,43 +173,75 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
                 }
             }
             Spacer(Modifier.height(spacing.xl))
-            Text("Keep it", style = MaterialTheme.typography.titleLarge, color = colors.textMain)
+            val keptNames = state.collections.filter { it.id in snap.collections }.map { it.name }
             Text(
-                if (snap.isKept) "Kept in Memory Lane. It won't be replaced." else "Kept snaps go to Our World → Memory Lane and are never replaced.",
+                if (keptNames.isEmpty()) "Not kept yet" else "Kept in ${keptNames.joinToString(", ")}",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary,
+                modifier = Modifier.testTag("snap_kept_in"),
             )
-            Spacer(Modifier.height(spacing.md))
-            if (state.collections.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    state.collections.forEach { c ->
-                        CollectionChip(
-                            c,
-                            selected = c.id in snap.collections,
-                            onToggle = {
-                                if (snap.collections == listOf(c.id)) confirmUnkeep = c.id else viewModel.toggle(c.id)
-                            },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(spacing.md))
-            }
-            ChoomHubCard(tone = CardTone.Calm, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(spacing.md)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ChoomHubTextField(
-                        value = newCollection,
-                        onValueChange = viewModel::onNewCollectionChange,
-                        label = "New collection",
-                        supportingText = "e.g. crows, rainy days, the first trip",
-                        onDone = viewModel::createAndKeep,
-                        modifier = Modifier.weight(1f).testTag("snap_new_collection"),
-                    )
-                    TextButton(onClick = viewModel::createAndKeep, modifier = Modifier.testTag("snap_new_collection_add")) {
-                        Text("KEEP", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
-                    }
-                }
+            Spacer(Modifier.height(spacing.sm))
+            ChoomHubSecondaryButton(
+                text = if (snap.isKept) "Change collections" else "Keep it",
+                onClick = { picking = true },
+                modifier = Modifier.fillMaxWidth().testTag("snap_keep"),
+            )
+            Text(
+                "Kept snaps hang in Our World → Memory Lane and are never replaced.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textFaint,
+                modifier = Modifier.padding(top = spacing.sm),
+            )
+        }
+    }
+}
+
+/** Where to keep a snap: tick existing collections, or name a new one (it's kept there at once). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun KeepPicker(
+    collections: List<SnapCollection>,
+    keptIn: List<String>,
+    newName: String,
+    onNewNameChange: (String) -> Unit,
+    onCreate: () -> Unit,
+    onToggle: (SnapCollection) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = ChoomHubTheme.colors
+    val spacing = ChoomHubTheme.spacing
+    InkPanel(onDismissRequest = onDismiss, modifier = Modifier.testTag("snap_keep_picker")) {
+        GothicMotifArt(GothicMotif.Moth, Modifier.size(72.dp))
+        Spacer(Modifier.height(spacing.md))
+        Text("Keep it in…", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
+        Spacer(Modifier.height(spacing.lg))
+        if (collections.isEmpty()) {
+            Text("No collections yet. Name the first one:", style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+        } else {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                collections.forEach { c -> CollectionChip(c, selected = c.id in keptIn, onToggle = { onToggle(c) }) }
             }
         }
+        Spacer(Modifier.height(spacing.lg))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ChoomHubTextField(
+                value = newName,
+                onValueChange = onNewNameChange,
+                label = "New collection",
+                supportingText = "${newName.length}/${SnapRules.MAX_COLLECTION_NAME}",
+                onDone = onCreate,
+                modifier = Modifier.weight(1f).testTag("snap_new_collection"),
+            )
+            TextButton(onClick = onCreate, modifier = Modifier.testTag("snap_new_collection_add")) {
+                Text("ADD", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+            }
+        }
+        Spacer(Modifier.height(spacing.md))
+        ChoomHubPrimaryButton(text = "Done", onClick = onDismiss, modifier = Modifier.fillMaxWidth().testTag("snap_keep_done"))
     }
 }
 

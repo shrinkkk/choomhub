@@ -3,6 +3,7 @@ package com.choomhub.app.testing
 import com.choomhub.app.domain.model.PreparedSnap
 import com.choomhub.app.domain.model.SnapCollection
 import com.choomhub.app.domain.model.SnapInfo
+import com.choomhub.app.domain.model.SnapRules
 import com.choomhub.app.domain.model.SnapSendResult
 import com.choomhub.app.domain.repository.SnapRepository
 import kotlinx.coroutines.flow.Flow
@@ -48,6 +49,42 @@ class FakeSnapRepository(var refusal: String? = null) : SnapRepository {
 
     override suspend fun setCollections(snapId: String, collectionIds: List<String>) {
         snaps.update { list -> list.map { if (it.id == snapId) it.copy(collections = collectionIds) else it } }
+    }
+
+    override suspend fun renameCollection(collectionId: String, name: String) {
+        collections.update { list -> list.map { if (it.id == collectionId) it.copy(name = name) else it } }
+    }
+
+    override suspend fun setCover(collectionId: String, snapId: String) {
+        collections.update { list -> list.map { if (it.id == collectionId) it.copy(cover = snapId) else it } }
+    }
+
+    override suspend fun removeFromCollection(snap: SnapInfo, collectionId: String) {
+        val recent = snaps.value
+        val goes = SnapRules.deletesForGood(snaps.value.first { it.id == snap.id }, collectionId, recent)
+        snaps.update { list ->
+            list.mapNotNull { if (it.id == snap.id) it.copy(collections = it.collections - collectionId).takeUnless { goes } else it }
+        }
+    }
+
+    override suspend fun deleteCollection(collectionId: String) {
+        val recent = snaps.value
+        collections.update { list -> list.filterNot { it.id == collectionId } }
+        snaps.update { list ->
+            list.mapNotNull {
+                when {
+                    collectionId !in it.collections -> it
+                    SnapRules.deletesForGood(it, collectionId, recent) -> null
+                    else -> it.copy(collections = it.collections - collectionId)
+                }
+            }
+        }
+    }
+
+    /** A kept snap from them, already in [collectionIds]. */
+    fun keep(id: String, caption: String?, jpeg: ByteArray, at: Instant, vararg collectionIds: String, fromMe: Boolean = false) {
+        images[id] = jpeg
+        snaps.update { it + SnapInfo(id, fromMe, caption, at, 4, 3, jpeg, collectionIds.toList()) }
     }
 
     /** A snap from them, with a real tiny JPEG so it can be drawn. */

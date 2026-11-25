@@ -32,6 +32,20 @@ interface SnapRepository {
     /** Your reaction to a snap (one of [com.choomhub.app.domain.model.SnapRules.REACTIONS]); null removes it. */
     suspend fun react(snapId: String, reaction: String?)
 
-    /** Which collections a snap is kept in; an empty list un-keeps it. */
+    /** Which collections a snap is kept in. To take it out of one, use [removeFromCollection]. */
     suspend fun setCollections(snapId: String, collectionIds: List<String>)
+
+    suspend fun renameCollection(collectionId: String, name: String)
+
+    /** The snap shown on top of the collection's stack. */
+    suspend fun setCover(collectionId: String, snapId: String)
+
+    /**
+     * Takes [snap] out of one collection. If that leaves it in none and it isn't anyone's
+     * current snap, it's deleted for good (see [com.choomhub.app.domain.model.SnapRules.deletesForGood]).
+     */
+    suspend fun removeFromCollection(snap: SnapInfo, collectionId: String)
+
+    /** Deletes a collection, and for good every snap that was only in it (except current snaps). */
+    suspend fun deleteCollection(collectionId: String)
 }
