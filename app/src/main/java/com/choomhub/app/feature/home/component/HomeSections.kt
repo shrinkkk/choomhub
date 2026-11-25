@@ -550,13 +550,13 @@ internal fun SharedCatSection(cat: SharedCatStatus, modifier: Modifier = Modifie
                 Spacer(Modifier.width(ChoomHubTheme.spacing.lg))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = if (cat.isAdopted) "${cat.name} is around" else "Unnamed, for now",
+                        text = if (cat.isAdopted) "${cat.name} is at home" else "Unnamed, for now",
                         style = MaterialTheme.typography.titleLarge,
                         color = colors.textMain,
                     )
                     Spacer(Modifier.height(ChoomHubTheme.spacing.xs))
                     Text(
-                        text = "Has claimed the windowsill and is watching the crows. Naming, feeding and moods come later.",
+                        text = cat.status ?: "A kitten turned up at the Pet House. Name it together there.",
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.textSecondary,
                     )

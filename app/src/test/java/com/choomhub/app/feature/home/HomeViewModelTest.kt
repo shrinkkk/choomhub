@@ -68,7 +68,7 @@ class HomeViewModelTest {
 
     @Test
     fun `maps repository data into ready state`() = runTest {
-        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock, com.choomhub.app.feature.pet.PetLinks(com.choomhub.app.data.pet.LocalPetRepository(), clock))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
 
         val state = viewModel.uiState.value as HomeUiState.Ready
@@ -87,7 +87,7 @@ class HomeViewModelTest {
     @Test
     fun `newer repository data replaces older state`() = runTest {
         val repository = FakeHomeRepository(snapshot)
-        val viewModel = HomeViewModel(repository, gestures, FakeSnapRepository(), points, notifier, clock)
+        val viewModel = HomeViewModel(repository, gestures, FakeSnapRepository(), points, notifier, clock, com.choomhub.app.feature.pet.PetLinks(com.choomhub.app.data.pet.LocalPetRepository(), clock))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
 
         repository.data.value = snapshot.copy(
@@ -101,7 +101,7 @@ class HomeViewModelTest {
 
     @Test
     fun `a gesture is sent, the partner is notified, and repeat taps are ignored`() {
-        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock, com.choomhub.app.feature.pet.PetLinks(com.choomhub.app.data.pet.LocalPetRepository(), clock))
         viewModel.onAffectionTapped(AffectionKind.Hug)
         assertEquals("Hug sent.", viewModel.pendingNotice.value)
         assertEquals(listOf<Pair<PushEvent, String?>>(PushEvent.Gesture to null), notifier.sent)
@@ -119,7 +119,7 @@ class HomeViewModelTest {
     @Test
     fun `a refused gesture says why and notifies no one`() {
         gestures.refusal = "They haven't joined your space yet. Gestures go out once they do."
-        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock, com.choomhub.app.feature.pet.PetLinks(com.choomhub.app.data.pet.LocalPetRepository(), clock))
         viewModel.onAffectionTapped(AffectionKind.ForeheadKiss)
         assertEquals(gestures.refusal, viewModel.pendingNotice.value)
         assertTrue(notifier.sent.isEmpty())
@@ -134,7 +134,7 @@ class HomeViewModelTest {
                 Gesture("1", AffectionKind.Hug, fromMe = false, sentAt = now.minus(Duration.ofMinutes(3))),
             ),
         )
-        val viewModel = HomeViewModel(FakeHomeRepository(withGestures), gestures, FakeSnapRepository(), points, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(withGestures), gestures, FakeSnapRepository(), points, notifier, clock, com.choomhub.app.feature.pet.PetLinks(com.choomhub.app.data.pet.LocalPetRepository(), clock))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect {} }
         val state = viewModel.uiState.value as HomeUiState.Ready
         assertEquals("Wren sent a hug", state.lastReceived?.text)
@@ -144,7 +144,7 @@ class HomeViewModelTest {
 
     @Test
     fun `awarding and taking away points check the amount, record it and tell them`() {
-        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock)
+        val viewModel = HomeViewModel(FakeHomeRepository(snapshot), gestures, FakeSnapRepository(), points, notifier, clock, com.choomhub.app.feature.pet.PetLinks(com.choomhub.app.data.pet.LocalPetRepository(), clock))
         assertEquals("How many points?", viewModel.award("", "dishes"))
         assertEquals("Between 1 and 10 at a time.", viewModel.award("25", ""))
         assertNull(viewModel.award("10", "  for the  dishes "))

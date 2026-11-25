@@ -37,6 +37,7 @@ class HomeViewModel @Inject constructor(
     private val pointsRepository: PointsRepository,
     private val notifier: Notifier,
     private val clock: Clock,
+    private val petLinks: com.choomhub.app.feature.pet.PetLinks,
 ) : ViewModel() {
 
     val uiState: StateFlow<HomeUiState> = homeRepository.observeHome()
@@ -72,6 +73,7 @@ class HomeViewModel @Inject constructor(
             _pendingNotice.value = when (val result = gestureRepository.send(kind)) {
                 GestureResult.Sent -> {
                     notifier.notifyPartner(PushEvent.Gesture, kind = kind.key)
+                    petLinks.gestureSent()
                     sentText(kind)
                 }
                 is GestureResult.NotSent -> {

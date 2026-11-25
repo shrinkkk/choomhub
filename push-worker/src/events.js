@@ -10,6 +10,7 @@ export const Channels = Object.freeze({
   meetup: 'meetup',
   space: 'space',
   focus: 'focus',
+  pet: 'pet',
   general: 'general',
 });
 
@@ -46,6 +47,8 @@ export const Events = Object.freeze({
   focus_enter: { category: 'focus', channel: Channels.focus, tag: 'focus_enter', toSelf: false, takesDetail: false },
   focus_nudge: { category: 'focus', channel: Channels.focus, tag: 'focus_nudge', toSelf: false, takesDetail: false },
   jam: { category: 'focus', channel: Channels.focus, tag: 'jam', toSelf: false, takesDetail: false },
+  pet_help: { category: 'pet', channel: Channels.pet, tag: 'pet_help', toSelf: false, takesDetail: true, kinds: ['vet', 'bath'] },
+  pet_named: { category: 'pet', channel: Channels.pet, tag: 'pet_named', toSelf: false, takesDetail: true },
 });
 
 export const MAX_DETAIL = 80;
@@ -131,6 +134,14 @@ export function compose(event, ctx) {
       return { title: `${who} has entered the focus room`, body: 'Their stopwatch is running.' };
     case 'focus_nudge':
       return { title: `${who} wants you in the focus room`, body: "There's a desk waiting for you." };
+    case 'pet_help': {
+      const cat = ctx.detail || 'the cat';
+      return ctx.kind === 'vet'
+        ? { title: `${who} needs your help taking ${cat} to the vet`, body: 'Open the Pet House to help.' }
+        : { title: `${who} needs your help giving ${cat} a bath`, body: 'It takes two. Open the Pet House.' };
+    }
+    case 'pet_named':
+      return { title: `${who} has a name for the cat`, body: ctx.detail ? `"${ctx.detail}". Open the Pet House to agree (or suggest another).` : 'Open the Pet House.' };
     case 'jam':
       return { title: `${who} left a jam in the record player`, body: 'Open the focus room to join it.' };
     default:

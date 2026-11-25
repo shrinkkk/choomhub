@@ -105,6 +105,17 @@ object FocusModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object PetModule {
+    @Provides
+    @Singleton
+    fun providePetRepository(
+        firestore: Provider<com.choomhub.app.data.pet.FirestorePetRepository>,
+        local: Provider<com.choomhub.app.data.pet.LocalPetRepository>,
+    ): com.choomhub.app.domain.repository.PetRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object SpaceModule {
     @Provides
     @Singleton

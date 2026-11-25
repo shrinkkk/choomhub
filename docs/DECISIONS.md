@@ -444,3 +444,31 @@ the build) so every newer build installs over the previous one. Steps: docs/RELE
   "Focus room" category the recipient can turn off. The jam link is any http(s) URL, shown only
   after tapping the record player.
 
+## ADR-039: The Pet House replaces Messages
+
+**Status:** accepted · 2026-11-25
+
+The Messages tab becomes the Pet House: a cat-care simulation for the two of you. Messages and
+letters are dropped for now (the owner didn't want them).
+
+- **The cat** is the focus room's black cat, drawn in the ink style of the meetup countdown face
+  (not pixel art), skinny by default; kittens for 21 days, chonky above 5.6 kg. It never runs
+  away; neglect makes it sad, hide under the bed, or get poorly.
+- **Storage**: one document, `couples/{id}/pet/cat`, and an append-only `petDiary`. Needs are
+  stored as `{v, at}` and worked out on read with a per-hour rate (traits and furniture change the
+  rates), so nothing runs on a server and the free plans are enough. Every action is a pure
+  `PetPatch` from `PetRules.act`, written with merge and `FieldValue.increment`; coins and bond are
+  per-uid maps that the rules let you change only for yourself (and never below zero).
+- **Once a day** (gift, getting poorly, getting muddy) is decided by a random seeded with the date
+  and adoption time, so whichever phone opens first writes the same answer the other would have.
+- **Two-person jobs** (vet, bath) are a `pending` marker plus a push; the other person finishes
+  them. They lapse after 3 hours. The vet starts three days of once-a-day medicine.
+- **Coins** are separate from points: 3 per useful care action (capped at 60 a day), 5 for the
+  first visit each day, 10 per focus hour. Spent in a shop of food packs, toys, furniture, outfits
+  and decor; furniture changes need rates and shows up in the apartment.
+- **Links to the rest of the app**: sending a gesture gives it a little love; focus hours give
+  coins; petting within 20 seconds of each other is a double purr; Home shows its status line.
+- **Reminders** run on each phone (WorkManager, every 2 hours), only when a need is low or it's
+  poorly, never at night, at most three a day and four hours apart, under a "Pet House" switch.
+  The partner pushes are `pet_named` and `pet_help`.
+

@@ -36,6 +36,7 @@ class FocusController @Inject constructor(
     private val notifications: FocusNotifications,
     private val alarm: BreakAlarm,
     private val clock: Clock,
+    private val petLinks: com.choomhub.app.feature.pet.PetLinks,
 ) {
     private val lock = Mutex()
 
@@ -44,6 +45,8 @@ class FocusController @Inject constructor(
             val room = repository.observeRoom().first()
             val change = block(room.me, room.myTotals)
             if (change.session != room.me || change.totals != room.myTotals) repository.apply(change)
+            // The same hours that earn points earn the cat's coins.
+            if (change.points > 0) petLinks.focusHours(change.points)
             change
         }
 

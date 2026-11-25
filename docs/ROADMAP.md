@@ -9,7 +9,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Android project: Kotlin, Compose, Material 3, Hilt, Navigation Compose, version catalog
 - ✅ Dark design system: colours, type, shapes, spacing, cards, buttons, illustrations, icons
 - ✅ Home screen with local sample data (mood, latest snap, affection, points, cat)
-- ✅ Bottom navigation: Home, Messages, Activities, Our World, Settings
+- ✅ Bottom navigation: Home, Messages (now Pet House), Activities, Our World, Settings
 - ✅ Placeholder screens for the other tabs; Settings shows config status
 - ✅ Unit tests and Robolectric navigation tests
 - ✅ README, architecture, roadmap and decision docs
@@ -91,11 +91,19 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Reactions (one each, from 🖤 🥺 😭 😂 🔥 🍅), pushed to the sender
 - ✅ Home-screen widget with their latest snap; refreshes when a snap arrives, when you leave the app, and hourly
 
-## Milestone 6: Messages ⬜
+## Milestone 6: Pet House ✅
 
-- ⬜ Text messages, reactions, shared mailbox
-- ⬜ Letters, open-when letters, time capsules, random compliments
-- ~~Voice notes~~ (dropped, ADR-023)
+Replaces the Messages tab (ADR-039); messages and letters are dropped for now.
+
+- ✅ Adopt a black kitten together: one suggests a name, the other agrees (or bring it home anyway); that day is its birthday, and it's a kitten for 21 days
+- ✅ Six needs that drift in real time (food, water, energy, litter, fun, love), worked out from timestamps so nothing runs on a server
+- ✅ Hands-on care: food choices with a favourite and a dislike, hold-to-pour water, scoop the clumps, petting by zone (the belly bites), brushing, a chase game with the toys you own, weekly nail trims
+- ✅ Two-person jobs: the vet and baths need one of you to start and the other to help (pushed), then three days of medicine
+- ✅ Personality (two traits), a bond with each of you, a care streak, weight (overfeeding makes it chonky)
+- ✅ Its own apartment that it wanders around, and where it shows what it needs; daily gifts (rocks and fossils are rare), a diary in its voice, 18 trophies
+- ✅ Separate cat coins for each of you (care, a daily visit, focus hours); a shop with food, toys, furniture, 15 outfits and decor
+- ✅ Links: gestures give it a little love, focus hours give coins, petting together gives a double purr, a status line on Home
+- ✅ Gentle reminders on your own phone (never at night, at most three a day) and a "Pet House" notification switch
 
 ## Milestone 7: Productivity and points 🟡
 
@@ -104,11 +112,9 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ⬜ Achievements with descriptions
 - ⬜ Points history; custom rewards and a point shop
 
-## Milestone 8: Shared cat ⬜
+## Milestone 8: Shared cat ✅
 
-- ⬜ Move the cat from Home to Our World
-- ⬜ Adoption, name, personality; feeding, petting, moods
-- ⬜ Accessories, unlockable decorations, animations
+Built as the Pet House (Milestone 6).
 
 ## Milestone 9: Tomato universe ⬜
 

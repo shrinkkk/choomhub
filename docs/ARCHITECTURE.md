@@ -57,7 +57,8 @@ com.choomhub.app
     ├── account/                   sign-in and pairing screens + AccountViewModel
     ├── onboarding/                "What do you call them?"
     ├── home/                      home screen; meetup/ countdown card, MoonFace, MeetupViewModel
-    ├── messages/, activities/, world/   placeholders
+    ├── pet/                       Pet House: apartment, cat art (art/), panels, pages, reminders
+    ├── activities/, world/        focus room entry, Memory Lane
     └── settings/                  names, space status / invite code, sign out
 firebase/                          firestore.rules, emulator config, rules tests (Node)
 push-worker/                       Cloudflare Worker that sends pushes (JS, unit + emulator tests)

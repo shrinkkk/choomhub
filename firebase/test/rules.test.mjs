@@ -386,6 +386,20 @@ describe('focus room', () => {
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/points/f2'), { ...point, reason: 'being great' }));
   });
 
+  test('the pet: shared, but coins and bond are your own and coins never go negative', async () => {
+    const cat = (uid) => doc(db(uid), 'couples/c1/pet/cat');
+    await assertSucceeds(setDoc(cat('alice'), { name: 'Mochi', coins: { alice: 10 }, bond: { alice: 2 }, needs: { hunger: { v: 80, at: Timestamp.now() } } }));
+    await assertSucceeds(updateDoc(cat('bob'), { coins: { alice: 10, bob: 5 }, 'needs.hunger': { v: 90, at: Timestamp.now() } }));
+    await assertFails(updateDoc(cat('bob'), { coins: { alice: 999, bob: 5 } }));
+    await assertFails(updateDoc(cat('alice'), { coins: { alice: -1, bob: 5 } }));
+    await assertFails(updateDoc(cat('bob'), { bond: { alice: 50 } }));
+    await assertFails(updateDoc(cat('bob'), { secret: true }));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/pet/dog'), { name: 'Rex' }));
+    await assertFails(getDoc(cat('mallory')));
+    await assertSucceeds(setDoc(doc(db('bob'), 'couples/c1/petDiary/d1'), { text: 'I sat on the keyboard.', at: serverTimestamp(), by: 'bob' }));
+    await assertFails(setDoc(doc(db('bob'), 'couples/c1/petDiary/d2'), { text: 'x'.repeat(301), at: serverTimestamp(), by: 'bob' }));
+  });
+
   test('either of you can send the cat somewhere', async () => {
     const cat = (uid) => doc(db(uid), 'couples/c1/shared/cat');
     await assertSucceeds(setDoc(cat('bob'), { activity: 'fish', since: Timestamp.now(), by: 'bob' }));

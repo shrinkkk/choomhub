@@ -13,6 +13,7 @@ enum class NotificationCategory(val key: String, val channelId: String, val labe
     Meetup("meetup", "meetup", "Meetup", "When the next meetup is set, moved or cleared"),
     Space("space", "space", "Space", "When they join, or change what they call you"),
     Focus("focus", "focus", "Focus room", "When they enter the focus room, nudge you, or leave a jam"),
+    Pet("pet", "pet", "Pet House", "When they need your help with the cat, and when it needs something"),
 }
 
 /** Your notification choices. Everything is on until you turn it off. */
@@ -38,6 +39,8 @@ enum class PushEvent(val wire: String, val collapseKey: String) {
     FocusEntered("focus_enter", "focus_enter"),
     FocusNudge("focus_nudge", "focus_nudge"),
     JamLeft("jam", "jam"),
+    PetHelp("pet_help", "pet_help"),
+    PetNamed("pet_named", "pet_named"),
     Test("test", "test"),
     ;
 

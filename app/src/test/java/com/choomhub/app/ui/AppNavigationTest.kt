@@ -155,7 +155,7 @@ class AppNavigationTest {
     @Test
     fun bottomNavigationReachesEveryDestination() {
         val screens = mapOf(
-            TopLevelDestination.Messages to "screen_messages",
+            TopLevelDestination.PetHouse to "screen_pet",
             TopLevelDestination.Activities to "screen_activities",
             TopLevelDestination.OurWorld to "screen_our_world",
             TopLevelDestination.Settings to "screen_settings",

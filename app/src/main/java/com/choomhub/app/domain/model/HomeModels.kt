@@ -28,10 +28,11 @@ data class PointBalances(
     val goodGirl: Int,
 )
 
-/** What is known about the shared cat. Not adopted until a later milestone. */
+/** The Pet House cat, as Home shows it: its name and a line about how it is. */
 data class SharedCatStatus(
     val isAdopted: Boolean,
     val name: String?,
+    val status: String? = null,
 )
 
 /** Everything the home screen shows, assembled by [com.choomhub.app.domain.repository.HomeRepository]. */

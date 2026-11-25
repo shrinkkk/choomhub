@@ -46,8 +46,7 @@ What exists **today**:
   clear the meetup, join, or rename them; per-category switches and a test button in Settings.
 - A **home screen** with your partner's real name and **sample** mood, latest snap, gesture
   buttons, Good Boy / Good Girl points and the shared cat, clearly labelled as sample data.
-- Bottom navigation between Home, Messages, Activities, Our World and Settings. Non-home tabs are
-  honest "coming soon" screens.
+- Bottom navigation between Home, Pet House, Activities, Our World and Settings.
 - Unit tests plus Robolectric UI tests (onboarding, renaming, navigation, screenshot capture).
 
 - **Moods and gestures**: set your mood (with an optional note) and see theirs on Home; send hugs,
@@ -59,8 +58,11 @@ What exists **today**:
 - **Points**: award your partner Good Boy / Good Girl points (or take some away) with a reason;
   totals come from a ledger nobody can edit.
 
-What does **not** exist yet: messages, the shared cat, activities. The
-gesture buttons say so when tapped. Without Firebase config the app runs in device-only mode.
+- **Pet House**: a black cat you adopt and name together, with needs that drift in real time,
+  hands-on care (feeding, water, litter, petting, brushing, play, nails), two-person vet trips and
+  baths, gifts, a diary in its voice, trophies, and a shop paid for in cat coins.
+
+Without Firebase config the app runs in device-only mode.
 
 ## Technology stack
 

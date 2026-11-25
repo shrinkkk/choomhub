@@ -82,10 +82,15 @@ background on first launch) and try again.
 | Enter the focus room | "*Name* has entered the focus room" | Focus room |
 | Nudge them from the focus room | "*Name* wants you in the focus room" | Focus room |
 | Leave a jam link in the record player | "*Name* left a jam in the record player" | Focus room |
+| Suggest a name for the cat | "*Name* has a name for the cat" · "Mochi". Open the Pet House to agree | Pet House |
+| Start a vet trip or a bath | "*Name* needs your help taking Mochi to the vet" / "giving Mochi a bath" | Pet House |
+
+The Pet House also shows gentle reminders on your **own** phone (hungry, dry bowl, litter, hiding,
+bored, poorly, medicine): never between 22:30 and 08:30, at most three a day and four hours apart,
+under the same Pet House switch.
 
 *Name* is whatever **they** call **you**. Each person's switches are in Settings and respected by the
-Worker; Android's own per-channel settings work too. Messages will add
-their own categories when those features exist.
+Worker; Android's own per-channel settings work too.
 
 ## Testing the partner side with one phone
 

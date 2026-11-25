@@ -64,7 +64,7 @@ fun CatFace(expression: CatExpression, modifier: Modifier = Modifier) {
     }
 }
 
-internal fun DrawScope.drawCatFace(e: CatExpression) {
+internal fun DrawScope.drawCatFace(e: CatExpression, splatters: Boolean = true) {
     val ears = when (e) {
         CatExpression.Crying, CatExpression.Sad -> Ears.Flat
         CatExpression.Bored -> Ears.Tilted
@@ -72,8 +72,10 @@ internal fun DrawScope.drawCatFace(e: CatExpression) {
     }
     val body = catShape(ears)
 
-    splatter(Offset(9f, 12f), 1.8f, InkPalette.Ash.copy(alpha = 0.8f), seed = 11)
-    splatter(Offset(93f, 64f), 1.3f, InkPalette.Ash.copy(alpha = 0.7f), seed = 5)
+    if (splatters) {
+        splatter(Offset(9f, 12f), 1.8f, InkPalette.Ash.copy(alpha = 0.8f), seed = 11)
+        splatter(Offset(93f, 64f), 1.3f, InkPalette.Ash.copy(alpha = 0.7f), seed = 5)
+    }
 
     drawPath(body, Ink)
     // Light from the right: one side catches fur, the other melts into the dark.

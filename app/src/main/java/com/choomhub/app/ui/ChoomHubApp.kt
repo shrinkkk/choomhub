@@ -31,9 +31,9 @@ import com.choomhub.app.core.navigation.TopLevelDestination
 import com.choomhub.app.feature.account.PairingScreen
 import com.choomhub.app.feature.account.SignInScreen
 import com.choomhub.app.feature.activities.activitiesScreen
+import com.choomhub.app.feature.pet.petHouseScreen
 import com.choomhub.app.feature.home.HomeRoute
 import com.choomhub.app.feature.home.homeScreen
-import com.choomhub.app.feature.messages.messagesScreen
 import com.choomhub.app.feature.mood.MoodOptionsRoute
 import com.choomhub.app.feature.snaps.SnapComposeRoute
 import com.choomhub.app.feature.snaps.SnapViewerRoute
@@ -136,7 +136,7 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
             snapComposeScreen(contentPadding = padding, onClose = { navController.popBackStack() })
             snapViewerScreen(contentPadding = padding)
             moodScreen(contentPadding = padding, onClose = { navController.popBackStack() })
-            messagesScreen(contentPadding = padding)
+            petHouseScreen(contentPadding = padding)
             activitiesScreen(contentPadding = padding, onOpenFocusRoom = { navController.navigate(FocusRoomRoute) { launchSingleTop = true } })
             focusRoomScreen(contentPadding = padding, onLeft = { navController.popBackStack() })
             ourWorldScreen(

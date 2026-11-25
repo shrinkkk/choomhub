@@ -92,3 +92,12 @@ test('focus room events go on the focus channel and read plainly', () => {
   assert.equal(msg.message.android.notification.channel_id, 'focus');
   assert.equal(msg.message.data.category, 'focus');
 });
+
+test('pet events ask for help and share name ideas', () => {
+  assert.deepEqual(parseRequest({ event: 'pet_help', kind: 'vet', detail: 'Mochi' }), { event: 'pet_help', detail: 'Mochi', kind: 'vet' });
+  assert.equal(parseRequest({ event: 'pet_help', kind: 'nap' }), null);
+  assert.equal(compose('pet_help', { senderName: 'Wren', kind: 'vet', detail: 'Mochi' }).title, 'Wren needs your help taking Mochi to the vet');
+  assert.equal(compose('pet_help', { senderName: 'Wren', kind: 'bath', detail: 'Mochi' }).title, 'Wren needs your help giving Mochi a bath');
+  assert.match(compose('pet_named', { senderName: 'Rook', detail: 'Mochi' }).body, /Mochi/);
+  assert.equal(fcmMessage('f', 'pet_named', compose('pet_named', {})).message.android.notification.channel_id, 'pet');
+});

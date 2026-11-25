@@ -9,6 +9,9 @@ import com.choomhub.app.domain.model.SharedCatStatus
 import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.HomeRepository
 import com.choomhub.app.domain.repository.MoodRepository
+import com.choomhub.app.domain.repository.PetRepository
+import com.choomhub.app.domain.model.PetRules
+import java.time.Clock
 import com.choomhub.app.domain.repository.ProfileRepository
 import com.choomhub.app.domain.repository.SnapRepository
 import com.choomhub.app.data.snap.SeenSnaps
@@ -17,8 +20,8 @@ import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
 
 /**
- * Home's data: names, moods, gestures, snaps and points, all real. (The cat
- * comes later; [HomeSnapshot.isSampleData] is kept for anything sample again.)
+ * Home's data: names, moods, gestures, snaps, points and the Pet House cat, all real.
+ * ([HomeSnapshot.isSampleData] is kept for anything sample again.)
  */
 class LiveHomeRepository @Inject constructor(
     private val profileRepository: ProfileRepository,
@@ -27,6 +30,8 @@ class LiveHomeRepository @Inject constructor(
     private val snapRepository: SnapRepository,
     private val pointsRepository: PointsRepository,
     private val seenSnaps: SeenSnaps,
+    private val petRepository: PetRepository,
+    private val clock: Clock,
 ) : HomeRepository {
 
     override fun observeHome(): Flow<HomeSnapshot> = combine(
@@ -34,8 +39,8 @@ class LiveHomeRepository @Inject constructor(
         moodRepository.observeMoods(),
         gestureRepository.observeRecent(),
         snapRepository.observeRecent(),
-        combine(seenSnaps.observe(), pointsRepository.observeAwards(), ::Pair),
-    ) { names, moods, gestures, snaps, (seen, awards) ->
+        combine(seenSnaps.observe(), pointsRepository.observeAwards(), petRepository.observePet(), ::Triple),
+    ) { names, moods, gestures, snaps, (seen, awards, pet) ->
         val partner = Member(id = "partner", displayName = names.partnerName ?: "them")
         HomeSnapshot(
             viewerName = names.myName,
@@ -49,7 +54,11 @@ class LiveHomeRepository @Inject constructor(
             seenSnapId = seen,
             points = PointRules.balances(awards, names.myRole),
             awards = awards,
-            cat = SharedCatStatus(isAdopted = false, name = null),
+            cat = SharedCatStatus(
+                isAdopted = pet.adopted,
+                name = pet.name,
+                status = if (pet.adopted) PetRules.status(pet, clock.instant()) else null,
+            ),
             isSampleData = false,
         )
     }

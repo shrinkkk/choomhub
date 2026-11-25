@@ -32,5 +32,7 @@ class ChoomHubApplication : Application(), Configuration.Provider {
         if (FirebaseConfig.isConfigured) pushRegistrar.get().start()
         // Snap prompts were removed; cancel any still booked from an earlier version.
         WorkManager.getInstance(this).cancelUniqueWork("snap-prompt")
+        // Gentle check-ins on the cat (they do nothing until it's adopted).
+        com.choomhub.app.feature.pet.PetReminderWorker.schedule(this)
     }
 }

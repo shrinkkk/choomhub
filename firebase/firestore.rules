@@ -21,6 +21,8 @@ rules_version = '2';
 //   couples/{coupleId}/focusTotals/{uid} -> { totalMs, weekMs, weekStart, pointHours }  focus hours so far
 //   couples/{coupleId}/shared/jam      -> { url, by, at }  a music jam link left in the record player
 //   couples/{coupleId}/shared/cat      -> { activity, since, by }  where the cat went when last tapped
+//   couples/{coupleId}/pet/cat         -> the Pet House cat (needs, coins {uid}, bond {uid}, things, gifts...)
+//   couples/{coupleId}/petDiary/{id}   -> { text, at, by }  the cat's diary
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -72,7 +74,7 @@ service cloud.firestore {
       match /settings/notifications {
         allow read: if signedIn() && me() == userId;
         allow create, update: if signedIn() && me() == userId
-          && request.resource.data.keys().hasOnly(['gestures', 'snaps', 'points', 'moods', 'meetup', 'space', 'focus', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['gestures', 'snaps', 'points', 'moods', 'meetup', 'space', 'focus', 'pet', 'updatedAt'])
           && request.resource.data.get('gestures', true) is bool
           && request.resource.data.get('points', true) is bool
           && request.resource.data.get('snaps', true) is bool
@@ -80,6 +82,7 @@ service cloud.firestore {
           && request.resource.data.get('meetup', true) is bool
           && request.resource.data.get('space', true) is bool
           && request.resource.data.get('focus', true) is bool
+          && request.resource.data.get('pet', true) is bool
           && request.resource.data.updatedAt == request.time;
       }
     }
@@ -301,6 +304,37 @@ service cloud.firestore {
           && request.resource.data.url is string
           && request.resource.data.url.size() <= 500
           && request.resource.data.url.matches('^https?://[^ ]+$')
+          && request.resource.data.by == me()
+          && request.resource.data.at == request.time;
+      }
+
+      // The Pet House cat: one document either of you can change, except that coins and bond are
+      // per person and you can only change your own (and never below zero coins).
+      match /pet/{doc} {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId) && doc == 'cat'
+          && request.resource.data.keys().hasOnly([
+            'name', 'adoptedAt', 'proposedName', 'proposedBy', 'traits', 'favoriteFood', 'dislikedFood',
+            'needs', 'weight', 'sickSince', 'medicineLeft', 'lastMedicineDay', 'vetDone', 'muddy', 'nailsAt',
+            'outfit', 'owned', 'inventory', 'coins', 'bond', 'streak', 'streakDay', 'counters', 'gifts',
+            'pending', 'lastDailyCheck', 'seen', 'coinDay', 'pettingAt', 'updatedAt'])
+          && (request.resource.data.get('name', null) == null
+              || (request.resource.data.name is string && request.resource.data.name.size() <= 16))
+          && ownOnly('coins') && ownOnly('bond')
+          && request.resource.data.get('coins', {}).get(me(), 0) >= 0;
+      }
+
+      // Only your own entry in a per-person map may change.
+      function ownOnly(field) {
+        let before = resource == null ? {} : resource.data.get(field, {});
+        return request.resource.data.get(field, {}).diff(before).affectedKeys().hasOnly([me()]);
+      }
+
+      match /petDiary/{entry} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['text', 'at', 'by'])
+          && request.resource.data.text is string && request.resource.data.text.size() <= 300
           && request.resource.data.by == me()
           && request.resource.data.at == request.time;
       }
