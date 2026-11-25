@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -16,8 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -75,6 +74,7 @@ fun FocusRoomScreen(contentPadding: PaddingValues, onLeft: () -> Unit, viewModel
     val colors = ChoomHubTheme.colors
     var pickingBreak by rememberSaveable { mutableStateOf(false) }
     var showingJam by rememberSaveable { mutableStateOf(false) }
+    var confirmingLeave by rememberSaveable { mutableStateOf(false) }
 
     LifecycleResumeEffect(Unit) {
         viewModel.onResume()
@@ -123,6 +123,18 @@ fun FocusRoomScreen(contentPadding: PaddingValues, onLeft: () -> Unit, viewModel
         )
     }
 
+    val summary = ui.summary
+    if (confirmingLeave && summary != null) {
+        LeaveSummary(
+            summary = summary,
+            onStay = { confirmingLeave = false },
+            onLeave = {
+                confirmingLeave = false
+                viewModel.leave(onLeft)
+            },
+        )
+    }
+
     if (showingJam) {
         JamPanel(
             jam = ui.jam,
@@ -140,15 +152,14 @@ fun FocusRoomScreen(contentPadding: PaddingValues, onLeft: () -> Unit, viewModel
         )
     }
 
-    Box(Modifier.fillMaxSize().testTag("screen_focus_room"), contentAlignment = Alignment.TopCenter) {
-        Column(
-            Modifier
-                .widthIn(max = 600.dp)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(top = contentPadding.calculateTopPadding() + 12.dp, bottom = contentPadding.calculateBottomPadding() + 12.dp)
-                .padding(horizontal = 12.dp),
-        ) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding())
+            .testTag("screen_focus_room"),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(Modifier.widthIn(max = 600.dp).fillMaxWidth().padding(horizontal = 12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 val onBreak = ui.me.state == FocusState.OnBreak
                 ChoomHubPrimaryButton(
@@ -157,9 +168,9 @@ fun FocusRoomScreen(contentPadding: PaddingValues, onLeft: () -> Unit, viewModel
                     enabled = ui.me.state != FocusState.Away,
                     modifier = Modifier.weight(1f).testTag(if (onBreak) "focus_resume" else "focus_break"),
                 )
-                ChoomHubSecondaryButton(text = "Leave", onClick = { viewModel.leave(onLeft) }, modifier = Modifier.testTag("focus_leave"))
+                ChoomHubSecondaryButton(text = "Leave", onClick = { confirmingLeave = true }, modifier = Modifier.testTag("focus_leave"))
             }
-            FlowRow(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = viewModel::toggleSound, modifier = Modifier.testTag("focus_sound")) {
                     Text(if (soundOn) "♪ FIRE + RAIN: ON" else "♪ FIRE + RAIN: OFF", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
                 }
@@ -174,16 +185,57 @@ fun FocusRoomScreen(contentPadding: PaddingValues, onLeft: () -> Unit, viewModel
                     }
                 }
             }
-            Spacer(Modifier.height(6.dp))
-            FocusRoomArt(ui.scene, Modifier.fillMaxWidth().testTag("focus_room_art"), onRecordPlayer = { showingJam = true })
-            Text(
-                "Tap the record player for a music jam.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.textFaint,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        }
+        // The room takes all the space that's left: as wide as the screen, with extra floor on taller phones.
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            val rows = roomRowsFor(maxWidth.value, maxHeight.value)
+            FocusRoomArt(
+                ui.scene,
+                Modifier.testTag("focus_room_art"),
+                rows = rows,
+                onRecordPlayer = { showingJam = true },
+                onCat = viewModel::sendCat,
             )
         }
+    }
+}
+
+/** Before you go: what this session came to. */
+@Composable
+private fun LeaveSummary(summary: com.choomhub.app.domain.model.SessionSummary, onStay: () -> Unit, onLeave: () -> Unit) {
+    val colors = ChoomHubTheme.colors
+    InkPanel(onDismissRequest = onStay, modifier = Modifier.testTag("focus_leave_confirm")) {
+        CatFace(CatExpression.Sad, Modifier.size(88.dp))
+        Spacer(Modifier.height(12.dp))
+        Text("Leave the room?", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
+        Text("here's this session", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
+        Spacer(Modifier.height(16.dp))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SummaryLine("Focused", FocusRules.duration(summary.focusMs), "summary_focus")
+            SummaryLine("On breaks", FocusRules.duration(summary.breakMs), "summary_breaks")
+            SummaryLine(
+                "Points",
+                when (summary.points) { 0 -> "none yet"; 1 -> "+1 point"; else -> "+${summary.points} points" },
+                "summary_points",
+            )
+            SummaryLine("Next point in", FocusRules.duration(summary.toNextPointMs).replace("under a minute", "a minute"), "summary_next")
+        }
+        Spacer(Modifier.height(20.dp))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ChoomHubPrimaryButton(text = "Stay", onClick = onStay, modifier = Modifier.fillMaxWidth().testTag("dialog_confirm"))
+            TextButton(onClick = onLeave, modifier = Modifier.fillMaxWidth().testTag("dialog_dismissive")) {
+                Text("LEAVE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryLine(label: String, value: String, tag: String) {
+    val colors = ChoomHubTheme.colors
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.titleMedium, color = colors.textMain, modifier = Modifier.testTag(tag))
     }
 }
 

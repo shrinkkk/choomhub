@@ -5,7 +5,10 @@ import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.choomhub.app.core.common.SecondTicker
-import com.choomhub.app.domain.model.CatSchedule
+import com.choomhub.app.domain.model.CatActivity
+import com.choomhub.app.domain.model.CatOuting
+import com.choomhub.app.domain.model.CatRules
+import com.choomhub.app.domain.model.SessionSummary
 import com.choomhub.app.domain.model.CoupleNames
 import com.choomhub.app.domain.model.FocusRoomData
 import com.choomhub.app.domain.model.FocusRules
@@ -43,6 +46,8 @@ data class FocusRoomUi(
     /** Time left on your break (negative once it's over); null when you're not on one. */
     val myBreakLeftMs: Long? = null,
     val jam: JamLink? = null,
+    /** What leaving now would come to (for the "leave?" pop-up). */
+    val summary: SessionSummary? = null,
 ) {
     val partnerInRoom: Boolean get() = partner.state != FocusState.Away
 }
@@ -59,7 +64,7 @@ internal fun roomScene(room: FocusRoomData, names: CoupleNames, now: Instant, to
         her = if (iAmHim) theirs else mine,
         together = room.me.state == FocusState.Focusing && room.partner.state == FocusState.Focusing,
         jam = room.jam != null,
-        cat = CatSchedule.at(now.toEpochMilli()),
+        catOuting = room.cat,
     )
 }
 
@@ -111,6 +116,7 @@ class FocusRoomViewModel @Inject constructor(
             partnerName = names.partnerName ?: "them",
             myBreakLeftMs = FocusRules.breakLeftMs(room.me, now),
             jam = room.jam,
+            summary = FocusRules.summary(room.me, room.myTotals, now),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FocusRoomUi())
 
@@ -177,6 +183,14 @@ class FocusRoomViewModel @Inject constructor(
     }
 
     fun nudge() = viewModelScope.launch { controller.nudge() }
+
+    /** Tapping the sleeping cat sends it off for a minute: to the fish, the post, the guitar or the window. */
+    fun sendCat() {
+        val scene = state.value.scene
+        val now = clock.instant()
+        if (catSpot(scene, now.toEpochMilli()) != CatSpot.Bed || CatRules.isOut(scene.catOuting, now.toEpochMilli())) return
+        viewModelScope.launch { repository.sendCat(CatOuting(CatActivity.entries.random(), now)) }
+    }
 
     fun setJam(input: String): Boolean {
         val url = FocusRules.cleanJamUrl(input) ?: return false

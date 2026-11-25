@@ -79,6 +79,26 @@ class FocusRoomPreviewTest {
         }
     }
 
+    /** The cat at each of its spots, and a few tapped things mid-animation, on a taller room. */
+    @Test fun catTripsAndEggs() {
+        val since = java.time.Instant.ofEpochMilli(1_000_000)
+        val there = since.toEpochMilli() + 10_000
+        com.choomhub.app.domain.model.CatActivity.entries.forEach { a ->
+            val scene = RoomScene(rook, wren, together = true, catOuting = com.choomhub.app.domain.model.CatOuting(a, since))
+            val bmp = renderRoomFrame(scene, SkyPhase.Night, 3, rows = 220, nowMs = there)
+            File(screenshotDir(), "focus_cat_${a.wire}.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        val walking = renderRoomFrame(
+            RoomScene(rook, wren, together = true, catOuting = com.choomhub.app.domain.model.CatOuting(com.choomhub.app.domain.model.CatActivity.WatchingFish, since)),
+            SkyPhase.Night, 1, rows = 220, nowMs = since.toEpochMilli() + 1_200,
+        )
+        File(screenshotDir(), "focus_cat_walking.png").outputStream().use { walking.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val t = 5_000_000L
+        val eggs = listOf("window", "tv", "fire", "tank", "plant", "monstera", "books", "tea", "umbrella", "mat", "bowls", "post", "guitar", "desk_him", "poster", "board", "fossil", "lights")
+        val bmp = renderRoomFrame(RoomScene(rook, wren, together = false), SkyPhase.Dusk, 2, rows = 220, nowMs = t + 500, effects = eggs.associateWith { t })
+        File(screenshotDir(), "focus_eggs.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     @Test fun bothFocusing() = shot("focus_both", SkyPhase.Night, RoomScene(rook, wren, together = true))
 
     @Test fun oneOnBreak() = shot(

@@ -30,6 +30,22 @@ data class FocusSession(
     val focusSince: Instant? = null,
     /** When the break is meant to end, while [FocusState.OnBreak]. */
     val breakEndsAt: Instant? = null,
+    /** Breaks taken this session, not counting the one in progress. */
+    val breakMs: Long = 0,
+    /** When the current break started, while [FocusState.OnBreak]. */
+    val breakSince: Instant? = null,
+    /** Your all-time focus when this session started (to count the points it earned). */
+    val startTotalMs: Long = 0,
+)
+
+/** What a session came to, shown before you leave. */
+data class SessionSummary(
+    val focusMs: Long,
+    val breakMs: Long,
+    /** Points earned this session (counting the stretch you're leaving now). */
+    val points: Int,
+    /** Focus still needed for your next point. */
+    val toNextPointMs: Long,
 )
 
 /** Someone's focus totals. [weekMs] belongs to the week starting [weekStart] (a Monday). */
@@ -53,6 +69,8 @@ data class FocusRoomData(
     val myTotals: FocusTotals = FocusTotals(),
     val partnerTotals: FocusTotals = FocusTotals(),
     val jam: JamLink? = null,
+    /** Where the cat went when last tapped (null: asleep in its bed). */
+    val cat: CatOuting? = null,
 )
 
 /** The result of a change to your session: what to store, and what it adds up to. */
@@ -99,8 +117,30 @@ object FocusRules {
     }
 
     fun enter(s: FocusSession, totals: FocusTotals, now: Instant): FocusChange = when (s.state) {
-        FocusState.Away -> FocusChange(FocusSession(FocusState.Focusing, 0, now), totals, 0)
+        FocusState.Away -> FocusChange(FocusSession(FocusState.Focusing, 0, now, startTotalMs = totals.totalMs), totals, 0)
         else -> FocusChange(s, totals, 0)
+    }
+
+    /** Breaks so far this session, including one in progress. */
+    fun breakTotalMs(s: FocusSession, now: Instant): Long {
+        val current = if (s.state == FocusState.OnBreak && s.breakSince != null) {
+            (now.toEpochMilli() - s.breakSince.toEpochMilli()).coerceAtLeast(0)
+        } else {
+            0
+        }
+        return s.breakMs + current
+    }
+
+    /** The session so far, as if you left now. */
+    fun summary(s: FocusSession, totals: FocusTotals, now: Instant): SessionSummary {
+        val total = totals.totalMs + stretchMs(s, now)
+        val start = s.startTotalMs.coerceAtMost(total)
+        return SessionSummary(
+            focusMs = sessionMs(s, now),
+            breakMs = breakTotalMs(s, now),
+            points = (total / HOUR - start / HOUR).toInt(),
+            toNextPointMs = HOUR - total % HOUR,
+        )
     }
 
     fun startBreak(s: FocusSession, totals: FocusTotals, minutes: Int, now: Instant, today: LocalDate): FocusChange {
@@ -109,7 +149,7 @@ object FocusRules {
         val stretch = stretchMs(s, now)
         val banked = bank(totals, stretch, today)
         return FocusChange(
-            FocusSession(FocusState.OnBreak, s.bankedMs + stretch, null, now.plusSeconds(m * 60L)),
+            s.copy(state = FocusState.OnBreak, bankedMs = s.bankedMs + stretch, focusSince = null, breakEndsAt = now.plusSeconds(m * 60L), breakSince = now),
             banked.first,
             banked.second,
         )
@@ -124,7 +164,11 @@ object FocusRules {
 
     /** Back to the desk: the stopwatch picks up where it stopped. */
     fun resume(s: FocusSession, totals: FocusTotals, now: Instant): FocusChange = when (s.state) {
-        FocusState.OnBreak -> FocusChange(FocusSession(FocusState.Focusing, s.bankedMs, now), totals, 0)
+        FocusState.OnBreak -> FocusChange(
+            s.copy(state = FocusState.Focusing, focusSince = now, breakEndsAt = null, breakMs = breakTotalMs(s, now), breakSince = null),
+            totals,
+            0,
+        )
         else -> FocusChange(s, totals, 0)
     }
 
@@ -162,6 +206,17 @@ object FocusRules {
         return if (over) "+$text" else text
     }
 
+    /** "1 h 30 min", "45 min", "under a minute". */
+    fun duration(ms: Long): String {
+        val minutes = ms / 60_000
+        return when {
+            minutes < 1 -> "under a minute"
+            minutes < 60 -> "$minutes min"
+            minutes % 60 == 0L -> "${minutes / 60} h"
+            else -> "${minutes / 60} h ${minutes % 60} min"
+        }
+    }
+
     /** Hours for the scoreboard: "6.5" under ten, "41" from ten up. */
     fun hours(ms: Long): String {
         val h = ms.toDouble() / HOUR
@@ -178,26 +233,32 @@ object FocusRules {
     }
 }
 
-/** What the cat is up to. It mostly sleeps by the fire. */
-enum class CatActivity { Sleeping, WatchingFish, PlayingWithPost }
+/** Where the cat goes when someone taps it. It spends a minute there, then goes back to sleep. */
+enum class CatActivity(val wire: String) {
+    WatchingFish("fish"),
+    PlayingWithPost("post"),
+    PlayingGuitar("guitar"),
+    Windowsill("window"),
+    ;
 
-object CatSchedule {
-    private const val PERIOD_MS = 10 * 60_000L
-    private const val AWAKE_MS = 2 * 60_000L
-
-    /**
-     * Same answer on both phones: in each ten minutes the cat sleeps for at least eight, and in
-     * two of every three of those blocks it gets up for the last two minutes to watch the fish
-     * or bat at the scratching post.
-     */
-    fun at(epochMs: Long): CatActivity {
-        val period = epochMs / PERIOD_MS
-        val into = epochMs % PERIOD_MS
-        if (into < PERIOD_MS - AWAKE_MS) return CatActivity.Sleeping
-        return when (((period * 2654435761L) ushr 7) % 3) {
-            1L -> CatActivity.WatchingFish
-            2L -> CatActivity.PlayingWithPost
-            else -> CatActivity.Sleeping
-        }
+    companion object {
+        fun fromWire(wire: String?): CatActivity? = entries.firstOrNull { it.wire == wire }
     }
+}
+
+/** A trip the cat is on, started at [since]. */
+data class CatOuting(val activity: CatActivity, val since: Instant)
+
+object CatRules {
+    /** Walking there (and back) takes this long. */
+    const val WALK_MS = 2_500L
+
+    /** How long it stays once it's there. */
+    const val STAY_MS = 60_000L
+
+    const val TOTAL_MS = WALK_MS + STAY_MS + WALK_MS
+
+    /** Whether the cat is still out (or on its way back). */
+    fun isOut(outing: CatOuting?, nowMs: Long): Boolean =
+        outing != null && nowMs - outing.since.toEpochMilli() in 0 until TOTAL_MS
 }

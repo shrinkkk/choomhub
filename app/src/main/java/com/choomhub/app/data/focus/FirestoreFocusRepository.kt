@@ -2,6 +2,8 @@ package com.choomhub.app.data.focus
 
 import com.choomhub.app.data.firebase.FirebaseSpaceRepository
 import com.choomhub.app.data.firebase.observe
+import com.choomhub.app.domain.model.CatActivity
+import com.choomhub.app.domain.model.CatOuting
 import com.choomhub.app.domain.model.FocusChange
 import com.choomhub.app.domain.model.FocusRoomData
 import com.choomhub.app.domain.model.FocusRules
@@ -33,6 +35,7 @@ import javax.inject.Inject
  * couples/{id}/focus/{uid}        { state, bankedMs, focusSince, breakEndsAt, updatedAt }
  * couples/{id}/focusTotals/{uid}  { totalMs, weekMs, weekStart ("2026-11-23"), pointHours }
  * couples/{id}/shared/jam         { url, by, at }
+ * couples/{id}/shared/cat         { activity, since, by }  where the cat went when last tapped
  *
  * Session times are the phone's own clock (they're written offline too); both phones only
  * ever subtract them from "now", so a few seconds of clock difference is all it costs.
@@ -58,13 +61,25 @@ class FirestoreFocusRepository @Inject constructor(
             c.collection("focusTotals").document(me).observe(),
             partner?.let { c.collection("focusTotals").document(it).observe() } ?: flowOf(null),
             c.collection("shared").document("jam").observe(),
-        ) { mine, theirs, myTotals, theirTotals, jam ->
+            c.collection("shared").document("cat").observe(),
+        ) { values ->
+            val mine = values[0]
+            val theirs = values[1]
+            val myTotals = values[2]
+            val theirTotals = values[3]
+            val jam = values[4]
+            val cat = values[5]
             FocusRoomData(
                 me = sessionFrom(mine),
                 partner = sessionFrom(theirs),
                 myTotals = totalsFrom(myTotals),
                 partnerTotals = totalsFrom(theirTotals),
                 jam = jam?.getString("url")?.let { JamLink(it, jam.getString("by") == me, jam.getTimestamp("at")?.toDate()?.toInstant()) },
+                cat = cat?.let { doc ->
+                    val activity = CatActivity.fromWire(doc.getString("activity"))
+                    val since = doc.getTimestamp("since")?.toDate()?.toInstant()
+                    if (activity != null && since != null) CatOuting(activity, since) else null
+                },
             )
         }
     }.distinctUntilChanged()
@@ -83,6 +98,9 @@ class FirestoreFocusRepository @Inject constructor(
                 "bankedMs" to s.bankedMs,
                 "focusSince" to s.focusSince?.let { Timestamp(Date.from(it)) },
                 "breakEndsAt" to s.breakEndsAt?.let { Timestamp(Date.from(it)) },
+                "breakMs" to s.breakMs,
+                "breakSince" to s.breakSince?.let { Timestamp(Date.from(it)) },
+                "startTotalMs" to s.startTotalMs,
                 "updatedAt" to FieldValue.serverTimestamp(),
             ),
         )
@@ -112,6 +130,15 @@ class FirestoreFocusRepository @Inject constructor(
         batch.commit()
     }
 
+    override suspend fun sendCat(outing: CatOuting) {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return
+        val me = space.accountOrNull?.uid ?: return
+        couple(coupleId).collection("shared").document("cat").set(
+            mapOf("activity" to outing.activity.wire, "since" to Timestamp(Date.from(outing.since)), "by" to me),
+        )
+    }
+
     override suspend fun setJam(url: String?) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
@@ -132,6 +159,9 @@ class FirestoreFocusRepository @Inject constructor(
                 bankedMs = doc.getLong("bankedMs") ?: 0,
                 focusSince = doc.getTimestamp("focusSince")?.toDate()?.toInstant(),
                 breakEndsAt = doc.getTimestamp("breakEndsAt")?.toDate()?.toInstant(),
+                breakMs = doc.getLong("breakMs") ?: 0,
+                breakSince = doc.getTimestamp("breakSince")?.toDate()?.toInstant(),
+                startTotalMs = doc.getLong("startTotalMs") ?: 0,
             )
         }
 

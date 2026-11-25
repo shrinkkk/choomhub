@@ -418,9 +418,12 @@ the build) so every newer build installs over the previous one. Steps: docs/RELE
 - **Look**: one pixel-art scene drawn on the phone (a 128×188 grid into a bitmap at twice that,
   so text can use half-size pixels; scaled up with no smoothing). Fire, rain, lights, the record,
   the fish and the cat's z's move when ambient motion is on. His desk and beanbag are on the left,
-  hers on the right, on both phones. The cat sleeps by the fire most of the time; for two minutes
-  in some ten-minute blocks it watches the fish or plays at the post (worked out from the clock,
-  so both phones agree). On a break it sits on that person's lap; if both are on a break, on the
+  hers on the right, on both phones. The cat sleeps by the fire. Tapping it sends it off for a
+  minute (to watch the fish, bat at the post, paw the guitar, or sit on the windowsill), then it
+  walks back; the trip is stored in `shared/cat` so both phones see it. Most things in the room do
+  something small when tapped (the fish leaps, plants rustle, lightning, hearts on the TV...). The
+  room fills the screen: a little of each side is trimmed, and taller screens get extra floor
+  (up to 232 rows), with a few extra things to fill it. On a break it sits on that person's lap; if both are on a break, on the
   one with more focus this week (her on a tie). Holding hands when both are on the beanbags.
 - **Sessions**: `focus/{uid}` holds your state, the focus banked this session and when the current
   stretch or break started/ends, in the phone's own clock (it's written offline too); the stopwatch
@@ -433,6 +436,8 @@ the build) so every newer build installs over the previous one. Steps: docs/RELE
   chronometer, so no service runs. The end of a break is an exact alarm (`USE_EXACT_ALARM`); its
   notification rings on an alarm channel through Do Not Disturb, with Back to focus / 5 more
   minutes / Leave.
+- **Leaving** asks first, and shows the session: focus, breaks, points earned, and how long to the
+  next point (from `startTotalMs`, your all-time focus when the session began, and `breakMs`).
 - **Sounds**: fire and rain are synthesised on the phone (filtered noise, crackles, the odd drip),
   so there are no sound files to license; they play only while the room is on screen.
 - **Pushes**: entering (not coming back from a break), nudges and a new jam link, in a new

@@ -1,7 +1,8 @@
 package com.choomhub.app.feature.focus
 
 import com.choomhub.app.domain.model.CatActivity
-import com.choomhub.app.domain.model.CatSchedule
+import com.choomhub.app.domain.model.CatOuting
+import com.choomhub.app.domain.model.CatRules
 import com.choomhub.app.domain.model.CoupleNames
 import com.choomhub.app.domain.model.FocusRoomData
 import com.choomhub.app.domain.model.FocusRules
@@ -93,12 +94,25 @@ class FocusRulesTest {
     }
 
     @Test
-    fun theCatMostlySleeps() {
-        var asleep = 0
-        val day = 24 * 60
-        repeat(day) { m -> if (CatSchedule.at(t0.toEpochMilli() + m * 60_000L) == CatActivity.Sleeping) asleep++ }
-        assertTrue("asleep $asleep of $day minutes", asleep > day * 0.8)
-        assertTrue(asleep < day)
+    fun theCatIsOutForAMinuteAndTheWalkBothWays() {
+        val trip = CatOuting(CatActivity.Windowsill, t0)
+        assertTrue(CatRules.isOut(trip, t0.toEpochMilli() + 30_000))
+        assertTrue(CatRules.isOut(trip, t0.toEpochMilli() + 63_000))
+        assertTrue(!CatRules.isOut(trip, t0.toEpochMilli() + 66_000))
+        assertTrue(!CatRules.isOut(null, t0.toEpochMilli()))
+    }
+
+    @Test
+    fun leavingSaysWhatTheSessionCameTo() {
+        // A first session: 20 minutes banked before a break, then 70 more. 1.5 h is 1 point, 30 min to the next.
+        val s = FocusSession(FocusState.Focusing, mins(20), t0, breakMs = mins(12), startTotalMs = 0)
+        val sum = FocusRules.summary(s, FocusTotals(totalMs = mins(20)), t0.plusSeconds(70 * 60))
+        assertEquals(mins(90), sum.focusMs)
+        assertEquals(mins(12), sum.breakMs)
+        assertEquals(1, sum.points)
+        assertEquals(mins(30), sum.toNextPointMs)
+        assertEquals("1 h 30 min", FocusRules.duration(mins(90)))
+        assertEquals("12 min", FocusRules.duration(mins(12)))
     }
 
     @Test
@@ -112,8 +126,9 @@ class FocusRulesTest {
         )
         val scene = roomScene(room, names, t0, wed)
         assertEquals("Rook", scene.him.name)
-        assertEquals(CatSpot.HisLap, catSpot(scene))
-        assertEquals(CatSpot.HerLap, catSpot(scene.copy(him = scene.him.copy(spot = Spot.Desk))))
+        assertEquals(CatSpot.HisLap, catSpot(scene, 0))
+        assertEquals(CatSpot.HerLap, catSpot(scene.copy(him = scene.him.copy(spot = Spot.Desk)), 0))
+        assertEquals(CatSpot.Bed, catSpot(scene.copy(him = scene.him.copy(spot = Spot.Desk), her = scene.her.copy(spot = Spot.Desk)), 0))
     }
 
     @Test

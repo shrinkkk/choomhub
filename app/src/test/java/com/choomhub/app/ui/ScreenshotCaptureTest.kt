@@ -58,6 +58,7 @@ import com.choomhub.app.domain.model.Gesture
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.MoodUpdate
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 
@@ -246,6 +247,20 @@ class ScreenshotCaptureTest {
         }
         canvas.drawPath(path, ground)
         return java.io.ByteArrayOutputStream().also { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it) }.toByteArray()
+    }
+
+    /** The focus room filling a phone screen. */
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-xxhdpi")
+    fun focusRoom() {
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag("home_list").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithTag(TopLevelDestination.Activities.testTag).performClick()
+        composeRule.onNodeWithTag("focus_enter").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        capture("phone_focus_room")
+        composeRule.onNodeWithTag("focus_leave").performClick()
+        captureDialog("phone_focus_leave")
     }
 
     /** Memory Lane: closed stacks, one collection unfolded, and its pop-ups. */

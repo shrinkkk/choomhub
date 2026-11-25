@@ -21,6 +21,10 @@ class FakeFocusRepository : FocusRepository {
         room.update { it.copy(me = change.session, myTotals = change.totals) }
     }
 
+    override suspend fun sendCat(outing: com.choomhub.app.domain.model.CatOuting) {
+        room.update { it.copy(cat = outing) }
+    }
+
     override suspend fun setJam(url: String?) {
         room.update { it.copy(jam = url?.let { u -> JamLink(u, fromMe = true, at = Instant.now()) }) }
     }

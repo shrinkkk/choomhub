@@ -20,6 +20,7 @@ rules_version = '2';
 //   couples/{coupleId}/focus/{uid}     -> { state, bankedMs, focusSince, breakEndsAt, updatedAt }  focus room session
 //   couples/{coupleId}/focusTotals/{uid} -> { totalMs, weekMs, weekStart, pointHours }  focus hours so far
 //   couples/{coupleId}/shared/jam      -> { url, by, at }  a music jam link left in the record player
+//   couples/{coupleId}/shared/cat      -> { activity, since, by }  where the cat went when last tapped
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -257,12 +258,15 @@ service cloud.firestore {
       match /focus/{uid} {
         allow read: if isMember(coupleId);
         allow create, update: if isMember(coupleId) && me() == uid
-          && request.resource.data.keys().hasOnly(['state', 'bankedMs', 'focusSince', 'breakEndsAt', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['state', 'bankedMs', 'focusSince', 'breakEndsAt', 'breakMs', 'breakSince', 'startTotalMs', 'updatedAt'])
           && request.resource.data.state in ['away', 'focus', 'break']
           && request.resource.data.bankedMs is int
           && request.resource.data.bankedMs >= 0 && request.resource.data.bankedMs <= 172800000
           && (request.resource.data.focusSince == null || request.resource.data.focusSince is timestamp)
           && (request.resource.data.breakEndsAt == null || request.resource.data.breakEndsAt is timestamp)
+          && request.resource.data.get('breakMs', 0) is int && request.resource.data.get('breakMs', 0) >= 0
+          && (request.resource.data.get('breakSince', null) == null || request.resource.data.breakSince is timestamp)
+          && request.resource.data.get('startTotalMs', 0) is int && request.resource.data.get('startTotalMs', 0) >= 0
           && request.resource.data.updatedAt == request.time;
       }
 
@@ -299,6 +303,16 @@ service cloud.firestore {
           && request.resource.data.url.matches('^https?://[^ ]+$')
           && request.resource.data.by == me()
           && request.resource.data.at == request.time;
+      }
+
+      // The cat: either of you can send it somewhere.
+      match /shared/cat {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['activity', 'since', 'by'])
+          && request.resource.data.activity in ['fish', 'post', 'guitar', 'window']
+          && request.resource.data.since is timestamp
+          && request.resource.data.by == me();
       }
 
       match /shared/moodOptions {

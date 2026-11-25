@@ -17,4 +17,7 @@ interface FocusRepository {
 
     /** Leaves a jam link in the record player, or takes it out (null). */
     suspend fun setJam(url: String?)
+
+    /** Sends the cat off somewhere (both phones see it go). */
+    suspend fun sendCat(outing: com.choomhub.app.domain.model.CatOuting)
 }

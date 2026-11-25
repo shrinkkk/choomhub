@@ -354,7 +354,7 @@ describe('focus room', () => {
     await joinBatch('bob').commit();
   });
 
-  const session = (extra = {}) => ({ state: 'focus', bankedMs: 0, focusSince: Timestamp.now(), breakEndsAt: null, updatedAt: serverTimestamp(), ...extra });
+  const session = (extra = {}) => ({ state: 'focus', bankedMs: 0, focusSince: Timestamp.now(), breakEndsAt: null, breakMs: 0, breakSince: null, startTotalMs: 0, updatedAt: serverTimestamp(), ...extra });
 
   test('you write only your own session, with a known state', async () => {
     await assertSucceeds(setDoc(doc(db('alice'), 'couples/c1/focus/alice'), session()));
@@ -362,6 +362,7 @@ describe('focus room', () => {
     await assertFails(setDoc(doc(db('bob'), 'couples/c1/focus/alice'), session()));
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/focus/alice'), session({ state: 'napping' })));
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/focus/alice'), session({ bankedMs: -1 })));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/focus/alice'), session({ breakMs: -5 })));
     await assertFails(getDoc(doc(db('mallory'), 'couples/c1/focus/alice')));
   });
 
@@ -383,6 +384,14 @@ describe('focus room', () => {
     await assertSucceeds(b.commit());
     // Other self-awards stay refused.
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/points/f2'), { ...point, reason: 'being great' }));
+  });
+
+  test('either of you can send the cat somewhere', async () => {
+    const cat = (uid) => doc(db(uid), 'couples/c1/shared/cat');
+    await assertSucceeds(setDoc(cat('bob'), { activity: 'fish', since: Timestamp.now(), by: 'bob' }));
+    await assertSucceeds(setDoc(cat('alice'), { activity: 'window', since: Timestamp.now(), by: 'alice' }));
+    await assertFails(setDoc(cat('alice'), { activity: 'moon', since: Timestamp.now(), by: 'alice' }));
+    await assertFails(setDoc(cat('mallory'), { activity: 'fish', since: Timestamp.now(), by: 'mallory' }));
   });
 
   test('either of you can leave a jam link or take it out', async () => {

@@ -160,8 +160,8 @@ class FocusRoomFlowTest {
         enterRoom()
         composeRule.onNodeWithTag("focus_room_art").performClick() // centre of the room: nothing
         composeRule.onNodeWithTag("focus_jam").assertDoesNotExist()
-        // The record player is on the left, about 67 room pixels down (the room is 128 wide).
-        composeRule.onNodeWithTag("focus_room_art").performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 12f / 128f, width * 67f / 128f)) }
+        // The record player is on the left, about 67 room pixels down (120 room pixels are shown across).
+        composeRule.onNodeWithTag("focus_room_art").performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 10f / 120f, width * 67f / 120f)) }
         composeRule.onNodeWithTag("jam_input").performTextInput("open.spotify.com/socialsession/abc")
         capture("focus_jam", dialog = true)
         composeRule.onNodeWithTag("jam_leave").performClick()
@@ -171,9 +171,24 @@ class FocusRoomFlowTest {
     }
 
     @Test
-    fun leavingEmptiesYourDesk() {
+    fun tappingTheSleepingCatSendsItOff() {
+        enterRoom()
+        // Its bed is by the fire, left of the beanbags (room x 53, y 54).
+        composeRule.onNodeWithTag("focus_room_art").performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 49f / 120f, width * 52f / 120f)) }
+        composeRule.waitForIdle()
+        assertTrue(focus.room.value.cat != null)
+    }
+
+    @Test
+    fun leavingShowsTheSessionThenEmptiesYourDesk() {
         enterRoom()
         composeRule.onNodeWithTag("focus_leave").performClick()
+        composeRule.onNodeWithTag("focus_leave_confirm").assertIsDisplayed()
+        capture("focus_leave_summary", dialog = true)
+        composeRule.onNodeWithTag("dialog_confirm").performClick() // Stay
+        assertEquals(FocusState.Focusing, focus.room.value.me.state)
+        composeRule.onNodeWithTag("focus_leave").performClick()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick() // Leave
         composeRule.waitForIdle()
         assertEquals(FocusState.Away, focus.room.value.me.state)
         composeRule.onNodeWithTag("screen_activities").assertIsDisplayed()
