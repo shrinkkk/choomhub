@@ -9,6 +9,7 @@ export const Channels = Object.freeze({
   moods: 'moods',
   meetup: 'meetup',
   space: 'space',
+  focus: 'focus',
   general: 'general',
 });
 
@@ -42,6 +43,9 @@ export const Events = Object.freeze({
   snap_reaction: { category: 'snaps', channel: Channels.snaps, tag: 'snap_reaction', toSelf: false, takesDetail: false, kinds: Reactions },
   points: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: 'amount' },
   mood: { category: 'moods', channel: Channels.moods, tag: 'mood', toSelf: false, takesDetail: true, kinds: 'label' },
+  focus_enter: { category: 'focus', channel: Channels.focus, tag: 'focus_enter', toSelf: false, takesDetail: false },
+  focus_nudge: { category: 'focus', channel: Channels.focus, tag: 'focus_nudge', toSelf: false, takesDetail: false },
+  jam: { category: 'focus', channel: Channels.focus, tag: 'jam', toSelf: false, takesDetail: false },
 });
 
 export const MAX_DETAIL = 80;
@@ -123,6 +127,12 @@ export function compose(event, ctx) {
       const label = clean(ctx.kind || '', MAX_MOOD_LABEL) || 'Something new';
       return { title: `${who} updated their mood`, body: ctx.detail ? `${label} \u00b7 ${ctx.detail}` : label };
     }
+    case 'focus_enter':
+      return { title: `${who} has entered the focus room`, body: 'Their stopwatch is running.' };
+    case 'focus_nudge':
+      return { title: `${who} wants you in the focus room`, body: "There's a desk waiting for you." };
+    case 'jam':
+      return { title: `${who} left a jam in the record player`, body: 'Open the focus room to join it.' };
     default:
       throw new Error(`unknown event ${event}`);
   }

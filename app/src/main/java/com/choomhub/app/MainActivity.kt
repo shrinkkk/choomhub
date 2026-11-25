@@ -1,6 +1,8 @@
 package com.choomhub.app
 
+import android.content.Intent
 import android.os.Bundle
+import com.choomhub.app.core.navigation.PendingOpen
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -35,6 +37,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        handleOpen(intent)
         val ambientMotion = Settings.Global.getFloat(
             contentResolver,
             Settings.Global.ANIMATOR_DURATION_SCALE,
@@ -54,5 +57,20 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOpen(intent)
+    }
+
+    private fun handleOpen(intent: Intent?) {
+        intent?.getStringExtra(EXTRA_OPEN)?.let { PendingOpen.request.value = it }
+    }
+
+    companion object {
+        /** Extra naming a screen to open (see [PendingOpen]). */
+        const val EXTRA_OPEN = "open"
+        const val OPEN_FOCUS_ROOM = PendingOpen.FOCUS_ROOM
     }
 }

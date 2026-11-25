@@ -79,6 +79,9 @@ background on first launch) and try again.
 | Award them points | "*Name* awarded you 3 Good Girl points" · the reason | Points |
 | Take points away | "*Name* took away 2 of your Good Girl points" · the reason | Points |
 | Change your mood | "*Name* updated their mood" · Missing you · rain again | Moods |
+| Enter the focus room | "*Name* has entered the focus room" | Focus room |
+| Nudge them from the focus room | "*Name* wants you in the focus room" | Focus room |
+| Leave a jam link in the record player | "*Name* left a jam in the record player" | Focus room |
 
 *Name* is whatever **they** call **you**. Each person's switches are in Settings and respected by the
 Worker; Android's own per-channel settings work too. Messages will add

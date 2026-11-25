@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Focus room: Do Not Disturb while you focus, and an exact alarm when a break ends. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+
     <application
         android:name=".ChoomHubApplication"
         android:allowBackup="false"
@@ -35,6 +42,14 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/latest_snap_widget_info" />
         </receiver>
+
+        <!-- Focus room: the end-of-break alarm, and the buttons on its notifications. -->
+        <receiver
+            android:name=".feature.focus.BreakAlarmReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".feature.focus.FocusActionReceiver"
+            android:exported="false" />
 
         <!-- Lets the camera app write a photo into the app's cache (see CaptureFiles). -->
         <provider

@@ -411,3 +411,31 @@ the build) so every newer build installs over the previous one. Steps: docs/RELE
 - **Lists**: Our World is one lazy list; the card and twine are drawn by the list behind the
   items, so polaroids can overlap and the string rejoins when one is removed.
 
+## ADR-038: The focus room
+
+**Date:** 2026-11-25 · **Status:** Accepted (owner's design, from approved previews)
+
+- **Look**: one pixel-art scene drawn on the phone (a 128×188 grid into a bitmap at twice that,
+  so text can use half-size pixels; scaled up with no smoothing). Fire, rain, lights, the record,
+  the fish and the cat's z's move when ambient motion is on. His desk and beanbag are on the left,
+  hers on the right, on both phones. The cat sleeps by the fire most of the time; for two minutes
+  in some ten-minute blocks it watches the fish or plays at the post (worked out from the clock,
+  so both phones agree). On a break it sits on that person's lap; if both are on a break, on the
+  one with more focus this week (her on a tie). Holding hands when both are on the beanbags.
+- **Sessions**: `focus/{uid}` holds your state, the focus banked this session and when the current
+  stretch or break started/ends, in the phone's own clock (it's written offline too); the stopwatch
+  is worked out from those, so it keeps counting with the app closed. A stretch counts for at most
+  12 hours. Totals (`focusTotals/{uid}`: all time, this week from Monday) only grow; every full hour
+  becomes 1 point to yourself, written in the same batch, which the rules check.
+- **Phone side**: Do Not Disturb set to "alarms only" while you're in (needs Android's one-time
+  permission; the previous setting is put back when you leave, unless you changed it meanwhile).
+  An ongoing notification shows the stopwatch (or the break countdown) using Android's built-in
+  chronometer, so no service runs. The end of a break is an exact alarm (`USE_EXACT_ALARM`); its
+  notification rings on an alarm channel through Do Not Disturb, with Back to focus / 5 more
+  minutes / Leave.
+- **Sounds**: fire and rain are synthesised on the phone (filtered noise, crackles, the odd drip),
+  so there are no sound files to license; they play only while the room is on screen.
+- **Pushes**: entering (not coming back from a break), nudges and a new jam link, in a new
+  "Focus room" category the recipient can turn off. The jam link is any http(s) URL, shown only
+  after tapping the record player.
+

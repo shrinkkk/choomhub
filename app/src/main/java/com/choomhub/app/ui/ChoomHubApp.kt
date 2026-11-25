@@ -45,6 +45,10 @@ import com.choomhub.app.feature.mood.moodScreen
 import com.choomhub.app.feature.onboarding.OnboardingScreen
 import com.choomhub.app.feature.settings.settingsScreen
 import com.choomhub.app.feature.world.ourWorldScreen
+import com.choomhub.app.feature.focus.FocusRoomRoute
+import com.choomhub.app.feature.focus.focusRoomScreen
+import com.choomhub.app.core.navigation.PendingOpen
+import androidx.navigation.NavDestination.Companion.hasRoute
 
 /**
  * Root of the UI: night-sky backdrop, then sign-in, pairing, first-run naming
@@ -88,15 +92,26 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
     val snackbarHostState = remember { SnackbarHostState() }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val colors = ChoomHubTheme.colors
+    // Opened from a focus room notification: go straight to the room.
+    val openRequest by PendingOpen.request.collectAsStateWithLifecycle()
+    LaunchedEffect(openRequest) {
+        if (openRequest == PendingOpen.FOCUS_ROOM) {
+            PendingOpen.request.value = null
+            navController.navigate(FocusRoomRoute) { launchSingleTop = true }
+        }
+    }
 
     Scaffold(
         containerColor = Color.Transparent,
         contentColor = colors.textMain,
         bottomBar = {
-            ChoomHubBottomBar(
-                currentDestination = backStackEntry?.destination,
-                onNavigate = navController::navigateToTopLevel,
-            )
+            // The focus room is a quiet place: no tab bar.
+            if (backStackEntry?.destination?.hasRoute<FocusRoomRoute>() != true) {
+                ChoomHubBottomBar(
+                    currentDestination = backStackEntry?.destination,
+                    onNavigate = navController::navigateToTopLevel,
+                )
+            }
         },
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -122,7 +137,8 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
             snapViewerScreen(contentPadding = padding)
             moodScreen(contentPadding = padding, onClose = { navController.popBackStack() })
             messagesScreen(contentPadding = padding)
-            activitiesScreen(contentPadding = padding)
+            activitiesScreen(contentPadding = padding, onOpenFocusRoom = { navController.navigate(FocusRoomRoute) { launchSingleTop = true } })
+            focusRoomScreen(contentPadding = padding, onLeft = { navController.popBackStack() })
             ourWorldScreen(
                 contentPadding = padding,
                 onOpenSnap = { id -> navController.navigate(SnapViewerRoute(id)) },

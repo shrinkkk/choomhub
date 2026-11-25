@@ -348,6 +348,54 @@ describe('snaps and Memory Lane', () => {
   });
 });
 
+describe('focus room', () => {
+  beforeEach(async () => {
+    await startSpace();
+    await joinBatch('bob').commit();
+  });
+
+  const session = (extra = {}) => ({ state: 'focus', bankedMs: 0, focusSince: Timestamp.now(), breakEndsAt: null, updatedAt: serverTimestamp(), ...extra });
+
+  test('you write only your own session, with a known state', async () => {
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples/c1/focus/alice'), session()));
+    await assertSucceeds(getDoc(doc(db('bob'), 'couples/c1/focus/alice')));
+    await assertFails(setDoc(doc(db('bob'), 'couples/c1/focus/alice'), session()));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/focus/alice'), session({ state: 'napping' })));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/focus/alice'), session({ bankedMs: -1 })));
+    await assertFails(getDoc(doc(db('mallory'), 'couples/c1/focus/alice')));
+  });
+
+  test('totals only grow, a stretch at a time, and hours become points in the same write', async () => {
+    const totals = (uid) => doc(db(uid), `couples/c1/focusTotals/${uid}`);
+    await assertSucceeds(setDoc(totals('alice'), { totalMs: 3000000, weekMs: 3000000, weekStart: '2026-11-23', pointHours: 0 }));
+    await assertFails(setDoc(totals('alice'), { totalMs: 1000, weekMs: 1000, weekStart: '2026-11-23', pointHours: 0 }));
+    await assertFails(setDoc(totals('alice'), { totalMs: 3000000 + 13 * 3600000, weekMs: 0, weekStart: '2026-11-23', pointHours: 0 }));
+    await assertFails(setDoc(totals('alice'), { totalMs: 3600000, weekMs: 3600000, weekStart: '2026-11-23', pointHours: 2 }));
+    await assertFails(setDoc(doc(db('bob'), 'couples/c1/focusTotals/alice'), { totalMs: 9000000, weekMs: 0, weekStart: null, pointHours: 0 }));
+
+    const point = { from: 'alice', to: 'alice', amount: 1, reason: 'focus hours', at: serverTimestamp() };
+    // A focus point on its own (no hour counted with it) is refused.
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/points/f0'), point));
+    const fa = db('alice');
+    const b = writeBatch(fa);
+    b.set(doc(fa, 'couples/c1/focusTotals/alice'), { totalMs: 3700000, weekMs: 3700000, weekStart: '2026-11-23', pointHours: 1 });
+    b.set(doc(fa, 'couples/c1/points/f1'), point);
+    await assertSucceeds(b.commit());
+    // Other self-awards stay refused.
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/points/f2'), { ...point, reason: 'being great' }));
+  });
+
+  test('either of you can leave a jam link or take it out', async () => {
+    const jam = (uid) => doc(db(uid), 'couples/c1/shared/jam');
+    await assertSucceeds(setDoc(jam('alice'), { url: 'https://open.spotify.com/socialsession/abc', by: 'alice', at: serverTimestamp() }));
+    await assertSucceeds(getDoc(jam('bob')));
+    await assertFails(setDoc(jam('alice'), { url: 'javascript:alert(1)', by: 'alice', at: serverTimestamp() }));
+    await assertFails(setDoc(jam('alice'), { url: 'https://x.y/z', by: 'bob', at: serverTimestamp() }));
+    await assertSucceeds(deleteDoc(jam('bob')));
+    await assertFails(getDoc(jam('mallory')));
+  });
+});
+
 describe('push registrations and notification settings', () => {
   const FID = 'cX9pQ2rS-tU_vW3x';
 

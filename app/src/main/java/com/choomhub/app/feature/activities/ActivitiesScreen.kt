@@ -1,35 +1,161 @@
 package com.choomhub.app.feature.activities
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
-import com.choomhub.app.core.designsystem.component.ComingSoonScreen
-import com.choomhub.app.core.designsystem.component.CornerArt
+import com.choomhub.app.core.common.SecondTicker
+import com.choomhub.app.core.designsystem.component.CardTone
+import com.choomhub.app.core.designsystem.component.ChoomHubCard
+import com.choomhub.app.core.designsystem.component.ChoomHubPrimaryButton
+import com.choomhub.app.core.designsystem.component.PillBadge
 import com.choomhub.app.core.designsystem.illustration.GothicMotif
-import com.choomhub.app.core.designsystem.illustration.TarotSpread
+import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
+import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
+import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
+import com.choomhub.app.domain.model.FocusRules
+import com.choomhub.app.domain.model.FocusState
+import com.choomhub.app.domain.repository.FocusRepository
+import com.choomhub.app.domain.repository.ProfileRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.Serializable
+import java.time.Clock
+import java.time.LocalDate
+import javax.inject.Inject
 
 @Serializable
 data object ActivitiesRoute
 
-fun NavGraphBuilder.activitiesScreen(contentPadding: PaddingValues) {
-    composable<ActivitiesRoute> { ActivitiesScreen(contentPadding) }
+fun NavGraphBuilder.activitiesScreen(contentPadding: PaddingValues, onOpenFocusRoom: () -> Unit = {}) {
+    composable<ActivitiesRoute> { ActivitiesScreen(contentPadding, onOpenFocusRoom) }
 }
 
+/** The focus room card: who's in, and this week's hours. */
+data class FocusCardUi(
+    val loaded: Boolean = false,
+    val imIn: Boolean = false,
+    val partnerLine: String = "",
+    val weekLine: String = "",
+    val partnerIn: Boolean = false,
+)
+
+@HiltViewModel
+class ActivitiesViewModel @Inject constructor(
+    focusRepository: FocusRepository,
+    profileRepository: ProfileRepository,
+    ticker: SecondTicker,
+    clock: Clock,
+) : ViewModel() {
+    val focus: StateFlow<FocusCardUi> = combine(
+        focusRepository.observeRoom(),
+        profileRepository.observeNames(),
+        ticker.ticks().onStart { emit(clock.instant()) },
+    ) { room, names, now ->
+        val them = names.partnerName ?: "They"
+        val today = LocalDate.now(clock)
+        FocusCardUi(
+            loaded = true,
+            imIn = room.me.state != FocusState.Away,
+            partnerIn = room.partner.state != FocusState.Away,
+            partnerLine = when (room.partner.state) {
+                FocusState.Focusing -> "$them is focusing · ${FocusRules.stopwatch(FocusRules.sessionMs(room.partner, now))}"
+                FocusState.OnBreak -> "$them is on a break by the fire"
+                FocusState.Away -> "$them isn't in right now"
+            },
+            weekLine = "This week: you ${FocusRules.hours(room.myTotals.weekMsAt(today))} h · $them ${FocusRules.hours(room.partnerTotals.weekMsAt(today))} h",
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FocusCardUi())
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ActivitiesScreen(contentPadding: PaddingValues) {
-    ComingSoonScreen(
-        title = "Activities",
-        whisper = "a few minutes a day",
-        description = "Daily check-ins, a question a day, logging what you got done, " +
-            "and a few small games.",
-        planned = listOf("Daily check-ins", "Daily questions", "Achievements", "Point shop", "Mini-games"),
-        contentPadding = contentPadding,
-        testTag = "screen_activities",
-        cornerArt = CornerArt(GothicMotif.SkeletonKey, start = false, size = 64.dp, inset = 12.dp),
-    ) { TarotSpread(Modifier.fillMaxSize()) }
+fun ActivitiesScreen(contentPadding: PaddingValues, onOpenFocusRoom: () -> Unit, viewModel: ActivitiesViewModel = hiltViewModel()) {
+    val card by viewModel.focus.collectAsStateWithLifecycle()
+    val spacing = ChoomHubTheme.spacing
+    val colors = ChoomHubTheme.colors
+    Box(Modifier.fillMaxSize().testTag("screen_activities"), contentAlignment = Alignment.TopCenter) {
+        GothicMotifArt(
+            GothicMotif.SkeletonKey,
+            Modifier.align(Alignment.TopEnd).padding(top = contentPadding.calculateTopPadding() + 12.dp, end = 12.dp).size(64.dp),
+        )
+        Column(
+            Modifier
+                .widthIn(max = 600.dp)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(contentPadding)
+                .padding(horizontal = spacing.screenGutter, vertical = spacing.lg),
+        ) {
+            Spacer(Modifier.height(spacing.xxl))
+            Text("Activities", style = MaterialTheme.typography.displaySmall, color = colors.textMain)
+            Text("a few minutes a day", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
+            Spacer(Modifier.height(spacing.xl))
+            ChoomHubCard(
+                modifier = Modifier.fillMaxWidth().testTag("focus_card"),
+                tone = if (card.partnerIn) CardTone.Glowing else CardTone.Raised,
+                glowColor = colors.candle,
+            ) {
+                Text("FOCUS ROOM", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+                Text("A quiet room for the two of you", style = MaterialTheme.typography.titleLarge, color = colors.textMain)
+                Spacer(Modifier.height(spacing.sm))
+                if (card.loaded) {
+                    Text(card.partnerLine, style = MaterialTheme.typography.bodyMedium, color = if (card.partnerIn) colors.candle else colors.textSecondary, modifier = Modifier.testTag("focus_card_partner"))
+                    Text(card.weekLine, style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
+                }
+                Spacer(Modifier.height(spacing.md))
+                Text(
+                    "Notifications go quiet while you're in. Take breaks by the fire; every hour you focus earns you a point.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                )
+                Spacer(Modifier.height(spacing.md))
+                ChoomHubPrimaryButton(
+                    text = if (card.imIn) "Back to the room" else "Enter the focus room",
+                    onClick = onOpenFocusRoom,
+                    modifier = Modifier.fillMaxWidth().testTag("focus_enter"),
+                )
+            }
+            Spacer(Modifier.height(spacing.xl))
+            ChoomHubCard(modifier = Modifier.fillMaxWidth(), tone = CardTone.Calm) {
+                Text("STILL TO COME", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+                Spacer(Modifier.height(spacing.md))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    listOf("Daily check-ins", "Daily questions", "Achievements", "Point shop", "Mini-games").forEach {
+                        PillBadge(text = it, color = colors.lavender)
+                    }
+                }
+            }
+            Spacer(Modifier.height(spacing.xxl))
+        }
+    }
 }

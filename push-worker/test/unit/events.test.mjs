@@ -82,3 +82,13 @@ test('fcmMessage targets the installation and the right channel', () => {
   assert.deepEqual(m.data, { event: 'meetup_set', category: 'meetup' });
   assert.equal(fcmMessage('f', 'test', { title: 't', body: 'b' }).message.data.category, 'general');
 });
+
+test('focus room events go on the focus channel and read plainly', () => {
+  assert.deepEqual(parseRequest({ event: 'focus_enter' }), { event: 'focus_enter', detail: '', kind: null });
+  assert.equal(compose('focus_enter', { senderName: 'Rook' }).title, 'Rook has entered the focus room');
+  assert.equal(compose('focus_nudge', { senderName: 'Wren' }).title, 'Wren wants you in the focus room');
+  assert.equal(compose('jam', { senderName: 'Wren' }).title, 'Wren left a jam in the record player');
+  const msg = fcmMessage('fid1', 'focus_nudge', compose('focus_nudge', {}));
+  assert.equal(msg.message.android.notification.channel_id, 'focus');
+  assert.equal(msg.message.data.category, 'focus');
+});

@@ -28,6 +28,7 @@ class ChoomHubApplication : Application(), Configuration.Provider {
         super.onCreate()
         FirebaseInitializer.initialize(this)
         AppNotifications.createChannels(this)
+        com.choomhub.app.feature.focus.FocusNotifications(this).createChannels()
         if (FirebaseConfig.isConfigured) pushRegistrar.get().start()
         // Snap prompts were removed; cancel any still booked from an earlier version.
         WorkManager.getInstance(this).cancelUniqueWork("snap-prompt")
