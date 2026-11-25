@@ -515,3 +515,26 @@ Girl points on rewards the other one gives.
   ledger, so the app (not the rules) stops you buying what you can't afford.
 - **Notifications**: one `shop` event with a kind per step, under the Points switch.
 
+## ADR-042: Sharing songs from Spotify, without the Spotify API
+
+**Status:** accepted · 2026-11-25
+
+Each of you has one current song (`couples/{id}/songs/{member id}`), shown on the other's Home
+below the snap with its cover and a play button; the other rates it 1-10, which is stamped on the
+cover and notified to the sender. Sending a new one replaces the document, rating and all.
+
+- **No search, no API key.** Spotify's Web API needs a developer app, and since February 2026 a
+  Premium account and a five-user limit for it; for two people that's a fragile dependency. Songs
+  come in by link instead: Share → ChoomHub from Spotify (the app takes `text/plain` shares), or
+  pasted.
+- **Lookup** uses Spotify's public oEmbed endpoint: the title, the cover, and, from its embed
+  address, whether it's a track and its id (short spotify.link links work the same way). The
+  artist comes from the song page's preview text if it's there (best effort). Playlists, albums
+  and the rest are refused with a plain message.
+- **The cover** is shrunk to a small JPEG (≤ 60 KB) and stored with the song, so it shows offline
+  and the partner's phone needs no image loading. Play opens `open.spotify.com/track/{id}`, which
+  the Spotify app claims when it's installed.
+- "New" lasts until you play or rate it (remembered on the phone). Notifications: `song` and
+  `song_rated`, under a new Songs switch.
+- The cat got headphones for the send pop-up (also in the Pet House shop).
+

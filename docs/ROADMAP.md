@@ -89,6 +89,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
   stamped on the photo, a polaroid look on kept photos; long-press to rename/delete a collection
   or to set a cover / remove a photo; empty collections from + New; keep picker on the snap screen
 - ✅ Push notification for new snaps (Snaps switch)
+- ✅ Songs below the snap: share one from Spotify (Share → ChoomHub, or paste a link), cover and play button on their phone, rated 1–10 with a stamp on the cover; Songs switch
 - ✅ Reactions (one each, from 🖤 🥺 😭 😂 🔥 🍅), pushed to the sender
 - ✅ Home-screen widget with their latest snap; refreshes when a snap arrives, when you leave the app, and hourly
 

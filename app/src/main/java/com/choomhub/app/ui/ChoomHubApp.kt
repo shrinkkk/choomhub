@@ -97,6 +97,10 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
     // Opened from a focus room notification: go straight to the room.
     val openRequest by PendingOpen.request.collectAsStateWithLifecycle()
     LaunchedEffect(openRequest) {
+        if (openRequest == PendingOpen.HOME) {
+            PendingOpen.request.value = null
+            navController.navigateToTopLevel(TopLevelDestination.Home)
+        }
         if (openRequest == PendingOpen.FOCUS_ROOM) {
             PendingOpen.request.value = null
             navController.navigate(FocusRoomRoute) { launchSingleTop = true }

@@ -85,6 +85,8 @@ background on first launch) and try again.
 | Suggest a name for the cat | "*Name* has a name for the cat" · "Mochi". Open the Pet House to agree | Pet House |
 | Buy a reward, cash one in, or mark theirs done | "*Name* bought a reward from you" / "is cashing in a reward" / "marked a reward as done" · the reward | Points |
 | Suggest a reward, a new price, or taking one out; agree or turn one down | "*Name* suggested a new reward" (and so on) · the reward and price | Points |
+| Send a song | "*Name* sent you a song" · title · artist | Songs |
+| Rate their song | "*Name* rated your song 8/10" · the title | Songs |
 | Start a vet trip or a bath | "*Name* needs your help taking Mochi to the vet" / "giving Mochi a bath" | Pet House |
 
 The Pet House also shows gentle reminders on your **own** phone (hungry, dry bowl, litter, hiding,

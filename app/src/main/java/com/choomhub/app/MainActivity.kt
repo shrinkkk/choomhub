@@ -66,6 +66,14 @@ class MainActivity : ComponentActivity() {
 
     private fun handleOpen(intent: Intent?) {
         intent?.getStringExtra(EXTRA_OPEN)?.let { PendingOpen.request.value = it }
+        // Share → ChoomHub from Spotify: the link goes to Home's song card.
+        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!text.isNullOrBlank()) {
+                com.choomhub.app.data.song.SongInbox.link.value = text
+                PendingOpen.request.value = PendingOpen.HOME
+            }
+        }
     }
 
     companion object {

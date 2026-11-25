@@ -654,3 +654,30 @@ describe('points shop', () => {
     await assertSucceeds(updateDoc(ref, { state: 'returned' }));
   });
 });
+
+describe('songs', () => {
+  async function paired() {
+    await startSpace();
+    await assertSucceeds(joinBatch('bob').commit());
+  }
+  const song = (extra = {}) => ({ trackId: '4uLU6hMCjMI75M1A2tKUQC', title: 'Velvet Hours', artist: 'The Paper Moths', sentAt: serverTimestamp(), ...extra });
+
+  test('you send under your own name, and a new one clears the old rating', async () => {
+    await paired();
+    await assertFails(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'bob'), song()));
+    await assertFails(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ trackId: 'not-an-id' })));
+    await assertFails(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ rating: 10 })));
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ cover: Bytes.fromUint8Array(new Uint8Array(1000)) })));
+    await assertFails(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ cover: Bytes.fromUint8Array(new Uint8Array(70000)) })));
+  });
+
+  test('only the other one rates it, 1 to 10', async () => {
+    await paired();
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song()));
+    await assertFails(updateDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), { rating: 10, ratedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 11, ratedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 8, ratedAt: serverTimestamp(), title: 'x' }));
+    await assertSucceeds(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 8, ratedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 9, ratedAt: serverTimestamp() }));
+  });
+});

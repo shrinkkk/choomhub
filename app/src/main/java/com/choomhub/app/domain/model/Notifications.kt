@@ -14,6 +14,7 @@ enum class NotificationCategory(val key: String, val channelId: String, val labe
     Space("space", "space", "Space", "When they join, or change what they call you"),
     Focus("focus", "focus", "Focus room", "When they enter the focus room, nudge you, or leave a jam"),
     Pet("pet", "pet", "Pet House", "When they need your help with the cat, and when it needs something"),
+    Songs("songs", "songs", "Songs", "When they send you a song or rate yours"),
 }
 
 /** Your notification choices. Everything is on until you turn it off. */
@@ -42,6 +43,8 @@ enum class PushEvent(val wire: String, val collapseKey: String) {
     PetHelp("pet_help", "pet_help"),
     PetNamed("pet_named", "pet_named"),
     Shop("shop", "shop"),
+    SongSent("song", "song"),
+    SongRated("song_rated", "song_rated"),
     Test("test", "test"),
     ;
 

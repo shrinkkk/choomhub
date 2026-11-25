@@ -11,6 +11,7 @@ export const Channels = Object.freeze({
   space: 'space',
   focus: 'focus',
   pet: 'pet',
+  songs: 'songs',
   general: 'general',
 });
 
@@ -52,6 +53,8 @@ export const Events = Object.freeze({
   jam: { category: 'focus', channel: Channels.focus, tag: 'jam', toSelf: false, takesDetail: false },
   pet_help: { category: 'pet', channel: Channels.pet, tag: 'pet_help', toSelf: false, takesDetail: true, kinds: ['vet', 'bath'] },
   pet_named: { category: 'pet', channel: Channels.pet, tag: 'pet_named', toSelf: false, takesDetail: true },
+  song: { category: 'songs', channel: Channels.songs, tag: 'song', toSelf: false, takesDetail: true },
+  song_rated: { category: 'songs', channel: Channels.songs, tag: 'song_rated', toSelf: false, takesDetail: true, kinds: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] },
   shop: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: ShopKinds },
 });
 
@@ -138,6 +141,10 @@ export function compose(event, ctx) {
       return { title: `${who} has entered the focus room`, body: 'Their stopwatch is running.' };
     case 'focus_nudge':
       return { title: `${who} wants you in the focus room`, body: "There's a desk waiting for you." };
+    case 'song':
+      return { title: `${who} sent you a song`, body: ctx.detail || 'Open ChoomHub to play it.' };
+    case 'song_rated':
+      return { title: `${who} rated your song ${ctx.kind}/10`, body: ctx.detail || 'Open ChoomHub to see it.' };
     case 'shop': {
       const body = ctx.detail || 'Open the points shop to see it.';
       const titles = {

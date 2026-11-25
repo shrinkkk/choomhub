@@ -112,3 +112,11 @@ test('points shop events name what happened and keep each kind separate', () => 
   assert.equal(msg.android.notification.channel_id, 'points');
   assert.equal(msg.android.notification.tag, 'shop_bought');
 });
+
+test('songs: sending one, and the rating it got', () => {
+  assert.deepEqual(parseRequest({ event: 'song', detail: 'Velvet Hours · The Paper Moths' }), { event: 'song', detail: 'Velvet Hours · The Paper Moths', kind: null });
+  assert.deepEqual(compose('song_rated', { senderName: 'Jas', kind: '8', detail: 'Velvet Hours' }), { title: 'Jas rated your song 8/10', body: 'Velvet Hours' });
+  assert.equal(parseRequest({ event: 'song_rated', kind: '11', detail: 'x' }), null);
+  assert.equal(parseRequest({ event: 'song_rated', kind: '0' }), null);
+  assert.equal(fcmMessage('f', 'song', compose('song', {})).message.android.notification.channel_id, 'songs');
+});

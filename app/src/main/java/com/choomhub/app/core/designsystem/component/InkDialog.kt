@@ -65,21 +65,27 @@ fun InkDialog(
 /** The card every ink pop-up sits on: dark, moonlit hairline, film grain, centred content. */
 @Composable
 fun InkPanel(onDismissRequest: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        InkPanelCard(modifier, content)
+    }
+}
+
+/** The ink panel's card on its own (what [InkPanel] shows in its pop-up); for previews. */
+@Composable
+fun InkPanelCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
-    Dialog(onDismissRequest = onDismissRequest) {
-        Surface(
-            modifier = modifier.widthIn(max = 360.dp).fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            color = colors.surfaceElevated,
-            border = BorderStroke(1.dp, Brush.verticalGradient(listOf(colors.lavender.copy(alpha = 0.22f), colors.lavender.copy(alpha = 0.04f)))),
-        ) {
-            Column(
-                Modifier.filmGrain(0.05f).padding(horizontal = spacing.xl, vertical = spacing.xl),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                content = content,
-            )
-        }
+    Surface(
+        modifier = modifier.widthIn(max = 360.dp).fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = colors.surfaceElevated,
+        border = BorderStroke(1.dp, Brush.verticalGradient(listOf(colors.lavender.copy(alpha = 0.22f), colors.lavender.copy(alpha = 0.04f)))),
+    ) {
+        Column(
+            Modifier.filmGrain(0.05f).padding(horizontal = spacing.xl, vertical = spacing.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
     }
 }
 

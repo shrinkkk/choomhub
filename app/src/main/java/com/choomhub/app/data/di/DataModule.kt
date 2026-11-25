@@ -94,6 +94,20 @@ object MoodModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object SongModule {
+    @Provides
+    @Singleton
+    fun provideSongRepository(
+        firestore: Provider<com.choomhub.app.data.song.FirestoreSongRepository>,
+        local: Provider<com.choomhub.app.data.song.LocalSongRepository>,
+    ): com.choomhub.app.domain.repository.SongRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+
+    @Provides
+    fun provideSongLookup(lookup: com.choomhub.app.data.song.SpotifySongLookup): com.choomhub.app.domain.repository.SongLookup = lookup
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object ShopModule {
     @Provides
     @Singleton

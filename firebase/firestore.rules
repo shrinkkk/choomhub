@@ -30,6 +30,7 @@ rules_version = '2';
 //   couples/{coupleId}/rewardProposals/{id} -> { kind: add|price|remove, rewardId?, name?, price?, by, at }  shop changes waiting for a yes
 //   couples/{coupleId}/rewards/{id}    -> { name?, price?, custom, removed, proposal }  shop changes both agreed to
 //   couples/{coupleId}/purchases/{id}  -> { rewardId, name, price, by, at, state, usedAt?, doneAt? }  what's been bought
+//   couples/{coupleId}/songs/{member}  -> { trackId, title, artist?, cover?, sentAt, rating?, ratedAt? }  the song each of you last sent
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -81,7 +82,7 @@ service cloud.firestore {
       match /settings/notifications {
         allow read: if signedIn() && me() == userId;
         allow create, update: if signedIn() && me() == userId
-          && request.resource.data.keys().hasOnly(['gestures', 'snaps', 'points', 'moods', 'meetup', 'space', 'focus', 'pet', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['gestures', 'snaps', 'points', 'moods', 'meetup', 'space', 'focus', 'pet', 'songs', 'updatedAt'])
           && request.resource.data.get('gestures', true) is bool
           && request.resource.data.get('points', true) is bool
           && request.resource.data.get('snaps', true) is bool
@@ -90,6 +91,7 @@ service cloud.firestore {
           && request.resource.data.get('space', true) is bool
           && request.resource.data.get('focus', true) is bool
           && request.resource.data.get('pet', true) is bool
+          && request.resource.data.get('songs', true) is bool
           && request.resource.data.updatedAt == request.time;
       }
     }
@@ -470,6 +472,27 @@ service cloud.firestore {
           || (resource.data.by != self() && resource.data.state == 'used'
             && request.resource.data.state == 'done' && request.resource.data.doneAt == request.time
             && onlyChanged(['state', 'doneAt'])));
+      }
+
+      // Songs: one each, filed under the sender. Sending replaces the whole document (so the old
+      // rating goes); the other one can only add or change the rating, 1-10.
+      match /songs/{sender} {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId) && sender == self()
+          && request.resource.data.keys().hasOnly(['trackId', 'title', 'artist', 'cover', 'sentAt'])
+          && request.resource.data.trackId is string && request.resource.data.trackId.matches('^[A-Za-z0-9]{22}$')
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
+          && (request.resource.data.get('artist', null) == null
+              || (request.resource.data.artist is string && request.resource.data.artist.size() <= 200))
+          && (request.resource.data.get('cover', null) == null
+              || (request.resource.data.cover is bytes && request.resource.data.cover.size() <= 60000))
+          && request.resource.data.sentAt == request.time;
+        allow update: if isMember(coupleId) && sender != self()
+          && onlyChanged(['rating', 'ratedAt'])
+          && request.resource.data.rating is int
+          && request.resource.data.rating >= 1 && request.resource.data.rating <= 10
+          && request.resource.data.ratedAt == request.time;
       }
 
       // The cat: either of you can send it somewhere.

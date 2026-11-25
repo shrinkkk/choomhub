@@ -47,6 +47,7 @@ enum class PetOutfit(val id: String?) {
     BatWings("bat_wings"),
     Cape("cape"),
     Crown("crown"),
+    Headphones("headphones"),
     ;
 
     companion object {
@@ -266,6 +267,7 @@ private fun DrawScope.wear(outfit: PetOutfit, headAt: Offset, headSize: Float) {
         PetOutfit.Beret -> beret(headAt, headSize)
         PetOutfit.Sunglasses -> sunglasses(headAt, headSize)
         PetOutfit.Cape -> capeCollar(headAt, headSize)
+        PetOutfit.Headphones -> headphones(headAt, headSize)
         else -> Unit
     }
 }
@@ -413,6 +415,26 @@ private fun DrawScope.beret(headAt: Offset, size: Float) {
         drawOval(Wine, Offset(c.x - size * 0.2f, c.y - 4.5f), Size(size * 0.4f, 9f))
         drawOval(WineLit, Offset(c.x - size * 0.14f, c.y - 4f), Size(size * 0.22f, 3f))
         drawLine(Wine, Offset(c.x, c.y - 4.5f), Offset(c.x + 0.6f, c.y - 7f), 1.2f, StrokeCap.Round)
+    }
+}
+
+/** Big over-ear headphones: a band over the head, between the ears, and a cup on each side. */
+private fun DrawScope.headphones(headAt: Offset, size: Float) {
+    val band = Path().apply {
+        val l = face(headAt, size, 20f, 48f)
+        val r = face(headAt, size, 80f, 48f)
+        moveTo(l.x, l.y)
+        cubicTo(face(headAt, size, 16f, 14f).x, face(headAt, size, 16f, 14f).y, face(headAt, size, 84f, 14f).x, face(headAt, size, 84f, 14f).y, r.x, r.y)
+    }
+    drawPath(band, Color(0xFF16121A), style = Stroke(size * 0.075f, cap = StrokeCap.Round))
+    drawPath(band, WineLit.copy(alpha = 0.55f), style = Stroke(size * 0.02f, cap = StrokeCap.Round))
+    listOf(17f to -1f, 83f to 1f).forEach { (x, side) ->
+        val c = face(headAt, size, x, 54f)
+        val w = size * 0.15f
+        val h = size * 0.26f
+        drawRoundRect(Color(0xFF16121A), Offset(c.x - w / 2f, c.y - h / 2f), Size(w, h), CornerRadius(w * 0.45f))
+        drawRoundRect(Wine, Offset(c.x - w / 2f + side * w * 0.18f, c.y - h * 0.4f), Size(w * 0.64f, h * 0.8f), CornerRadius(w * 0.32f))
+        drawLine(Pink.copy(alpha = 0.55f), Offset(c.x + side * w * 0.08f, c.y - h * 0.22f), Offset(c.x + side * w * 0.08f, c.y + h * 0.1f), size * 0.014f, StrokeCap.Round)
     }
 }
 

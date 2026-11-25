@@ -100,6 +100,7 @@ fun HomeScreen(
         snapImage = snapImage,
         onOpenSnap = onOpenSnap,
         onAward = viewModel::award,
+        songSection = { m -> com.choomhub.app.feature.song.SongHomeSection(m) },
         onTakePhoto = {
             val uri = CaptureFiles.newCaptureUri(context)
             pendingCapture = uri.toString()
@@ -129,6 +130,7 @@ fun HomeContent(
     onOpenSnap: (String) -> Unit = {},
     onTakePhoto: () -> Unit = {},
     onAward: (amount: String, reason: String, takeAway: Boolean) -> String? = { _, _, _ -> null },
+    songSection: @Composable (Modifier) -> Unit = {},
 ) {
     when (state) {
         HomeUiState.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -188,6 +190,7 @@ fun HomeContent(
                             modifier = gutter,
                         )
                     }
+                    item(key = "song") { songSection(gutter) }
                     item(key = "gestures") { GestureSection(onAffection, state.lastReceived, state.lastSent, gutter) }
                     item(key = "points") { PointsSection(state.points, state.myRole, state.partnerName, state.lastAward, onAward, gutter) }
                     item(key = "cat") { SharedCatSection(state.cat, gutter) }

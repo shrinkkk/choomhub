@@ -55,6 +55,8 @@ What exists **today**:
 - **Snaps** (camera only): send one with a caption; each of you has one current snap, which
   replaces your last unless one of you kept it. React to theirs; kept snaps hang in collections in
   Our World → Memory Lane, as strings of polaroids that unfold in place. A home-screen widget shows their latest snap.
+- **Songs**: share a song from Spotify (Share → ChoomHub); it shows on their Home with the cover
+  and a play button until you send another, and they rate it out of 10.
 - **Points**: award your partner Good Boy / Good Girl points (or take some away) with a reason;
   totals come from a ledger nobody can edit. Spend them in the **points shop** (Activities) on
   rewards your partner owes you; new rewards and price changes need you both to agree.

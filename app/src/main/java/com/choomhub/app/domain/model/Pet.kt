@@ -543,7 +543,7 @@ object PetRules {
             is PetAction.Wear -> PetOutcome(
                 PetPatch(
                     outfit = action.outfit ?: "",
-                    diary = if (action.outfit != null && random.nextInt(2) == 0) listOf("$myName put me in a ${outfitName(action.outfit).lowercase()}. I look incredible and I know it.") else emptyList(),
+                    diary = if (action.outfit != null && random.nextInt(2) == 0) listOf("$myName put me in ${outfitName(action.outfit).lowercase().let { if (it.endsWith("s")) it else "a $it" }}. I look incredible and I know it.") else emptyList(),
                 ),
                 if (action.outfit == null) "$name is au naturel." else "$name is wearing the ${outfitName(action.outfit).lowercase()}.",
             )
@@ -586,6 +586,7 @@ object PetRules {
         ShopItem("flower_crown", "Flower crown", ShopCategory.Outfits, 50, "Soft era."),
         ShopItem("beret", "Beret", ShopCategory.Outfits, 45, "Painter, poet, menace."),
         ShopItem("sunglasses", "Sunglasses", ShopCategory.Outfits, 55, "Too cool to look at you."),
+        ShopItem("headphones", "Headphones", ShopCategory.Outfits, 50, "Can't hear you. Vibing."),
         ShopItem("bat_wings", "Bat wings", ShopCategory.Outfits, 80, "Cannot fly. Will try."),
         ShopItem("cape", "Velvet cape", ShopCategory.Outfits, 75, "Count Catula."),
         ShopItem("crown", "Crown", ShopCategory.Outfits, 120, "It already thought it was royalty."),
