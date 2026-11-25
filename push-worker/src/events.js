@@ -20,6 +20,9 @@ export const Reactions = Object.freeze(['\u{1F5A4}', '\u{1F97A}', '\u{1F62D}', '
 /** Gesture kinds the app may name; must match AffectionKind in the app. */
 export const Gestures = Object.freeze(['hug', 'forehead_kiss', 'head_pats', 'tomato']);
 
+/** What happened in the points shop; must match ShopPush in the app. */
+export const ShopKinds = Object.freeze(['bought', 'used', 'done', 'suggest_add', 'suggest_price', 'suggest_remove', 'agreed', 'declined']);
+
 /** Mood names are the couple's own (they can edit the list), so only their length is limited. */
 export const MAX_MOOD_LABEL = 24;
 
@@ -49,6 +52,7 @@ export const Events = Object.freeze({
   jam: { category: 'focus', channel: Channels.focus, tag: 'jam', toSelf: false, takesDetail: false },
   pet_help: { category: 'pet', channel: Channels.pet, tag: 'pet_help', toSelf: false, takesDetail: true, kinds: ['vet', 'bath'] },
   pet_named: { category: 'pet', channel: Channels.pet, tag: 'pet_named', toSelf: false, takesDetail: true },
+  shop: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: ShopKinds },
 });
 
 export const MAX_DETAIL = 80;
@@ -134,6 +138,20 @@ export function compose(event, ctx) {
       return { title: `${who} has entered the focus room`, body: 'Their stopwatch is running.' };
     case 'focus_nudge':
       return { title: `${who} wants you in the focus room`, body: "There's a desk waiting for you." };
+    case 'shop': {
+      const body = ctx.detail || 'Open the points shop to see it.';
+      const titles = {
+        bought: `${who} bought a reward from you`,
+        used: `${who} is cashing in a reward`,
+        done: `${who} marked a reward as done`,
+        suggest_add: `${who} suggested a new reward`,
+        suggest_price: `${who} suggested a new price`,
+        suggest_remove: `${who} suggested taking a reward out of the shop`,
+        agreed: `${who} agreed to your shop change`,
+        declined: `${who} turned down your shop change`,
+      };
+      return { title: titles[ctx.kind] || `${who} changed something in the points shop`, body };
+    }
     case 'pet_help': {
       const cat = ctx.detail || 'the cat';
       return ctx.kind === 'vet'

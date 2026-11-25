@@ -101,3 +101,14 @@ test('pet events ask for help and share name ideas', () => {
   assert.match(compose('pet_named', { senderName: 'Rook', detail: 'Mochi' }).body, /Mochi/);
   assert.equal(fcmMessage('f', 'pet_named', compose('pet_named', {})).message.android.notification.channel_id, 'pet');
 });
+
+test('points shop events name what happened and keep each kind separate', () => {
+  assert.deepEqual(parseRequest({ event: 'shop', kind: 'bought', detail: 'Head massage' }), { event: 'shop', detail: 'Head massage', kind: 'bought' });
+  assert.equal(parseRequest({ event: 'shop', kind: 'steal' }), null);
+  assert.equal(parseRequest({ event: 'shop' }), null);
+  assert.deepEqual(compose('shop', { senderName: 'Rook', kind: 'used', detail: 'Head massage' }), { title: 'Rook is cashing in a reward', body: 'Head massage' });
+  assert.equal(compose('shop', { senderName: 'Rook', kind: 'suggest_price', detail: 'Playlist · 20 points' }).title, 'Rook suggested a new price');
+  const msg = fcmMessage('f', 'shop', compose('shop', { kind: 'bought' }), 'bought').message;
+  assert.equal(msg.android.notification.channel_id, 'points');
+  assert.equal(msg.android.notification.tag, 'shop_bought');
+});

@@ -496,3 +496,22 @@ You can leave a space from Settings (Your space → Leave this space), after typ
   (you go straight to joining or starting one, and nobody can join it); the deleting runs in the
   background, outside any screen, and is picked up again next time the app opens if it was cut off.
 
+## ADR-041: The points shop
+
+**Status:** accepted · 2026-11-25
+
+A full-screen shop, opened from Activities, where each of you spends your own Good Boy / Good
+Girl points on rewards the other one gives.
+
+- **Rewards**: 12 to start with (in `ShopRules.DEFAULTS`, 5 to 100 points). Every price can change
+  and any reward can be taken out, and either of you can suggest a new one, but each change is a
+  suggestion (`rewardProposals`) until the other agrees. Agreeing writes `rewards/{id}` in the same
+  batch that deletes the suggestion, and the rules check the two match and that the one agreeing
+  isn't the one who suggested it.
+- **Buying** (`purchases`): owned → cashed in (by the buyer; the other is notified) → done (by the
+  other). Unused purchases can be given back for the points. Purchases are kept, never deleted.
+- **Balances**: the points ledger stays append-only; spending is the sum of purchases not given
+  back, taken off what you've received, in the shop and on Home. The rules can't add up the
+  ledger, so the app (not the rules) stops you buying what you can't afford.
+- **Notifications**: one `shop` event with a kind per step, under the Points switch.
+

@@ -56,7 +56,8 @@ What exists **today**:
   replaces your last unless one of you kept it. React to theirs; kept snaps hang in collections in
   Our World → Memory Lane, as strings of polaroids that unfold in place. A home-screen widget shows their latest snap.
 - **Points**: award your partner Good Boy / Good Girl points (or take some away) with a reason;
-  totals come from a ledger nobody can edit.
+  totals come from a ledger nobody can edit. Spend them in the **points shop** (Activities) on
+  rewards your partner owes you; new rewards and price changes need you both to agree.
 
 - **Pet House**: a black cat you adopt and name together, with needs that drift in real time,
   hands-on care (feeding, water, litter, petting, brushing, play, nails), two-person vet trips and

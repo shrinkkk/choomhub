@@ -111,7 +111,9 @@ Replaces the Messages tab (ADR-039); messages and letters are dropped for now.
 - ✅ Points ledger (append-only; totals are summed, never stored), stacked boxes with yours on top
 - ✅ Award or take away your partner's points (1–10, optional reason; totals can go negative), pushed with the role named
 - ⬜ Achievements with descriptions
-- ⬜ Points history; custom rewards and a point shop
+- ✅ Points shop (Activities, full screen): 12 starting rewards, buy with your own points, cash in, they mark it done, give back unused ones; Shop / Yours / Theirs tabs
+- ✅ Custom rewards, price changes and removals, each needing the other one to agree
+- ⬜ Points history
 
 ## Milestone 8: Shared cat ✅
 

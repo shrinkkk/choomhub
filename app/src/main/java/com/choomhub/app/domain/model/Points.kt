@@ -38,10 +38,13 @@ object PointRules {
     fun cleanReason(input: String?): String? =
         input?.replace(Regex("\\s+"), " ")?.trim()?.take(MAX_REASON)?.ifEmpty { null }
 
-    /** Totals from the ledger: what you've received, and what they have (either can be negative). */
-    fun balances(awards: List<PointAward>, myRole: PointsRole?): PointBalances {
-        val mine = awards.filter { it.toMe }.sumOf { it.amount }
-        val theirs = awards.filterNot { it.toMe }.sumOf { it.amount }
+    /**
+     * Totals: what each of you has received, minus what each of you has spent in the points shop
+     * (either can be negative).
+     */
+    fun balances(awards: List<PointAward>, myRole: PointsRole?, purchases: List<Purchase> = emptyList()): PointBalances {
+        val mine = awards.filter { it.toMe }.sumOf { it.amount } - ShopRules.spent(purchases, byMe = true)
+        val theirs = awards.filterNot { it.toMe }.sumOf { it.amount } - ShopRules.spent(purchases, byMe = false)
         return when (myRole) {
             PointsRole.GoodBoy -> PointBalances(goodBoy = mine, goodGirl = theirs)
             PointsRole.GoodGirl -> PointBalances(goodBoy = theirs, goodGirl = mine)

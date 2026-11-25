@@ -10,6 +10,10 @@ import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.HomeRepository
 import com.choomhub.app.domain.repository.MoodRepository
 import com.choomhub.app.domain.repository.PetRepository
+import com.choomhub.app.domain.repository.ShopRepository
+import com.choomhub.app.domain.model.PetState
+import com.choomhub.app.domain.model.PointAward
+import com.choomhub.app.domain.model.Purchase
 import com.choomhub.app.domain.model.PetRules
 import java.time.Clock
 import com.choomhub.app.domain.repository.ProfileRepository
@@ -31,6 +35,7 @@ class LiveHomeRepository @Inject constructor(
     private val pointsRepository: PointsRepository,
     private val seenSnaps: SeenSnaps,
     private val petRepository: PetRepository,
+    private val shopRepository: ShopRepository,
     private val clock: Clock,
 ) : HomeRepository {
 
@@ -39,8 +44,10 @@ class LiveHomeRepository @Inject constructor(
         moodRepository.observeMoods(),
         gestureRepository.observeRecent(),
         snapRepository.observeRecent(),
-        combine(seenSnaps.observe(), pointsRepository.observeAwards(), petRepository.observePet(), ::Triple),
-    ) { names, moods, gestures, snaps, (seen, awards, pet) ->
+        combine(seenSnaps.observe(), pointsRepository.observeAwards(), petRepository.observePet(), shopRepository.observeShop()) { seen, awards, pet, shop ->
+            Extras(seen, awards, pet, shop.purchases)
+        },
+    ) { names, moods, gestures, snaps, (seen, awards, pet, purchases) ->
         val partner = Member(id = "partner", displayName = names.partnerName ?: "them")
         HomeSnapshot(
             viewerName = names.myName,
@@ -52,7 +59,7 @@ class LiveHomeRepository @Inject constructor(
             partnerSnap = snaps.firstOrNull { !it.fromMe },
             mySnap = snaps.firstOrNull { it.fromMe },
             seenSnapId = seen,
-            points = PointRules.balances(awards, names.myRole),
+            points = PointRules.balances(awards, names.myRole, purchases),
             awards = awards,
             cat = SharedCatStatus(
                 isAdopted = pet.adopted,
@@ -63,3 +70,5 @@ class LiveHomeRepository @Inject constructor(
         )
     }
 }
+
+private data class Extras(val seen: String?, val awards: List<PointAward>, val pet: PetState, val purchases: List<Purchase>)

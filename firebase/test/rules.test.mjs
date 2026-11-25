@@ -579,3 +579,78 @@ describe('leaving and coming back', () => {
     await assertSucceeds(deleteDoc(doc(db('alice'), 'couples', 'c1')));
   });
 });
+
+describe('points shop', () => {
+  async function paired() {
+    await startSpace();
+    await assertSucceeds(joinBatch('bob').commit());
+  }
+  const proposal = (fs, id, data) => setDoc(doc(fs, 'couples', 'c1', 'rewardProposals', id), { ...data, at: serverTimestamp() });
+  function acceptBatch(uid, pid, rid, reward) {
+    const fs = db(uid);
+    const batch = writeBatch(fs);
+    batch.set(doc(fs, 'couples', 'c1', 'rewards', rid), { ...reward, proposal: pid });
+    batch.delete(doc(fs, 'couples', 'c1', 'rewardProposals', pid));
+    return batch;
+  }
+
+  test('a new reward needs the other one to agree, exactly as suggested', async () => {
+    await paired();
+    await assertSucceeds(proposal(db('alice'), 'p1', { kind: 'add', name: 'Back scratch', price: 20, by: 'alice' }));
+    // Not by the one who suggested it.
+    await assertFails(acceptBatch('alice', 'p1', 'p1', { name: 'Back scratch', price: 20, custom: true, removed: false }).commit());
+    // Not changed on the way in.
+    await assertFails(acceptBatch('bob', 'p1', 'p1', { name: 'Back scratch', price: 2, custom: true, removed: false }).commit());
+    // Not without removing the suggestion.
+    await assertFails(setDoc(doc(db('bob'), 'couples', 'c1', 'rewards', 'p1'), { name: 'Back scratch', price: 20, custom: true, removed: false, proposal: 'p1' }));
+    await assertSucceeds(acceptBatch('bob', 'p1', 'p1', { name: 'Back scratch', price: 20, custom: true, removed: false }).commit());
+  });
+
+  test('prices of the starting rewards change only when the other agrees', async () => {
+    await paired();
+    await assertFails(setDoc(doc(db('alice'), 'couples', 'c1', 'rewards', 'selfie'), { price: 1, custom: false, removed: false, proposal: 'none' }));
+    await assertSucceeds(proposal(db('bob'), 'p2', { kind: 'price', rewardId: 'selfie', price: 8, by: 'bob' }));
+    await assertFails(acceptBatch('alice', 'p2', 'selfie', { price: 9, custom: false, removed: false }).commit());
+    await assertFails(acceptBatch('alice', 'p2', 'playlist', { price: 8, custom: false, removed: false }).commit());
+    await assertSucceeds(acceptBatch('alice', 'p2', 'selfie', { price: 8, custom: false, removed: false }).commit());
+    // Then taking it out.
+    await assertSucceeds(proposal(db('alice'), 'p3', { kind: 'remove', rewardId: 'selfie', by: 'alice' }));
+    await assertSucceeds(acceptBatch('bob', 'p3', 'selfie', { price: 8, custom: false, removed: true }).commit());
+  });
+
+  test('suggestions are made as yourself, with sensible prices', async () => {
+    await paired();
+    await assertFails(proposal(db('alice'), 'p4', { kind: 'add', name: 'x', price: 20, by: 'bob' }));
+    await assertFails(proposal(db('alice'), 'p4', { kind: 'add', name: 'x', price: 0, by: 'alice' }));
+    await assertFails(proposal(db('alice'), 'p4', { kind: 'add', name: 'x', price: 5000, by: 'alice' }));
+    await assertFails(proposal(db('alice'), 'p4', { kind: 'add', price: 5, by: 'alice' }));
+    await assertSucceeds(proposal(db('alice'), 'p4', { kind: 'add', name: 'x', price: 5, by: 'alice' }));
+    await assertSucceeds(deleteDoc(doc(db('bob'), 'couples', 'c1', 'rewardProposals', 'p4')));
+  });
+
+  test('a purchase is cashed in by its buyer and marked done by the other', async () => {
+    await paired();
+    const ref = doc(db('alice'), 'couples', 'c1', 'purchases', 'b1');
+    await assertFails(setDoc(ref, { rewardId: 'selfie', name: 'Selfie', price: 5, by: 'bob', at: serverTimestamp(), state: 'owned' }));
+    await assertFails(setDoc(ref, { rewardId: 'selfie', name: 'Selfie', price: 5, by: 'alice', at: serverTimestamp(), state: 'done' }));
+    await assertSucceeds(setDoc(ref, { rewardId: 'selfie', name: 'Selfie', price: 5, by: 'alice', at: serverTimestamp(), state: 'owned' }));
+    const bobs = doc(db('bob'), 'couples', 'c1', 'purchases', 'b1');
+    // Bob can't use or close Alice's purchase before she cashes it in.
+    await assertFails(updateDoc(bobs, { state: 'used', usedAt: serverTimestamp() }));
+    await assertFails(updateDoc(bobs, { state: 'done', doneAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref, { state: 'used', usedAt: serverTimestamp() }));
+    // Alice can't mark her own reward done, or give it back once used.
+    await assertFails(updateDoc(ref, { state: 'done', doneAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref, { state: 'returned' }));
+    await assertSucceeds(updateDoc(bobs, { state: 'done', doneAt: serverTimestamp() }));
+    await assertFails(deleteDoc(bobs));
+  });
+
+  test('an unused purchase can be given back', async () => {
+    await paired();
+    const ref = doc(db('alice'), 'couples', 'c1', 'purchases', 'b2');
+    await assertSucceeds(setDoc(ref, { rewardId: 'drawing', name: 'Drawing', price: 25, by: 'alice', at: serverTimestamp(), state: 'owned' }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples', 'c1', 'purchases', 'b2'), { state: 'returned' }));
+    await assertSucceeds(updateDoc(ref, { state: 'returned' }));
+  });
+});

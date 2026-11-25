@@ -27,6 +27,9 @@ rules_version = '2';
 //   couples/{coupleId}/shared/cat      -> { activity, since, by }  where the cat went when last tapped
 //   couples/{coupleId}/pet/cat         -> the Pet House cat (needs, coins {uid}, bond {uid}, things, gifts...)
 //   couples/{coupleId}/petDiary/{id}   -> { text, at, by }  the cat's diary
+//   couples/{coupleId}/rewardProposals/{id} -> { kind: add|price|remove, rewardId?, name?, price?, by, at }  shop changes waiting for a yes
+//   couples/{coupleId}/rewards/{id}    -> { name?, price?, custom, removed, proposal }  shop changes both agreed to
+//   couples/{coupleId}/purchases/{id}  -> { rewardId, name, price, by, at, state, usedAt?, doneAt? }  what's been bought
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -398,6 +401,75 @@ service cloud.firestore {
           && request.resource.data.text is string && request.resource.data.text.size() <= 300
           && request.resource.data.by == self()
           && request.resource.data.at == request.time;
+      }
+
+      // Points shop. A change (new reward, new price, taking one out) is suggested by one of you and
+      // becomes real only when the other agrees: the reward is written in the same batch that
+      // deletes the suggestion, and has to match it. Either of you can delete a suggestion (agree,
+      // turn down, or take back your own).
+      match /rewardProposals/{pid} {
+        allow read: if isMember(coupleId);
+        allow delete: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['kind', 'rewardId', 'name', 'price', 'by', 'at'])
+          && request.resource.data.by == self()
+          && request.resource.data.at == request.time
+          && request.resource.data.kind in ['add', 'price', 'remove']
+          && (request.resource.data.kind == 'remove' || shopPriceOk(request.resource.data.get('price', null)))
+          && (request.resource.data.kind != 'add'
+              || (request.resource.data.get('name', null) is string
+                  && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40))
+          && (request.resource.data.kind == 'add'
+              || (request.resource.data.get('rewardId', null) is string && request.resource.data.rewardId.size() <= 40));
+      }
+
+      function shopPriceOk(p) { return p is int && p >= 1 && p <= 500; }
+
+      match /rewards/{rid} {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId) && agreesTo(rid);
+
+        function agreesTo(rid) {
+          let next = request.resource.data;
+          let path = /databases/$(database)/documents/couples/$(coupleId)/rewardProposals/$(next.proposal);
+          let p = get(path).data;
+          let before = resource == null ? {} : resource.data;
+          return next.keys().hasOnly(['name', 'price', 'custom', 'removed', 'proposal'])
+            && next.proposal is string
+            && p.by != self()
+            && !existsAfter(path)
+            && (p.kind == 'add'
+              ? (rid == next.proposal && resource == null && next.name == p.name && next.price == p.price
+                 && next.custom == true && next.removed == false)
+              : (rid == p.rewardId
+                 && next.custom == before.get('custom', false)
+                 && next.get('name', null) == before.get('name', null)
+                 && (p.kind == 'price'
+                   ? (next.price == p.price && next.removed == false)
+                   : (next.removed == true && next.get('price', null) == before.get('price', null)))));
+        }
+      }
+
+      // Bought as yourself. You can cash it in or give it back (for the points) while unused; the
+      // other one marks it done once you've cashed it in. Never deleted (except with the space).
+      // The balance isn't checked here (the rules can't add up the ledger); the app checks it.
+      match /purchases/{pid} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['rewardId', 'name', 'price', 'by', 'at', 'state'])
+          && request.resource.data.by == self()
+          && request.resource.data.at == request.time
+          && request.resource.data.state == 'owned'
+          && shopPriceOk(request.resource.data.price)
+          && request.resource.data.rewardId is string && request.resource.data.rewardId.size() <= 40
+          && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80;
+        allow update: if isMember(coupleId) && (
+          (resource.data.by == self() && resource.data.state == 'owned'
+            && ((request.resource.data.state == 'used' && request.resource.data.usedAt == request.time && onlyChanged(['state', 'usedAt']))
+                || (request.resource.data.state == 'returned' && onlyChanged(['state']))))
+          || (resource.data.by != self() && resource.data.state == 'used'
+            && request.resource.data.state == 'done' && request.resource.data.doneAt == request.time
+            && onlyChanged(['state', 'doneAt'])));
       }
 
       // The cat: either of you can send it somewhere.

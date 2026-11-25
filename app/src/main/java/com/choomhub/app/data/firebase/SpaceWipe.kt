@@ -14,7 +14,7 @@ internal object SpaceWipe {
     /** Every sub-collection a space has (see firebase/firestore.rules). */
     val COLLECTIONS = listOf(
         "names", "shared", "moods", "gestures", "snaps", "collections", "points",
-        "focus", "focusTotals", "pet", "petDiary",
+        "focus", "focusTotals", "pet", "petDiary", "rewards", "rewardProposals", "purchases",
     )
 
     private const val BATCH = 200 // a snap is two deletes; a batch takes 500

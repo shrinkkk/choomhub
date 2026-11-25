@@ -35,7 +35,7 @@ class WorkManagerNotifier @Inject constructor(
             .build()
         // A newer change of the same kind replaces one that's still waiting to go out
         // (so ten hugs tapped while offline arrive as one).
-        val name = listOfNotNull("push", event.collapseKey, kind.takeIf { event == PushEvent.Gesture }).joinToString("-")
+        val name = listOfNotNull("push", event.collapseKey, kind.takeIf { event == PushEvent.Gesture || event == PushEvent.Shop }).joinToString("-")
         WorkManager.getInstance(context).enqueueUniqueWork(name, ExistingWorkPolicy.REPLACE, request)
     }
 

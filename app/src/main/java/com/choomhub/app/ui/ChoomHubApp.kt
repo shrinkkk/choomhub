@@ -47,6 +47,8 @@ import com.choomhub.app.feature.settings.settingsScreen
 import com.choomhub.app.feature.world.ourWorldScreen
 import com.choomhub.app.feature.focus.FocusRoomRoute
 import com.choomhub.app.feature.focus.focusRoomScreen
+import com.choomhub.app.feature.shop.PointsShopRoute
+import com.choomhub.app.feature.shop.pointsShopScreen
 import com.choomhub.app.core.navigation.PendingOpen
 import androidx.navigation.NavDestination.Companion.hasRoute
 
@@ -105,8 +107,9 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
         containerColor = Color.Transparent,
         contentColor = colors.textMain,
         bottomBar = {
-            // The focus room is a quiet place: no tab bar.
-            if (backStackEntry?.destination?.hasRoute<FocusRoomRoute>() != true) {
+            // The focus room and the shop take the whole screen: no tab bar.
+            val fullScreen = backStackEntry?.destination?.let { it.hasRoute<FocusRoomRoute>() || it.hasRoute<PointsShopRoute>() } == true
+            if (!fullScreen) {
                 ChoomHubBottomBar(
                     currentDestination = backStackEntry?.destination,
                     onNavigate = navController::navigateToTopLevel,
@@ -137,7 +140,12 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
             snapViewerScreen(contentPadding = padding)
             moodScreen(contentPadding = padding, onClose = { navController.popBackStack() })
             petHouseScreen(contentPadding = padding)
-            activitiesScreen(contentPadding = padding, onOpenFocusRoom = { navController.navigate(FocusRoomRoute) { launchSingleTop = true } })
+            activitiesScreen(
+                contentPadding = padding,
+                onOpenFocusRoom = { navController.navigate(FocusRoomRoute) { launchSingleTop = true } },
+                onOpenShop = { navController.navigate(PointsShopRoute) { launchSingleTop = true } },
+            )
+            pointsShopScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             focusRoomScreen(contentPadding = padding, onLeft = { navController.popBackStack() })
             ourWorldScreen(
                 contentPadding = padding,

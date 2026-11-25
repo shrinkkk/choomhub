@@ -94,6 +94,17 @@ object MoodModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object ShopModule {
+    @Provides
+    @Singleton
+    fun provideShopRepository(
+        firestore: Provider<com.choomhub.app.data.shop.FirestoreShopRepository>,
+        local: Provider<com.choomhub.app.data.shop.LocalShopRepository>,
+    ): com.choomhub.app.domain.repository.ShopRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object FocusModule {
     @Provides
     @Singleton

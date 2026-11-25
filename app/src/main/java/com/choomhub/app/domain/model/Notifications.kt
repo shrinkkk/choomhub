@@ -41,6 +41,7 @@ enum class PushEvent(val wire: String, val collapseKey: String) {
     JamLeft("jam", "jam"),
     PetHelp("pet_help", "pet_help"),
     PetNamed("pet_named", "pet_named"),
+    Shop("shop", "shop"),
     Test("test", "test"),
     ;
 
