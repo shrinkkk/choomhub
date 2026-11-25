@@ -62,7 +62,7 @@ Copy the **SHA1** line → Firebase console → gear → **Project settings** �
 ### 4. Turn on App Distribution
 
 Firebase console → **Run → App Distribution** (or search "App Distribution") → pick the Android
-app → **Get started**. Under **Testers & Groups**, make a group (e.g. `us`) and add her Gmail and
+app → **Get started**. Under **Testers & Groups**, make a group (`shri-jas`) and add her Gmail and
 yours.
 
 ---
@@ -76,7 +76,7 @@ yours.
    .\gradlew.bat assembleRelease
    ```
    The file is `app\build\outputs\apk\release\app-release.apk`.
-3. Firebase console → **App Distribution → Releases** → drag the APK in → choose the `us` group →
+3. Firebase console → **App Distribution → Releases** → drag the APK in → choose the `shri-jas` group →
    write a line of release notes ("snaps can be kept now") → **Distribute**.
 
 Test it on **your** phone first (you're in the group too): open App Tester, install, and check
@@ -87,7 +87,7 @@ sign-in, Home, a snap and a notification. Then she gets the same build.
 ```powershell
 cd firebase
 npx firebase login
-npx firebase appdistribution:distribute ..\app\build\outputs\apk\release\app-release.apk --app <your Firebase app ID> --groups us --release-notes "what changed"
+npx firebase appdistribution:distribute ..\app\build\outputs\apk\release\app-release.apk --app <your Firebase app ID> --groups shri-jas --release-notes "what changed"
 ```
 
 The app ID is the `choomhub.firebase.appId` value in `local.properties` (`1:…:android:…`).
