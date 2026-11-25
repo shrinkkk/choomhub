@@ -4,8 +4,8 @@ import com.choomhub.app.domain.model.AffectionKind
 import com.choomhub.app.domain.model.Gesture
 import com.choomhub.app.domain.model.GestureResult
 import com.choomhub.app.domain.model.SpaceState
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.firestore.DocumentSnapshot
@@ -34,7 +34,7 @@ class FirestoreGestureRepository @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeRecent(): Flow<List<Gesture>> = spaceRepository.observeSpace().flatMapLatest { space ->
         val coupleId = space.coupleIdOrNull
-        val me = space.accountOrNull?.uid
+        val me = space.memberIdOrNull
         if (coupleId == null || me == null) return@flatMapLatest flowOf(emptyList())
         gestures(coupleId)
             .orderBy("sentAt", Query.Direction.DESCENDING)
@@ -47,7 +47,7 @@ class FirestoreGestureRepository @Inject constructor(
         val space = spaceRepository.observeSpace().first()
         if (space !is SpaceState.Paired) return GestureResult.NotSent(NOT_PAIRED)
         // Not awaited: it shows straight away and goes out as soon as there's a connection.
-        gestures(space.coupleId).add(mapOf("kind" to kind.key, "from" to space.account.uid, "sentAt" to FieldValue.serverTimestamp()))
+        gestures(space.coupleId).add(mapOf("kind" to kind.key, "from" to space.memberId, "sentAt" to FieldValue.serverTimestamp()))
         return GestureResult.Sent
     }
 

@@ -1,8 +1,8 @@
 package com.choomhub.app.data.firebase
 
 import com.choomhub.app.domain.model.Meetup
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.MeetupRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.Timestamp
@@ -39,7 +39,7 @@ class FirestoreMeetupRepository @Inject constructor(
     private suspend fun write(at: Timestamp?) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         meetupDoc(coupleId).set(mapOf("at" to at, "updatedBy" to me, "updatedAt" to FieldValue.serverTimestamp()))
     }
 

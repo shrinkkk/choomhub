@@ -63,15 +63,21 @@ export async function handle(request, env, deps) {
   // Who receives it: yourself for the test, otherwise your partner (never anyone else).
   let recipient = uid;
   let coupleId = null;
+  // Inside a space people are filed under member ids: the account they first joined with, which
+  // differs from their account uid if they left and came back on another account.
+  let ids = {};
   if (!spec.toSelf) {
     coupleId = field.string(await db.get(`users/${uid}`), 'coupleId');
     if (!coupleId) return json(403, { error: 'not-paired' });
-    const members = field.strings(await db.get(`couples/${coupleId}`), 'members');
+    const couple = await db.get(`couples/${coupleId}`);
+    const members = field.strings(couple, 'members');
     if (!members.includes(uid)) return json(403, { error: 'not-paired' });
     const partner = members.find((m) => m !== uid);
     if (!partner) return json(403, { error: 'not-paired' });
     recipient = partner;
+    ids = field.stringMap(couple, 'ids');
   }
+  const memberId = (accountUid) => ids[accountUid] ?? accountUid;
 
   if (spec.category) {
     const settings = await db.get(`users/${recipient}/settings/notifications`);
@@ -83,13 +89,14 @@ export async function handle(request, env, deps) {
 
   const ctx = { detail: parsed.detail, kind: parsed.kind };
   if (coupleId) {
-    ctx.senderName = field.string(await db.get(`couples/${coupleId}/names/${recipient}`), 'nameForPartner');
+    const them = memberId(recipient);
+    ctx.senderName = field.string(await db.get(`couples/${coupleId}/names/${them}`), 'nameForPartner');
     if (parsed.event === 'renamed') {
-      ctx.recipientNewName = field.string(await db.get(`couples/${coupleId}/names/${uid}`), 'nameForPartner');
+      ctx.recipientNewName = field.string(await db.get(`couples/${coupleId}/names/${memberId(uid)}`), 'nameForPartner');
     }
     if (parsed.event === 'points') {
       const roles = await db.get(`couples/${coupleId}/shared/roles`);
-      ctx.recipientRole = field.string(roles, 'goodBoy') === recipient ? 'Good Boy' : field.string(roles, 'goodGirl') === recipient ? 'Good Girl' : null;
+      ctx.recipientRole = field.string(roles, 'goodBoy') === them ? 'Good Boy' : field.string(roles, 'goodGirl') === them ? 'Good Girl' : null;
     }
   }
   const text = compose(parsed.event, ctx);

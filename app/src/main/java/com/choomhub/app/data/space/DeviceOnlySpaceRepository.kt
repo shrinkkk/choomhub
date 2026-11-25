@@ -18,4 +18,5 @@ class DeviceOnlySpaceRepository @Inject constructor() : SpaceRepository {
     override suspend fun startSpace() = unavailable
     override suspend fun joinSpace(code: String) = unavailable
     override suspend fun refreshInvite() = unavailable
+    override suspend fun leaveSpace() = unavailable
 }

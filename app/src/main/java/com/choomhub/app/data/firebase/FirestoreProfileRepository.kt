@@ -3,8 +3,8 @@ package com.choomhub.app.data.firebase
 import com.choomhub.app.domain.model.CoupleNames
 import com.choomhub.app.domain.model.PointsRole
 import com.choomhub.app.domain.model.SpaceState
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.ProfileRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.firestore.FieldValue
@@ -34,7 +34,7 @@ class FirestoreProfileRepository @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeNames(): Flow<CoupleNames> = spaceRepository.observeSpace().flatMapLatest { space ->
         val coupleId = space.coupleIdOrNull
-        val me = space.accountOrNull?.uid
+        val me = space.memberIdOrNull
         if (coupleId == null || me == null) return@flatMapLatest flowOf(CoupleNames(partnerName = null, myName = null))
         val mine = namesDoc(coupleId, me).observe().map { it?.getString(FIELD) }
         val theirs = if (space is SpaceState.Paired) {
@@ -53,7 +53,7 @@ class FirestoreProfileRepository @Inject constructor(
     override suspend fun setMyRole(role: PointsRole): Boolean {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return false
-        val me = space.accountOrNull?.uid ?: return false
+        val me = space.memberIdOrNull ?: return false
         val current = runCatching { rolesDoc(coupleId).get().await() }.getOrNull()
         val next = claimRole(me, role, current?.getString(GOOD_BOY), current?.getString(GOOD_GIRL)) ?: return false
         rolesDoc(coupleId).set(
@@ -65,7 +65,7 @@ class FirestoreProfileRepository @Inject constructor(
     override suspend fun setPartnerName(name: String) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         // Not awaited: Firestore applies it locally at once and syncs when online.
         namesDoc(coupleId, me).set(mapOf(FIELD to name, "updatedAt" to FieldValue.serverTimestamp()))
     }

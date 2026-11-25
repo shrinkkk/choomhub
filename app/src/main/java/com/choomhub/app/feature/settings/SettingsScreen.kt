@@ -52,6 +52,7 @@ import com.choomhub.app.core.designsystem.component.CardTone
 import com.choomhub.app.core.designsystem.component.ChoomHubCard
 import com.choomhub.app.core.designsystem.component.ChoomHubTextField
 import com.choomhub.app.core.designsystem.component.PillBadge
+import com.choomhub.app.core.designsystem.component.InkTypeToConfirmDialog
 import com.choomhub.app.core.designsystem.component.SectionHeader
 import com.choomhub.app.core.designsystem.illustration.GothicMotif
 import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
@@ -78,6 +79,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}, 
     val names by viewModel.names.collectAsStateWithLifecycle()
     val space by viewModel.space.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
+    val leave by viewModel.leave.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Whether this phone lets the app post notifications; re-checked whenever you come back.
@@ -116,6 +118,9 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}, 
         onCategoryToggle = viewModel::setNotificationsEnabled,
         onSendTest = viewModel::sendTestNotification,
         onEditMoods = onEditMoods,
+        leave = leave,
+        onLeave = viewModel::leaveSpace,
+        onLeaveDialogClosed = viewModel::clearLeaveError,
     )
 }
 
@@ -138,10 +143,16 @@ fun SettingsContent(
     onCategoryToggle: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onSendTest: () -> Unit = {},
     onEditMoods: () -> Unit = {},
+    leave: LeaveState = LeaveState.Idle,
+    onLeave: () -> Unit = {},
+    onLeaveDialogClosed: () -> Unit = {},
 ) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
     var renaming by rememberSaveable { mutableStateOf(false) }
+    var confirmingLeave by rememberSaveable { mutableStateOf(false) }
+    // Once you've left, the space is gone from here; close the confirmation.
+    if (confirmingLeave && space !is SpaceState.Waiting && space !is SpaceState.Paired) confirmingLeave = false
 
     Box(Modifier.fillMaxSize().testTag("screen_settings"), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -200,17 +211,31 @@ fun SettingsContent(
                 )
             }
 
+            SettingsGroup("Notifications") {
+                NotificationSettings(
+                    ui = notifications,
+                    canPost = canPostNotifications,
+                    onPermission = onNotificationPermission,
+                    onToggle = onCategoryToggle,
+                    onSendTest = onSendTest,
+                )
+            }
+
             SettingsGroup("Your space") {
                 when (space) {
                     is SpaceState.Waiting -> {
-                        SettingsRow(
-                            title = "Waiting for them to join",
-                            value = "Invite code ${InviteCodes.display(space.inviteCode)} \u00B7 works once, for 48 hours",
-                            badge = "share",
-                            onClick = { onShareCode(space.inviteCode) },
-                            modifier = Modifier.testTag("settings_invite"),
-                        )
-                        SettingsRow("New code", "If the old one expired or got lost", badge = "new", onClick = onNewCode)
+                        if (space.inviteCode.isBlank()) {
+                            SettingsRow("Waiting for them", "Making a new invite code\u2026", badge = "new", onClick = onNewCode, modifier = Modifier.testTag("settings_invite"))
+                        } else {
+                            SettingsRow(
+                                title = "Waiting for them to join",
+                                value = "Invite code ${InviteCodes.display(space.inviteCode)} \u00B7 works once, for 48 hours",
+                                badge = "share",
+                                onClick = { onShareCode(space.inviteCode) },
+                                modifier = Modifier.testTag("settings_invite"),
+                            )
+                            SettingsRow("New code", "If the old one expired or got lost", badge = "new", onClick = onNewCode)
+                        }
                     }
                     is SpaceState.Paired -> SettingsRow("Shared space", "Connected. Everything here syncs between your phones.", badge = "synced", badgeColor = colors.leaf)
                     SpaceState.DeviceOnly, null -> SettingsRow(
@@ -229,19 +254,24 @@ fun SettingsContent(
                         badge = "sign out",
                         badgeColor = colors.textSecondary,
                         onClick = onSignOut,
-                        divider = false,
+                        divider = space !is SpaceState.Waiting && space !is SpaceState.Paired,
                     )
                 }
-            }
-
-            SettingsGroup("Notifications") {
-                NotificationSettings(
-                    ui = notifications,
-                    canPost = canPostNotifications,
-                    onPermission = onNotificationPermission,
-                    onToggle = onCategoryToggle,
-                    onSendTest = onSendTest,
-                )
+                if (space is SpaceState.Waiting || space is SpaceState.Paired) {
+                    SettingsRow(
+                        title = "Leave this space",
+                        value = if (space is SpaceState.Paired) {
+                            "You can come back with a code from ${names.partnerName ?: "them"} and pick up where you left off"
+                        } else {
+                            "You're the only one in it, so leaving deletes everything in it for good"
+                        },
+                        badge = "leave",
+                        badgeColor = colors.tomato,
+                        onClick = { confirmingLeave = true },
+                        divider = false,
+                        modifier = Modifier.testTag("settings_leave"),
+                    )
+                }
             }
 
             SettingsGroup("Appearance") {
@@ -255,6 +285,30 @@ fun SettingsContent(
                 SettingsRow("Fonts", "Cormorant Garamond and Space Mono, SIL Open Font License", divider = false)
             }
             Spacer(Modifier.height(spacing.lg))
+        }
+    }
+    if (confirmingLeave) {
+        val partner = names.partnerName ?: "them"
+        val close = {
+            confirmingLeave = false
+            onLeaveDialogClosed()
+        }
+        InkTypeToConfirmDialog(
+            title = "Leave this space?",
+            message = if (space is SpaceState.Paired) {
+                "$partner stays, and your points and everything else wait here. Rejoin with a code from $partner (any Google account) to pick up where you left off. If you both leave, it's all deleted for good."
+            } else {
+                "You're the only one in it, so everything in it (snaps, points, the cat) is deleted for good."
+            },
+            phrase = "I hate $partner",
+            confirm = "Leave",
+            onConfirm = onLeave,
+            onDismissRequest = { if (leave != LeaveState.Leaving) close() },
+            busy = leave == LeaveState.Leaving,
+            error = (leave as? LeaveState.Failed)?.message,
+            modifier = Modifier.testTag("leave_dialog"),
+        ) {
+            GothicMotifArt(GothicMotif.SkeletonKey, Modifier.size(72.dp))
         }
     }
 }

@@ -84,4 +84,13 @@ class SettingsViewModelTest {
         assertEquals(1, notifier.forgotten)
         assertEquals(SpaceState.SignedOut, space.space.value)
     }
+
+    @Test
+    fun `leaving the space goes through the repository and reports failures`() = runTest {
+        val vm = vm()
+        vm.leaveSpace()
+        assertEquals(1, space.leaves)
+        assertEquals(LeaveState.Idle, vm.leave.value)
+        assertTrue(space.space.value is SpaceState.NoSpace)
+    }
 }

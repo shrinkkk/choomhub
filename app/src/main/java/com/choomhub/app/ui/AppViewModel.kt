@@ -28,7 +28,7 @@ enum class AppGate { Loading, SignIn, Pairing, Onboarding, Main }
 /** Decides between sign-in, pairing, first-run naming and the main app. */
 @HiltViewModel
 class AppViewModel @Inject constructor(
-    spaceRepository: SpaceRepository,
+    private val spaceRepository: SpaceRepository,
     profileRepository: ProfileRepository,
     notifier: Notifier,
     private val store: DataStore<Preferences>,
@@ -36,6 +36,19 @@ class AppViewModel @Inject constructor(
 
     val gate: StateFlow<AppGate> = combine(spaceRepository.observeSpace(), profileRepository.observeNames(), ::gateFor)
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppGate.Loading)
+
+    init {
+        // When your partner leaves, their code goes with them: make a fresh one for them to come
+        // back with (once per space while this app is open; Settings has "New code" too).
+        val tried = mutableSetOf<String>()
+        viewModelScope.launch {
+            spaceRepository.observeSpace().collect { space ->
+                if (space is SpaceState.Waiting && space.inviteCode.isBlank() && tried.add(space.coupleId)) {
+                    spaceRepository.refreshInvite()
+                }
+            }
+        }
+    }
 
     /**
      * True once, on reaching the main app, if this build can send pushes and

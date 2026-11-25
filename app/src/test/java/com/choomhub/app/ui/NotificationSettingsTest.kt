@@ -9,6 +9,10 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
@@ -131,9 +135,28 @@ class NotificationSettingsTest {
         assertEquals(1, fakeNotifier.forgotten)
     }
 
+    /** A dialog with a text field only settles in Robolectric without size qualifiers. */
+    @Test
+    @Config(qualifiers = "xxhdpi")
+    fun leavingTheSpaceNeedsThePhraseTypedOut() {
+        openSettings()
+        composeRule.onNodeWithTag("settings_leave").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("dialog_confirm").assertIsNotEnabled()
+        composeRule.onNodeWithTag("dialog_phrase").performTextInput("I hate")
+        composeRule.onNodeWithTag("dialog_confirm").assertIsNotEnabled()
+        composeRule.onNodeWithTag("dialog_phrase").performTextInput(" wren")
+        composeRule.onNodeWithTag("dialog_confirm").assertIsEnabled()
+        val dialog = composeRule.onNode(isDialog()).captureToImage().asAndroidBitmap()
+        File(screenshotDir(), "phone_settings_leave.png").outputStream().use { dialog.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        composeRule.onNodeWithTag("dialog_confirm").performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, spaces.leaves)
+    }
+
     /** Writes the section to app/build/outputs/screenshots/ for review. */
     @Test
-    @Config(qualifiers = "w411dp-h1600dp-xxhdpi")
+    @Config(qualifiers = "w411dp-h2200dp-xxhdpi")
     fun captureSettings() {
         openSettings()
         val bitmap = composeRule.onRoot().captureToImage().asAndroidBitmap()

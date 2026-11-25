@@ -21,6 +21,13 @@ interface SpaceRepository {
 
     /** Replaces the invite code while you're still waiting (e.g. it expired). */
     suspend fun refreshInvite(): Result<Unit>
+
+    /**
+     * Leaves the space. If your partner is still in it, your place is kept and you can come back
+     * with a code from them (on any Google account) and carry on where you were. If you're the
+     * last one in it, everything in the space is deleted for good.
+     */
+    suspend fun leaveSpace(): Result<Unit>
 }
 
 /** A failure the person can understand and act on. */

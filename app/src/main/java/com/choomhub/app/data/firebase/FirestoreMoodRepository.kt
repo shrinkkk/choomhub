@@ -5,8 +5,8 @@ import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.MoodUpdate
 import com.choomhub.app.domain.model.SpaceState
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.MoodRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.firestore.DocumentSnapshot
@@ -32,7 +32,7 @@ class FirestoreMoodRepository @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeMoods(): Flow<CoupleMoods> = spaceRepository.observeSpace().flatMapLatest { space ->
         val coupleId = space.coupleIdOrNull
-        val me = space.accountOrNull?.uid
+        val me = space.memberIdOrNull
         if (coupleId == null || me == null) return@flatMapLatest flowOf(CoupleMoods(null, null))
         val partner = (space as? SpaceState.Paired)?.partnerUid
         val partnerFlow = if (partner == null) flowOf(null) else moodDoc(coupleId, partner).observe().map(::moodFrom)
@@ -42,7 +42,7 @@ class FirestoreMoodRepository @Inject constructor(
     override suspend fun setMood(mood: MoodOption, note: String?) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         // The label travels with the mood, so it still reads right if the list changes later.
         // Not awaited: the cache updates at once and the write syncs when it can.
         moodDoc(coupleId, me).set(
@@ -59,7 +59,7 @@ class FirestoreMoodRepository @Inject constructor(
     override suspend fun setOptions(options: List<MoodOption>) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         optionsDoc(coupleId).set(
             mapOf(
                 "options" to options.map { mapOf("key" to it.key, "label" to it.label) },

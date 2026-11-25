@@ -15,7 +15,13 @@ const toFields = (obj) =>
   Object.fromEntries(
     Object.entries(obj).map(([k, v]) => [
       k,
-      Array.isArray(v) ? { arrayValue: { values: v.map((s) => ({ stringValue: s })) } } : typeof v === 'boolean' ? { booleanValue: v } : { stringValue: v },
+      Array.isArray(v)
+        ? { arrayValue: { values: v.map((s) => ({ stringValue: s })) } }
+        : typeof v === 'boolean'
+          ? { booleanValue: v }
+          : typeof v === 'object'
+            ? { mapValue: { fields: toFields(v) } }
+            : { stringValue: v },
     ]),
   );
 
@@ -168,4 +174,21 @@ test('bad tokens, bad bodies and other paths are refused', async () => {
   const other = await handle(new Request('https://push.example/admin', { method: 'POST' }), {}, deps);
   assert.equal(other.status, 404);
   assert.equal(sent.length, 0);
+});
+
+test('someone who left and came back on another account is still found under their old id', async () => {
+  // Bob left and rejoined as bob2; his things stay filed under "bob".
+  await put('couples/c1', { members: ['alice', 'bob2'], ids: { bob2: 'bob' } });
+  await put('users/bob2', { coupleId: 'c1' });
+  await put('users/bob2/devices/newPhone', { platform: 'android' });
+  await put('couples/c1/shared/roles', { goodBoy: 'alice', goodGirl: 'bob' });
+  await notify('alice', { event: 'points', kind: '3' });
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].fid, 'newPhone');
+  assert.equal(sent[0].notification.title, 'Shri awarded you 3 Good Girl points');
+  sent = [];
+  await notify('bob2', { event: 'renamed' });
+  assert.equal(sent[0].fid, 'alicePhone');
+  assert.equal(sent[0].notification.title.startsWith('Raven'), true);
+  assert.equal(sent[0].notification.body, 'You\'re "Shri" to them now.');
 });

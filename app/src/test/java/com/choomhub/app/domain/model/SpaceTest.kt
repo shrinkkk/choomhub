@@ -32,6 +32,27 @@ class SpaceTest {
     }
 
     @Test
+    fun `someone who came back on another account is known by their old member id`() {
+        // "her" left and rejoined as "her2"; I'm on my original account.
+        val ids = mapOf("her2" to "her")
+        assertEquals(SpaceState.Paired(me, "c1", "her", memberId = "me"), spaceStateFrom(me, "c1", listOf("me", "her2"), "", ids))
+        // I'm the one who came back.
+        val newMe = Account("me2", null)
+        val mine = spaceStateFrom(newMe, "c1", listOf("her", "me2"), "", mapOf("me2" to "me"))
+        assertEquals(SpaceState.Paired(newMe, "c1", "her", memberId = "me"), mine)
+        assertEquals("me", mine.memberIdOrNull)
+        // Alone after they left: waiting, with no code until a fresh one is made.
+        assertEquals(SpaceState.Waiting(me, "c1", ""), spaceStateFrom(me, "c1", listOf("me"), ""))
+    }
+
+    @Test
+    fun `the leave phrase must be typed out`() {
+        assertTrue(com.choomhub.app.core.designsystem.component.typedPhraseMatches("i  hate jas ", "I hate Jas"))
+        assertFalse(com.choomhub.app.core.designsystem.component.typedPhraseMatches("I hate", "I hate Jas"))
+        assertFalse(com.choomhub.app.core.designsystem.component.typedPhraseMatches("", ""))
+    }
+
+    @Test
     fun `roles follow the first pick and can't be stolen`() {
         val repo = com.choomhub.app.data.firebase.FirestoreProfileRepository
         assertEquals(PointsRole.GoodBoy to false, repo.rolesFor("me", "me", null))

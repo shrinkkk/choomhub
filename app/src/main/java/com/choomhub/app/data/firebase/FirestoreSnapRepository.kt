@@ -6,8 +6,8 @@ import com.choomhub.app.domain.model.SnapInfo
 import com.choomhub.app.domain.model.SnapRules
 import com.choomhub.app.domain.model.SnapSendResult
 import com.choomhub.app.domain.model.SpaceState
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.SnapRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.firestore.Blob
@@ -49,7 +49,7 @@ class FirestoreSnapRepository @Inject constructor(
     private fun <T> inSpace(empty: T, block: (coupleId: String, me: String) -> Flow<T>): Flow<T> =
         spaceRepository.observeSpace().flatMapLatest { space ->
             val coupleId = space.coupleIdOrNull
-            val me = space.accountOrNull?.uid
+            val me = space.memberIdOrNull
             if (coupleId == null || me == null) flowOf(empty) else block(coupleId, me)
         }
 
@@ -70,7 +70,7 @@ class FirestoreSnapRepository @Inject constructor(
         val space = spaceRepository.observeSpace().first()
         if (space !is SpaceState.Paired) return SnapSendResult.NotSent(NOT_PAIRED)
         val coupleId = space.coupleId
-        val me = space.account.uid
+        val me = space.memberId
         // Your previous snaps that nobody kept are removed once the new one is written.
         val previous = runCatching {
             snaps(coupleId).whereEqualTo("from", me).whereEqualTo("kept", false).get(Source.CACHE).await().documents
@@ -130,7 +130,7 @@ class FirestoreSnapRepository @Inject constructor(
     override suspend fun createCollection(name: String): String? {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return null
-        val me = space.accountOrNull?.uid ?: return null
+        val me = space.memberIdOrNull ?: return null
         val ref = couple(coupleId).collection("collections").document()
         ref.set(mapOf("name" to name, "createdBy" to me, "createdAt" to FieldValue.serverTimestamp()))
         return ref.id
@@ -139,7 +139,7 @@ class FirestoreSnapRepository @Inject constructor(
     override suspend fun react(snapId: String, reaction: String?) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         snaps(coupleId).document(snapId).update("reactions.$me", reaction ?: FieldValue.delete())
     }
 
@@ -161,7 +161,7 @@ class FirestoreSnapRepository @Inject constructor(
     override suspend fun removeFromCollection(snap: SnapInfo, collectionId: String) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         val remaining = snap.collections - collectionId
         snaps(coupleId).document(snap.id).update(mapOf("collections" to remaining, "kept" to remaining.isNotEmpty()))
         if (remaining.isEmpty() && !SnapRules.isCurrent(snap, recent(coupleId, me))) deleteForGood(coupleId, listOf(snap.id))
@@ -170,7 +170,7 @@ class FirestoreSnapRepository @Inject constructor(
     override suspend fun deleteCollection(collectionId: String) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         val inIt = runCatching { snaps(coupleId).whereArrayContains("collections", collectionId).get().await().documents }
             .getOrDefault(emptyList())
             .mapNotNull { snapFrom(it, me) }

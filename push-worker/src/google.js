@@ -99,6 +99,8 @@ export const field = {
   string: (fields, name) => (fields && typeof fields[name]?.stringValue === 'string' ? fields[name].stringValue : null),
   bool: (fields, name) => (fields && typeof fields[name]?.booleanValue === 'boolean' ? fields[name].booleanValue : null),
   strings: (fields, name) => (fields?.[name]?.arrayValue?.values ?? []).map((v) => v.stringValue).filter((v) => typeof v === 'string'),
+  /** A map of strings, e.g. couples/{id}.ids. */
+  stringMap: (fields, name) => Object.fromEntries(Object.entries(fields?.[name]?.mapValue?.fields ?? {}).filter(([, v]) => typeof v?.stringValue === 'string').map(([k, v]) => [k, v.stringValue])),
 };
 
 /**

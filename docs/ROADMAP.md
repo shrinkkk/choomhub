@@ -47,6 +47,7 @@ The order after Milestone 1 is a proposal; it will change as we go.
 - ✅ Firebase (Spark, free) wired from `local.properties`; device-only mode without it
 - ✅ Google sign-in (Credential Manager)
 - ✅ Start a space / join with a single-use, 48-hour invite code; at most two people
+- ✅ Leave a space from Settings (type "I hate *name*" to confirm); come back with a new code on any Google account and keep everything; the last one out deletes it all
 - ✅ Names and meetup synced through Firestore (offline cache, queued writes)
 - ✅ Security rules + emulator tests (28 cases now)
 - ⬜ Verified on real devices (sign-in, start space, join from a second account/emulator)

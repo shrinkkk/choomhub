@@ -7,7 +7,9 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  addDoc,
   arrayUnion,
+  deleteField,
   Bytes,
   collection,
   deleteDoc,
@@ -450,5 +452,124 @@ describe('push registrations and notification settings', () => {
     await assertFails(getDoc(doc(db('bob'), 'users/alice/settings/notifications')));
     await assertFails(setDoc(doc(db('bob'), 'users/alice/settings/notifications'), { meetup: true, updatedAt: serverTimestamp() }));
     await assertFails(setDoc(doc(db('alice'), 'users/alice/settings/other'), { meetup: true, updatedAt: serverTimestamp() }));
+  });
+});
+
+describe('leaving and coming back', () => {
+  async function paired() {
+    await startSpace();
+    await assertSucceeds(joinBatch('bob').commit());
+  }
+
+  function leaveBatch(uid, memberId = uid) {
+    const fs = db(uid);
+    const batch = writeBatch(fs);
+    batch.update(doc(fs, 'couples', 'c1'), { members: ['alice', 'bob'].filter((m) => m !== uid), vacancy: memberId, inviteCode: '' });
+    batch.set(doc(fs, 'users', uid), { coupleId: null, updatedAt: serverTimestamp() });
+    return batch;
+  }
+
+  /** Alice (still in) makes a fresh code that carries Bob's kept place. */
+  async function newCode(code = 'MOTH2345', vacancy = 'bob') {
+    const fs = db('alice');
+    const batch = writeBatch(fs);
+    batch.set(doc(fs, 'invites', code), {
+      coupleId: 'c1', createdBy: 'alice', usedBy: null, vacancy, expiresAt: Timestamp.fromMillis(Date.now() + 48 * HOURS),
+    });
+    batch.update(doc(fs, 'couples', 'c1'), { inviteCode: code });
+    await assertSucceeds(batch.commit());
+  }
+
+  function rejoinBatch(uid, code = 'MOTH2345', vacancy = 'bob') {
+    const fs = db(uid);
+    const batch = writeBatch(fs);
+    batch.update(doc(fs, 'invites', code), { usedBy: uid });
+    batch.update(doc(fs, 'couples', 'c1'), { members: arrayUnion(uid), [`ids.${uid}`]: vacancy, vacancy: deleteField() });
+    batch.set(doc(fs, 'users', uid), { coupleId: 'c1', updatedAt: serverTimestamp() });
+    return batch;
+  }
+
+  test('a member can leave while the other stays, and loses access', async () => {
+    await paired();
+    await assertSucceeds(leaveBatch('bob').commit());
+    await assertFails(getDoc(doc(db('bob'), 'couples', 'c1')));
+    await assertSucceeds(getDoc(doc(db('alice'), 'couples', 'c1')));
+  });
+
+  test('you cannot leave someone else out, or keep a place that is not yours', async () => {
+    await paired();
+    const fs = db('alice');
+    await assertFails(updateDoc(doc(fs, 'couples', 'c1'), { members: ['alice'], vacancy: 'bob', inviteCode: '' }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples', 'c1'), { members: ['alice'], vacancy: 'alice', inviteCode: '' }));
+  });
+
+  test('coming back on a different account takes over the old place and keeps its points', async () => {
+    await paired();
+    await assertSucceeds(addDoc(collection(db('alice'), 'couples', 'c1', 'points'), { from: 'alice', to: 'bob', amount: 5, reason: null, at: serverTimestamp() }));
+    await assertSucceeds(leaveBatch('bob').commit());
+    await newCode();
+    await assertSucceeds(rejoinBatch('bob2').commit());
+    const couple = (await assertSucceeds(getDoc(doc(db('bob2'), 'couples', 'c1')))).data();
+    if (couple.ids.bob2 !== 'bob' || 'vacancy' in couple) throw new Error('place not taken over');
+    // Bob's old points are readable and he acts as "bob" from his new account.
+    await assertSucceeds(getDocs(collection(db('bob2'), 'couples', 'c1', 'points')));
+    await assertSucceeds(addDoc(collection(db('bob2'), 'couples', 'c1', 'points'), { from: 'bob', to: 'alice', amount: 2, reason: null, at: serverTimestamp() }));
+    await assertFails(addDoc(collection(db('bob2'), 'couples', 'c1', 'points'), { from: 'bob2', to: 'alice', amount: 2, reason: null, at: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(db('bob2'), 'couples', 'c1', 'moods', 'bob'), { mood: 'ok', label: 'Okay', note: null, updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('bob2'), 'couples', 'c1', 'moods', 'bob2'), { mood: 'ok', label: 'Okay', note: null, updatedAt: serverTimestamp() }));
+    // Alice can still award points to him under his old id.
+    await assertSucceeds(addDoc(collection(db('alice'), 'couples', 'c1', 'points'), { from: 'alice', to: 'bob', amount: 1, reason: null, at: serverTimestamp() }));
+  });
+
+  test('coming back cannot claim a place other than the one that was kept', async () => {
+    await paired();
+    await assertSucceeds(leaveBatch('bob').commit());
+    await newCode();
+    await assertFails(rejoinBatch('mallory', 'MOTH2345', 'alice').commit());
+  });
+
+  test('a code made after someone left must carry their place', async () => {
+    await paired();
+    await assertSucceeds(leaveBatch('bob').commit());
+    const fs = db('alice');
+    const batch = writeBatch(fs);
+    batch.set(doc(fs, 'invites', 'MOTH2345'), { coupleId: 'c1', createdBy: 'alice', usedBy: null, expiresAt: Timestamp.fromMillis(Date.now() + HOURS) });
+    batch.update(doc(fs, 'couples', 'c1'), { inviteCode: 'MOTH2345' });
+    await assertFails(batch.commit());
+  });
+
+  test('a plain join is refused while a place is kept', async () => {
+    await paired();
+    await assertSucceeds(leaveBatch('bob').commit());
+    await newCode();
+    await assertFails(joinBatch('carol', 'MOTH2345').commit());
+  });
+
+  test('the last one out can delete everything, but only after marking it closing', async () => {
+    await paired();
+    await assertSucceeds(addDoc(collection(db('alice'), 'couples', 'c1', 'gestures'), { kind: 'hug', from: 'alice', sentAt: serverTimestamp() }));
+    const points = await assertSucceeds(addDoc(collection(db('alice'), 'couples', 'c1', 'points'), { from: 'alice', to: 'bob', amount: 5, reason: null, at: serverTimestamp() }));
+    // Not while both are in.
+    await assertFails(updateDoc(doc(db('alice'), 'couples', 'c1'), { closing: true }));
+    await assertFails(deleteDoc(points));
+    await assertSucceeds(leaveBatch('bob').commit());
+    await assertFails(deleteDoc(doc(db('alice'), 'couples', 'c1', 'points', points.id)));
+    await assertSucceeds(updateDoc(doc(db('alice'), 'couples', 'c1'), { closing: true }));
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'couples', 'c1', 'points', points.id)));
+    const gestures = await getDocs(collection(db('alice'), 'couples', 'c1', 'gestures'));
+    for (const g of gestures.docs) await assertSucceeds(deleteDoc(g.ref));
+    // The one who left can't touch it.
+    await assertFails(deleteDoc(doc(db('bob'), 'couples', 'c1')));
+    const fs = db('alice');
+    const batch = writeBatch(fs);
+    batch.delete(doc(fs, 'couples', 'c1'));
+    batch.set(doc(fs, 'users', 'alice'), { coupleId: null, updatedAt: serverTimestamp() });
+    await assertSucceeds(batch.commit());
+  });
+
+  test('someone alone in a space can close it straight away', async () => {
+    await startSpace();
+    await assertSucceeds(updateDoc(doc(db('alice'), 'couples', 'c1'), { closing: true }));
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'couples', 'c1')));
   });
 });

@@ -5,8 +5,12 @@ rules_version = '2';
 //   users/{uid}                        -> { coupleId }               private pointer to your space
 //   users/{uid}/devices/{fid}          -> { platform, updatedAt }    phones registered for pushes (id = FCM installation id)
 //   users/{uid}/settings/notifications -> { gestures, snaps, points, moods, meetup, space, focus, updatedAt } which notifications you want
-//   couples/{coupleId}                 -> { members, createdBy, createdAt, inviteCode }
-//   invites/{code}                     -> { coupleId, createdBy, expiresAt, usedBy }
+//   couples/{coupleId}                 -> { members, createdBy, createdAt, inviteCode, ids?, vacancy?, closing? }
+//       members are account uids; everything below is filed under member ids: ids[uid] if set
+//       (someone who left and came back on another account), else the uid. vacancy is the member
+//       id of whoever left, kept for them to come back to; closing is set while the last one out
+//       deletes everything.
+//   invites/{code}                     -> { coupleId, createdBy, expiresAt, usedBy, vacancy? }
 //   couples/{coupleId}/names/{namerId} -> { nameForPartner, updatedAt }  the name namerId gives the other
 //   couples/{coupleId}/shared/meetup   -> { at, updatedBy, updatedAt }
 //   couples/{coupleId}/shared/roles    -> { goodBoy, goodGirl, updatedAt }   uids; who receives which points
@@ -34,19 +38,19 @@ service cloud.firestore {
     function isMember(coupleId) {
       return signedIn() && exists(couplePath(coupleId)) && me() in get(couplePath(coupleId)).data.members;
     }
-    // A role slot may become me, stay as it was, or be cleared only if it was me.
-    function slotOk(next, prev) {
-      return next == me() || next == prev || (next == null && prev == me());
+    // A role slot may become me, stay as it was, or be cleared only if it was me ([s] is my member id).
+    function slotOk(next, prev, s) {
+      return next == s || next == prev || (next == null && prev == s);
     }
-    function rolesWriteOk(old, new) {
+    function rolesWriteOk(old, new, s) {
       let nb = new.get('goodBoy', null);
       let ng = new.get('goodGirl', null);
       let ob = old.get('goodBoy', null);
       let og = old.get('goodGirl', null);
-      return (nb == me()) != (ng == me())
-        && slotOk(nb, ob) && slotOk(ng, og)
-        && (nb != me() || ob == null || ob == me())
-        && (ng != me() || og == null || og == me());
+      return (nb == s) != (ng == s)
+        && slotOk(nb, ob, s) && slotOk(ng, og, s)
+        && (nb != s || ob == null || ob == s)
+        && (ng != s || og == null || og == s);
     }
     function onlyChanged(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
@@ -90,6 +94,18 @@ service cloud.firestore {
     match /couples/{coupleId} {
       allow get: if isMember(coupleId);
 
+      function coupleData() { return get(couplePath(coupleId)).data; }
+      // Who I am in this space: the account I first joined with (see ids above).
+      function self() { return coupleData().get('ids', {}).get(me(), me()); }
+      // The member ids of whoever is in the space now.
+      function memberIds() {
+        let c = coupleData();
+        let ids = c.get('ids', {});
+        return c.members.size() == 1
+          ? [ids.get(c.members[0], c.members[0])]
+          : [ids.get(c.members[0], c.members[0]), ids.get(c.members[1], c.members[1])];
+      }
+
       // Start a space with only yourself in it; the invite is created in the same batch.
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['members', 'createdBy', 'createdAt', 'inviteCode'])
@@ -98,18 +114,61 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && getAfter(invitePath(request.resource.data.inviteCode)).data.coupleId == coupleId;
 
-      allow update: if signedIn() && (isJoin() || isInviteRefresh());
+      allow update: if signedIn() && (isJoin() || isRejoin() || isInviteRefresh() || isLeave() || isClose());
+
+      // Only the last one in it, once it's marked closing (and everything in it deleted).
+      allow delete: if signedIn() && resource.data.members == [me()] && resource.data.get('closing', false) == true;
 
       // The second person adds themself, consuming the invite in the same batch.
       function isJoin() {
         return resource.data.members.size() == 1
+          && resource.data.get('vacancy', null) == null
           && !(me() in resource.data.members)
           && request.resource.data.members == resource.data.members.concat([me()])
           && onlyChanged(['members'])
           && getAfter(invitePath(resource.data.inviteCode)).data.usedBy == me();
       }
 
-      // While still alone, the creator can swap in a fresh invite (e.g. the old one expired).
+      // Coming back after leaving, on any account: you take over the place that was kept.
+      function isRejoin() {
+        let ids = request.resource.data.get('ids', {});
+        return resource.data.members.size() == 1
+          && resource.data.get('vacancy', null) != null
+          && !(me() in resource.data.members)
+          && request.resource.data.members == resource.data.members.concat([me()])
+          && ids.diff(resource.data.get('ids', {})).affectedKeys().hasOnly([me()])
+          && ids.get(me(), null) == resource.data.vacancy
+          && !('vacancy' in request.resource.data)
+          && onlyChanged(['members', 'ids', 'vacancy'])
+          && getAfter(invitePath(resource.data.inviteCode)).data.usedBy == me();
+      }
+
+      // Leaving while your partner stays: your place (member id) is kept for you, and the used
+      // code is cleared so their phone makes a fresh one.
+      function isLeave() {
+        return resource.data.members.size() == 2
+          && me() in resource.data.members
+          && request.resource.data.members == resource.data.members.removeAll([me()])
+          && request.resource.data.vacancy == resource.data.get('ids', {}).get(me(), me())
+          && request.resource.data.inviteCode == ''
+          && onlyChanged(['members', 'vacancy', 'inviteCode']);
+      }
+
+      // The last one out marks it closing, then deletes everything in it.
+      function isClose() {
+        return resource.data.members == [me()]
+          && onlyChanged(['closing'])
+          && request.resource.data.closing == true;
+      }
+
+      // Everything in a closing space can be deleted by its last member.
+      match /{document=**} {
+        allow delete: if isMember(coupleId)
+          && coupleData().get('closing', false) == true
+          && coupleData().members == [me()];
+      }
+
+      // While alone, you can swap in a fresh invite (e.g. the old one expired or your partner left).
       function isInviteRefresh() {
         return resource.data.members == [me()]
           && onlyChanged(['inviteCode'])
@@ -118,7 +177,7 @@ service cloud.firestore {
 
       match /names/{namerId} {
         allow read: if isMember(coupleId);
-        allow create, update: if isMember(coupleId) && me() == namerId
+        allow create, update: if isMember(coupleId) && self() == namerId
           && request.resource.data.keys().hasOnly(['nameForPartner', 'updatedAt'])
           && request.resource.data.nameForPartner is string
           && request.resource.data.nameForPartner.size() > 0
@@ -133,13 +192,13 @@ service cloud.firestore {
         allow create, update: if isMember(coupleId)
           && request.resource.data.keys().hasOnly(['goodBoy', 'goodGirl', 'updatedAt'])
           && request.resource.data.updatedAt == request.time
-          && rolesWriteOk(resource == null ? {} : resource.data, request.resource.data);
+          && rolesWriteOk(resource == null ? {} : resource.data, request.resource.data, self());
       }
 
       // Your own mood only: a key and label from the mood list, a short optional note.
       match /moods/{uid} {
         allow read: if isMember(coupleId);
-        allow create, update: if isMember(coupleId) && me() == uid
+        allow create, update: if isMember(coupleId) && self() == uid
           && request.resource.data.keys().hasOnly(['mood', 'label', 'note', 'updatedAt'])
           && request.resource.data.mood is string
           && request.resource.data.mood.size() > 0 && request.resource.data.mood.size() <= 40
@@ -156,7 +215,7 @@ service cloud.firestore {
         allow create: if isMember(coupleId)
           && request.resource.data.keys().hasOnly(['kind', 'from', 'sentAt'])
           && request.resource.data.kind in ['hug', 'forehead_kiss', 'head_pats', 'tomato']
-          && request.resource.data.from == me()
+          && request.resource.data.from == self()
           && request.resource.data.sentAt == request.time;
       }
 
@@ -169,7 +228,7 @@ service cloud.firestore {
         allow read: if isMember(coupleId);
         allow create: if isMember(coupleId)
           && request.resource.data.keys().hasOnly(['from', 'caption', 'sentAt', 'width', 'height', 'thumb', 'collections', 'kept'])
-          && request.resource.data.from == me()
+          && request.resource.data.from == self()
           && request.resource.data.sentAt == request.time
           && (request.resource.data.caption == null
               || (request.resource.data.caption is string && request.resource.data.caption.size() <= 140))
@@ -190,8 +249,8 @@ service cloud.firestore {
           let after = request.resource.data.reactions;
           return onlyChanged(['reactions'])
             && after is map
-            && after.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([me()])
-            && (!(me() in after) || after[me()] in ['🖤', '🥺', '😭', '😂', '🔥', '🍅']);
+            && after.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([self()])
+            && (!(self() in after) || after[self()] in ['🖤', '🥺', '😭', '😂', '🔥', '🍅']);
         }
         allow delete: if isMember(coupleId) && resource.data.kept == false;
 
@@ -202,7 +261,7 @@ service cloud.firestore {
             && request.resource.data.keys().hasOnly(['data'])
             && request.resource.data.data is bytes
             && request.resource.data.data.size() <= 900000
-            && getAfter(snapPath()).data.from == me();
+            && getAfter(snapPath()).data.from == self();
           allow delete: if isMember(coupleId) && get(snapPath()).data.kept == false;
         }
       }
@@ -213,9 +272,9 @@ service cloud.firestore {
         allow read: if isMember(coupleId);
         allow create: if isMember(coupleId)
           && request.resource.data.keys().hasOnly(['from', 'to', 'amount', 'reason', 'at'])
-          && request.resource.data.from == me()
+          && request.resource.data.from == self()
           && (
-            (request.resource.data.to != me() && request.resource.data.to in get(couplePath(coupleId)).data.members)
+            (request.resource.data.to != self() && request.resource.data.to in memberIds())
             || focusPoints(coupleId)
           )
           && request.resource.data.amount is int
@@ -232,7 +291,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['name', 'createdBy', 'createdAt'])
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
-          && request.resource.data.createdBy == me()
+          && request.resource.data.createdBy == self()
           && request.resource.data.createdAt == request.time;
         // Rename, or pick the snap shown on top of the stack.
         allow update: if isMember(coupleId)
@@ -249,9 +308,9 @@ service cloud.firestore {
       // Points to yourself only for focus hours: as many as your focus totals count up in
       // the same write.
       function focusPoints(coupleId) {
-        let totals = /databases/$(database)/documents/couples/$(coupleId)/focusTotals/$(me());
+        let totals = /databases/$(database)/documents/couples/$(coupleId)/focusTotals/$(self());
         let before = exists(totals) ? get(totals).data.pointHours : 0;
-        return request.resource.data.to == me()
+        return request.resource.data.to == self()
           && request.resource.data.reason == 'focus hours'
           && request.resource.data.amount > 0
           && getAfter(totals).data.pointHours == before + request.resource.data.amount;
@@ -260,7 +319,7 @@ service cloud.firestore {
       // Focus room: your own session only.
       match /focus/{uid} {
         allow read: if isMember(coupleId);
-        allow create, update: if isMember(coupleId) && me() == uid
+        allow create, update: if isMember(coupleId) && self() == uid
           && request.resource.data.keys().hasOnly(['state', 'bankedMs', 'focusSince', 'breakEndsAt', 'breakMs', 'breakSince', 'startTotalMs', 'updatedAt'])
           && request.resource.data.state in ['away', 'focus', 'break']
           && request.resource.data.bankedMs is int
@@ -277,7 +336,7 @@ service cloud.firestore {
       // whole hours turned into points never exceed the hours focused.
       match /focusTotals/{uid} {
         allow read: if isMember(coupleId);
-        allow create, update: if isMember(coupleId) && me() == uid
+        allow create, update: if isMember(coupleId) && self() == uid
           && request.resource.data.keys().hasOnly(['totalMs', 'weekMs', 'weekStart', 'pointHours'])
           && request.resource.data.totalMs is int && request.resource.data.weekMs is int
           && request.resource.data.pointHours is int
@@ -304,7 +363,7 @@ service cloud.firestore {
           && request.resource.data.url is string
           && request.resource.data.url.size() <= 500
           && request.resource.data.url.matches('^https?://[^ ]+$')
-          && request.resource.data.by == me()
+          && request.resource.data.by == self()
           && request.resource.data.at == request.time;
       }
 
@@ -321,13 +380,13 @@ service cloud.firestore {
           && (request.resource.data.get('name', null) == null
               || (request.resource.data.name is string && request.resource.data.name.size() <= 16))
           && ownOnly('coins') && ownOnly('bond')
-          && request.resource.data.get('coins', {}).get(me(), 0) >= 0;
+          && request.resource.data.get('coins', {}).get(self(), 0) >= 0;
       }
 
       // Only your own entry in a per-person map may change.
       function ownOnly(field) {
         let before = resource == null ? {} : resource.data.get(field, {});
-        return request.resource.data.get(field, {}).diff(before).affectedKeys().hasOnly([me()]);
+        return request.resource.data.get(field, {}).diff(before).affectedKeys().hasOnly([self()]);
       }
 
       match /petDiary/{entry} {
@@ -335,7 +394,7 @@ service cloud.firestore {
         allow create: if isMember(coupleId)
           && request.resource.data.keys().hasOnly(['text', 'at', 'by'])
           && request.resource.data.text is string && request.resource.data.text.size() <= 300
-          && request.resource.data.by == me()
+          && request.resource.data.by == self()
           && request.resource.data.at == request.time;
       }
 
@@ -346,7 +405,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['activity', 'since', 'by'])
           && request.resource.data.activity in ['fish', 'post', 'guitar', 'window']
           && request.resource.data.since is timestamp
-          && request.resource.data.by == me();
+          && request.resource.data.by == self();
       }
 
       match /shared/moodOptions {
@@ -355,7 +414,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['options', 'updatedBy', 'updatedAt'])
           && request.resource.data.options is list
           && request.resource.data.options.size() > 0 && request.resource.data.options.size() <= 40
-          && request.resource.data.updatedBy == me()
+          && request.resource.data.updatedBy == self()
           && request.resource.data.updatedAt == request.time;
       }
 
@@ -364,7 +423,7 @@ service cloud.firestore {
         allow create, update: if isMember(coupleId)
           && request.resource.data.keys().hasOnly(['at', 'updatedBy', 'updatedAt'])
           && (request.resource.data.at == null || request.resource.data.at is timestamp)
-          && request.resource.data.updatedBy == me()
+          && request.resource.data.updatedBy == self()
           && request.resource.data.updatedAt == request.time;
       }
     }
@@ -373,8 +432,9 @@ service cloud.firestore {
     match /invites/{code} {
       allow get: if signedIn();
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['coupleId', 'createdBy', 'expiresAt', 'usedBy'])
+        && request.resource.data.keys().hasOnly(['coupleId', 'createdBy', 'expiresAt', 'usedBy', 'vacancy'])
         && request.resource.data.createdBy == me()
+        && request.resource.data.get('vacancy', null) == getAfter(couplePath(request.resource.data.coupleId)).data.get('vacancy', null)
         && request.resource.data.usedBy == null
         && request.resource.data.expiresAt > request.time
         && request.resource.data.expiresAt < request.time + duration.value(3, 'd')

@@ -3,8 +3,8 @@ package com.choomhub.app.data.firebase
 import com.choomhub.app.domain.model.AwardResult
 import com.choomhub.app.domain.model.PointAward
 import com.choomhub.app.domain.model.SpaceState
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.PointsRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.firestore.DocumentSnapshot
@@ -36,7 +36,7 @@ class FirestorePointsRepository @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeAwards(): Flow<List<PointAward>> = spaceRepository.observeSpace().flatMapLatest { space ->
         val coupleId = space.coupleIdOrNull
-        val me = space.accountOrNull?.uid
+        val me = space.memberIdOrNull
         if (coupleId == null || me == null) return@flatMapLatest flowOf(emptyList())
         ledger(coupleId).orderBy("at", Query.Direction.DESCENDING).observe()
             .map { snap -> snap?.documents.orEmpty().mapNotNull { awardFrom(it, me) } }
@@ -47,7 +47,7 @@ class FirestorePointsRepository @Inject constructor(
         if (space !is SpaceState.Paired) return AwardResult.NotAwarded("They haven't joined your space yet.")
         ledger(space.coupleId).add(
             mapOf(
-                "from" to space.account.uid,
+                "from" to space.memberId,
                 "to" to space.partnerUid,
                 "amount" to amount,
                 "reason" to reason,

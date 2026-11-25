@@ -472,3 +472,25 @@ letters are dropped for now (the owner didn't want them).
   poorly, never at night, at most three a day and four hours apart, under a "Pet House" switch.
   The partner pushes are `pet_named` and `pet_help`.
 
+## ADR-040: Leaving a space, coming back, and the last one out
+
+**Status:** accepted · 2026-11-25
+
+You can leave a space from Settings (Your space → Leave this space), after typing "I hate
+*their name*" in the confirmation.
+
+- **Member ids.** Everything in a space (names, moods, points, roles, focus, snaps, the cat's
+  coins...) is filed under the id of the account each person first joined with. `couples/{id}.ids`
+  maps any later account to that original id; the app (`SpaceState.memberId`), the rules (`self()`)
+  and the push Worker all go through it, so nothing has to be copied or rewritten.
+- **Leaving while your partner stays** removes you from `members`, keeps your place as `vacancy`
+  and clears the used invite code; their phone then makes a fresh code that carries the vacancy.
+  Whoever joins with it, on any Google account, takes over that place (`ids[newUid] = vacancy`), so
+  their points, names and everything else are back as they were. A plain join is refused while a
+  place is kept. Per-account things stay with the account: notification settings and registered
+  phones.
+- **The last one out** (alone in the space, or after the other left) deletes everything: the app
+  marks the space `closing`, deletes every document in it (the rules allow deletes only then, and
+  only by its only member), then the space itself. On the free plan there's no server to do this,
+  so it happens from the phone and needs a connection.
+

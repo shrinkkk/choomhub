@@ -14,11 +14,27 @@ sealed interface SpaceState {
 
     data class NoSpace(val account: Account) : SpaceState
 
-    /** You've started a space and are waiting for your partner to join with [inviteCode]. */
-    data class Waiting(val account: Account, val coupleId: String, val inviteCode: String) : SpaceState
+    /**
+     * You're in a space on your own, waiting for your partner to join (or come back) with
+     * [inviteCode]; blank while a fresh code is being made. [memberId] is who you are in the space.
+     */
+    data class Waiting(val account: Account, val coupleId: String, val inviteCode: String, val memberId: String = account.uid) : SpaceState
 
-    data class Paired(val account: Account, val coupleId: String, val partnerUid: String) : SpaceState
+    /**
+     * Both of you are in. [memberId] and [partnerUid] are member ids: the account each of you first
+     * joined with, which everything in the space is filed under (someone who leaves and comes back
+     * on another Google account keeps their old one).
+     */
+    data class Paired(val account: Account, val coupleId: String, val partnerUid: String, val memberId: String = account.uid) : SpaceState
 }
+
+/** Who you are inside the space (see [SpaceState.Paired.memberId]); null outside one. */
+val SpaceState.memberIdOrNull: String?
+    get() = when (this) {
+        is SpaceState.Waiting -> memberId
+        is SpaceState.Paired -> memberId
+        else -> null
+    }
 
 val SpaceState.coupleIdOrNull: String?
     get() = when (this) {

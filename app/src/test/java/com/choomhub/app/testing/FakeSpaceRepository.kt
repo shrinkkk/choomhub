@@ -26,4 +26,9 @@ class FakeSpaceRepository(initial: SpaceState = SpaceState.DeviceOnly) : SpaceRe
         space.value = SpaceState.Paired(me, "c1", "partner"); return Result.success(Unit)
     }
     override suspend fun refreshInvite(): Result<Unit> = Result.success(Unit)
+    var leaves = 0
+    override suspend fun leaveSpace(): Result<Unit> {
+        leaves++
+        space.value = SpaceState.NoSpace(me); return Result.success(Unit)
+    }
 }

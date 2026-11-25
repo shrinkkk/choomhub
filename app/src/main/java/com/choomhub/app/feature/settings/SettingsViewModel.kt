@@ -30,6 +30,13 @@ sealed interface TestSendState {
     data class Done(val ok: Boolean, val message: String) : TestSendState
 }
 
+/** Leaving the space: idle, in progress, or what went wrong. */
+sealed interface LeaveState {
+    data object Idle : LeaveState
+    data object Leaving : LeaveState
+    data class Failed(val message: String) : LeaveState
+}
+
 data class NotificationsUi(
     val availability: PushAvailability = PushAvailability.DeviceOnly,
     val prefs: NotificationPrefs = NotificationPrefs(),
@@ -70,6 +77,26 @@ class SettingsViewModel @Inject constructor(
 
     fun newInviteCode() {
         viewModelScope.launch { spaceRepository.refreshInvite() }
+    }
+
+    private val _leave = MutableStateFlow<LeaveState>(LeaveState.Idle)
+    val leave: StateFlow<LeaveState> = _leave
+
+    /** Leaves the space (see [SpaceRepository.leaveSpace]). */
+    fun leaveSpace() {
+        if (_leave.value == LeaveState.Leaving) return
+        _leave.value = LeaveState.Leaving
+        viewModelScope.launch {
+            val result = spaceRepository.leaveSpace()
+            _leave.value = result.fold(
+                onSuccess = { LeaveState.Idle },
+                onFailure = { LeaveState.Failed(it.message ?: "Couldn't leave. Try again.") },
+            )
+        }
+    }
+
+    fun clearLeaveError() {
+        if (_leave.value is LeaveState.Failed) _leave.value = LeaveState.Idle
     }
 
     fun signOut() {

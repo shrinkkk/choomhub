@@ -13,8 +13,8 @@ import com.choomhub.app.domain.model.PetRules
 import com.choomhub.app.domain.model.PetState
 import com.choomhub.app.domain.model.PetTrait
 import com.choomhub.app.domain.model.TeamCare
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.PetRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.Timestamp
@@ -55,7 +55,7 @@ class FirestorePetRepository @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observePet(): Flow<PetState> = spaceRepository.observeSpace().flatMapLatest { space ->
         val coupleId = space.coupleIdOrNull
-        val me = space.accountOrNull?.uid
+        val me = space.memberIdOrNull
         if (coupleId == null || me == null) flowOf(PetState(loaded = true)) else cat(coupleId).observe().map { petFrom(it, me) }
     }.distinctUntilChanged()
 
@@ -71,7 +71,7 @@ class FirestorePetRepository @Inject constructor(
 
     private suspend fun ids(): Pair<String, String>? {
         val space = spaceRepository.observeSpace().first()
-        return (space.coupleIdOrNull ?: return null) to (space.accountOrNull?.uid ?: return null)
+        return (space.coupleIdOrNull ?: return null) to (space.memberIdOrNull ?: return null)
     }
 
     override suspend fun proposeName(name: String) {

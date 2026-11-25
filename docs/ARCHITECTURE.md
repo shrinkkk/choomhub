@@ -114,8 +114,10 @@ that must be read without the Firestore SDK).
 | Path | Fields | Who can read / write |
 |---|---|---|
 | `users/{uid}` | `coupleId`, `updatedAt` | only that user; `coupleId` must be a space they're in |
-| `couples/{coupleId}` | `members` (1–2 uids), `createdBy`, `createdAt`, `inviteCode` | members read; created with only yourself; one join; creator can swap the invite while alone |
-| `invites/{code}` | `coupleId`, `createdBy`, `expiresAt` (≤ 3 days, app uses 48 h), `usedBy` | any signed-in user can *get* by code (no listing); consumed once, not by its creator, only together with joining |
+| `couples/{coupleId}` | `members` (1–2 uids), `createdBy`, `createdAt`, `inviteCode`, `ids` ({uid: member id}), `vacancy` (member id of whoever left), `closing` | members read; created with only yourself; one join (or a rejoin into the kept place); whoever is alone can swap the invite; a member can leave (their place is kept); the last one out marks it closing, deletes everything, then the space (ADR-040) |
+| `invites/{code}` | `coupleId`, `createdBy`, `expiresAt` (≤ 3 days, app uses 48 h), `usedBy`, `vacancy` (the kept place, if someone left) | any signed-in user can *get* by code (no listing); consumed once, not by its creator, only together with joining |
+Below, "uid" inside a space means the **member id**: `ids[uid]` if the person came back on another account, else their account uid.
+
 | `couples/{id}/names/{namerUid}` | `nameForPartner` (1–24 chars), `updatedAt` | members read; only `namerUid` writes |
 | `couples/{id}/shared/meetup` | `at` (timestamp or null), `updatedBy`, `updatedAt` | members read/write, signed as themselves |
 | `couples/{id}/shared/roles` | `goodBoy`, `goodGirl` (uids), `updatedAt` | members read; each can only place themself |

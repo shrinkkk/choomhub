@@ -169,3 +169,60 @@ fun InkNameDialog(
         }
     }
 }
+
+/**
+ * A confirmation for something that can't be undone lightly: [confirm] only works once [phrase]
+ * has been typed out (case and extra spaces don't matter). [error] shows under the field.
+ */
+@Composable
+fun InkTypeToConfirmDialog(
+    title: String,
+    message: String,
+    phrase: String,
+    confirm: String,
+    onConfirm: () -> Unit,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    busy: Boolean = false,
+    error: String? = null,
+    art: @Composable () -> Unit,
+) {
+    val colors = ChoomHubTheme.colors
+    val spacing = ChoomHubTheme.spacing
+    var value by rememberSaveable { mutableStateOf("") }
+    val matches = typedPhraseMatches(value, phrase)
+    InkPanel(onDismissRequest, modifier) {
+        InkPanelHeading(title, null, art)
+        Spacer(Modifier.height(spacing.sm))
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(spacing.lg))
+        Text("Type “$phrase” to confirm", style = ChoomHubTextStyles.Handwritten, color = colors.pink, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(spacing.sm))
+        ChoomHubTextField(
+            value = value,
+            onValueChange = { value = it.take(phrase.length + 20) },
+            label = "Type it here",
+            supportingText = error,
+            isError = error != null,
+            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+            onDone = { if (matches && !busy) onConfirm() },
+            modifier = Modifier.fillMaxWidth().testTag("dialog_phrase"),
+        )
+        Spacer(Modifier.height(spacing.lg))
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            ChoomHubPrimaryButton(
+                text = if (busy) "Working on it…" else confirm,
+                onClick = onConfirm,
+                enabled = matches && !busy,
+                modifier = Modifier.fillMaxWidth().testTag("dialog_confirm"),
+            )
+            InkQuietButton("Never mind", onDismissRequest, Modifier.testTag("dialog_dismissive"))
+        }
+    }
+}
+
+/** Whether [typed] is [phrase], ignoring case and spacing. */
+fun typedPhraseMatches(typed: String, phrase: String): Boolean {
+    fun norm(s: String) = s.replace(Regex("\\s+"), " ").trim().lowercase()
+    return norm(typed).isNotEmpty() && norm(typed) == norm(phrase)
+}

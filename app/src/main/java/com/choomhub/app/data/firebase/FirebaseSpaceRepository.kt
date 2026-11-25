@@ -60,7 +60,13 @@ class FirebaseSpaceRepository @Inject constructor() : SpaceRepository {
                         flowOf(SpaceState.NoSpace(account))
                     } else {
                         db.collection(COUPLES).document(coupleId).observe().map { snap ->
-                            spaceStateFrom(account, coupleId, snap?.get("members") as? List<*>, snap?.getString("inviteCode"))
+                            spaceStateFrom(
+                                account,
+                                coupleId,
+                                snap?.get("members") as? List<*>,
+                                snap?.getString("inviteCode"),
+                                snap?.get(IDS) as? Map<*, *>,
+                            )
                         }
                     }
                 }
@@ -133,9 +139,18 @@ class FirebaseSpaceRepository @Inject constructor() : SpaceRepository {
         val expires = invite.getTimestamp("expiresAt")
         if (expires == null || expires.toDate().before(Date())) throw SpaceException("That code has expired. Ask for a new one.")
         val coupleId = invite.getString("coupleId") ?: throw SpaceException("That code is broken. Ask for a new one.")
+        // Coming back to a space someone left: you take over their place (and everything in it),
+        // whichever Google account you're on now.
+        val vacancy = invite.getString(VACANCY)
+        val coupleRef = db.collection(COUPLES).document(coupleId)
+        val joining = if (vacancy != null) {
+            mapOf("members" to FieldValue.arrayUnion(uid), "$IDS.$uid" to vacancy, VACANCY to FieldValue.delete())
+        } else {
+            mapOf("members" to FieldValue.arrayUnion(uid))
+        }
         db.batch()
             .update(inviteRef, "usedBy", uid)
-            .update(db.collection(COUPLES).document(coupleId), "members", FieldValue.arrayUnion(uid))
+            .update(coupleRef, joining)
             .set(db.collection(USERS).document(uid), mapOf("coupleId" to coupleId, "updatedAt" to FieldValue.serverTimestamp()))
             .commit()
             .await()
@@ -147,22 +162,55 @@ class FirebaseSpaceRepository @Inject constructor() : SpaceRepository {
         val coupleId = db.collection(USERS).document(uid).get().await().getString("coupleId")
             ?: throw SpaceException("You don't have a space yet.")
         val code = InviteCodes.generate()
+        // If someone left, the code carries their place so whoever comes back takes it over.
+        val vacancy = db.collection(COUPLES).document(coupleId).get().await().getString(VACANCY)
         db.batch()
-            .set(db.collection(INVITES).document(code), newInvite(coupleId, uid))
+            .set(db.collection(INVITES).document(code), newInvite(coupleId, uid, vacancy))
             .update(db.collection(COUPLES).document(coupleId), "inviteCode", code)
             .commit()
             .await()
         Unit
     }.mapFailure("Couldn't make a new code. Check your connection and try again.")
 
+    override suspend fun leaveSpace(): Result<Unit> = runCatching {
+        val uid = requireUid()
+        val coupleId = try {
+            db.collection(USERS).document(uid).get(Source.SERVER).await().getString("coupleId")
+        } catch (e: FirebaseFirestoreException) {
+            throw SpaceException("You need to be online to leave.")
+        } ?: throw SpaceException("You're not in a space.")
+        val coupleRef = db.collection(COUPLES).document(coupleId)
+        val couple = coupleRef.get(Source.SERVER).await()
+        val members = (couple.get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
+        val meRef = db.collection(USERS).document(uid)
+        val unlink = mapOf("coupleId" to null, "updatedAt" to FieldValue.serverTimestamp())
+        if (members.any { it != uid }) {
+            // They stay; your place is kept for you (points, names, the cat's coins...), and
+            // their phone makes a fresh code for you to come back with.
+            val memberId = (couple.get(IDS) as? Map<*, *>)?.get(uid) as? String ?: uid
+            db.batch()
+                .update(coupleRef, mapOf("members" to FieldValue.arrayRemove(uid), VACANCY to memberId, "inviteCode" to ""))
+                .set(meRef, unlink)
+                .commit()
+                .await()
+        } else {
+            // The last one out: everything in the space is deleted for good.
+            coupleRef.update(CLOSING, true).await()
+            SpaceWipe.deleteEverything(db, coupleRef)
+            db.batch().delete(coupleRef).set(meRef, unlink).commit().await()
+        }
+        Unit
+    }.mapFailure("Couldn't leave. Check your connection and try again.")
+
     private fun requireUid(): String = auth.currentUser?.uid ?: throw SpaceException("Sign in first.")
 
-    private fun newInvite(coupleId: String, uid: String) = mapOf(
-        "coupleId" to coupleId,
-        "createdBy" to uid,
-        "usedBy" to null,
-        "expiresAt" to Timestamp(Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(INVITE_HOURS))),
-    )
+    private fun newInvite(coupleId: String, uid: String, vacancy: String? = null) = buildMap {
+        put("coupleId", coupleId)
+        put("createdBy", uid)
+        put("usedBy", null)
+        put("expiresAt", Timestamp(Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(INVITE_HOURS))))
+        if (vacancy != null) put(VACANCY, vacancy)
+    }
 
     private fun <T> Result<T>.mapFailure(fallback: String): Result<T> =
         recoverCatching { throw if (it is SpaceException) it else SpaceException(fallback) }
@@ -173,14 +221,24 @@ class FirebaseSpaceRepository @Inject constructor() : SpaceRepository {
         const val INVITES = "invites"
         const val INVITE_HOURS = 48L
 
+        /** couples/{id}.ids: {account uid: member id} for anyone who came back on another account. */
+        const val IDS = "ids"
+
+        /** couples/{id}.vacancy: the member id of whoever left, kept for them to come back to. */
+        const val VACANCY = "vacancy"
+
+        /** couples/{id}.closing: set by the last one out while everything is deleted. */
+        const val CLOSING = "closing"
+
         /** Pure mapping from the couple document to a [SpaceState]; unit-tested. */
-        fun spaceStateFrom(account: Account, coupleId: String, members: List<*>?, inviteCode: String?): SpaceState {
+        fun spaceStateFrom(account: Account, coupleId: String, members: List<*>?, inviteCode: String?, ids: Map<*, *>? = null): SpaceState {
             val uids = members?.filterIsInstance<String>().orEmpty()
+            fun memberId(uid: String) = ids?.get(uid) as? String ?: uid
             val partner = uids.firstOrNull { it != account.uid }
             return when {
                 account.uid !in uids -> SpaceState.NoSpace(account)
-                partner != null -> SpaceState.Paired(account, coupleId, partner)
-                else -> SpaceState.Waiting(account, coupleId, inviteCode.orEmpty())
+                partner != null -> SpaceState.Paired(account, coupleId, memberId(partner), memberId(account.uid))
+                else -> SpaceState.Waiting(account, coupleId, inviteCode.orEmpty(), memberId(account.uid))
             }
         }
     }

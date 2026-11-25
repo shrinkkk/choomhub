@@ -12,8 +12,8 @@ import com.choomhub.app.domain.model.FocusState
 import com.choomhub.app.domain.model.FocusTotals
 import com.choomhub.app.domain.model.JamLink
 import com.choomhub.app.domain.model.SpaceState
-import com.choomhub.app.domain.model.accountOrNull
 import com.choomhub.app.domain.model.coupleIdOrNull
+import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.FocusRepository
 import com.choomhub.app.domain.repository.SpaceRepository
 import com.google.firebase.Timestamp
@@ -51,7 +51,7 @@ class FirestoreFocusRepository @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeRoom(): Flow<FocusRoomData> = spaceRepository.observeSpace().flatMapLatest { space ->
         val coupleId = space.coupleIdOrNull
-        val me = space.accountOrNull?.uid
+        val me = space.memberIdOrNull
         if (coupleId == null || me == null) return@flatMapLatest flowOf(FocusRoomData())
         val partner = (space as? SpaceState.Paired)?.partnerUid
         val c = couple(coupleId)
@@ -87,7 +87,7 @@ class FirestoreFocusRepository @Inject constructor(
     override suspend fun apply(change: FocusChange) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         val c = couple(coupleId)
         val s = change.session
         val batch = db.batch()
@@ -133,7 +133,7 @@ class FirestoreFocusRepository @Inject constructor(
     override suspend fun sendCat(outing: CatOuting) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         couple(coupleId).collection("shared").document("cat").set(
             mapOf("activity" to outing.activity.wire, "since" to Timestamp(Date.from(outing.since)), "by" to me),
         )
@@ -142,7 +142,7 @@ class FirestoreFocusRepository @Inject constructor(
     override suspend fun setJam(url: String?) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
-        val me = space.accountOrNull?.uid ?: return
+        val me = space.memberIdOrNull ?: return
         val ref = couple(coupleId).collection("shared").document("jam")
         if (url == null) {
             ref.delete()
