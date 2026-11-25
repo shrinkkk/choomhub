@@ -123,6 +123,7 @@ service cloud.firestore {
       function isJoin() {
         return resource.data.members.size() == 1
           && resource.data.get('vacancy', null) == null
+          && resource.data.get('closing', false) == false
           && !(me() in resource.data.members)
           && request.resource.data.members == resource.data.members.concat([me()])
           && onlyChanged(['members'])
@@ -134,6 +135,7 @@ service cloud.firestore {
         let ids = request.resource.data.get('ids', {});
         return resource.data.members.size() == 1
           && resource.data.get('vacancy', null) != null
+          && resource.data.get('closing', false) == false
           && !(me() in resource.data.members)
           && request.resource.data.members == resource.data.members.concat([me()])
           && ids.diff(resource.data.get('ids', {})).affectedKeys().hasOnly([me()])

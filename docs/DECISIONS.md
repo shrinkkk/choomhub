@@ -492,5 +492,7 @@ You can leave a space from Settings (Your space → Leave this space), after typ
 - **The last one out** (alone in the space, or after the other left) deletes everything: the app
   marks the space `closing`, deletes every document in it (the rules allow deletes only then, and
   only by its only member), then the space itself. On the free plan there's no server to do this,
-  so it happens from the phone and needs a connection.
+  so it happens from the phone and needs a connection. A closing space counts as already left
+  (you go straight to joining or starting one, and nobody can join it); the deleting runs in the
+  background, outside any screen, and is picked up again next time the app opens if it was cut off.
 

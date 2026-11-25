@@ -567,6 +567,12 @@ describe('leaving and coming back', () => {
     await assertSucceeds(batch.commit());
   });
 
+  test('nobody can join a space that is being deleted', async () => {
+    await startSpace();
+    await assertSucceeds(updateDoc(doc(db('alice'), 'couples', 'c1'), { closing: true }));
+    await assertFails(joinBatch('bob').commit());
+  });
+
   test('someone alone in a space can close it straight away', async () => {
     await startSpace();
     await assertSucceeds(updateDoc(doc(db('alice'), 'couples', 'c1'), { closing: true }));

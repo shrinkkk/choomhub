@@ -41,6 +41,8 @@ class SpaceTest {
         val mine = spaceStateFrom(newMe, "c1", listOf("her", "me2"), "", mapOf("me2" to "me"))
         assertEquals(SpaceState.Paired(newMe, "c1", "her", memberId = "me"), mine)
         assertEquals("me", mine.memberIdOrNull)
+        // Being deleted after I left it as the last one in it: I'm already out.
+        assertEquals(SpaceState.NoSpace(me), spaceStateFrom(me, "c1", listOf("me"), "", closing = true))
         // Alone after they left: waiting, with no code until a fresh one is made.
         assertEquals(SpaceState.Waiting(me, "c1", ""), spaceStateFrom(me, "c1", listOf("me"), ""))
     }

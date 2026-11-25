@@ -23,7 +23,12 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Source
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -60,12 +65,17 @@ class FirebaseSpaceRepository @Inject constructor() : SpaceRepository {
                         flowOf(SpaceState.NoSpace(account))
                     } else {
                         db.collection(COUPLES).document(coupleId).observe().map { snap ->
+                            val closing = snap?.getBoolean(CLOSING) == true
+                            // Left as the last one in it but the clean-up didn't finish (app
+                            // closed, offline): you're out already; finish it in the background.
+                            if (closing) finishClosing(coupleId, account.uid)
                             spaceStateFrom(
                                 account,
                                 coupleId,
                                 snap?.get("members") as? List<*>,
                                 snap?.getString("inviteCode"),
                                 snap?.get(IDS) as? Map<*, *>,
+                                closing,
                             )
                         }
                     }
@@ -194,13 +204,39 @@ class FirebaseSpaceRepository @Inject constructor() : SpaceRepository {
                 .commit()
                 .await()
         } else {
-            // The last one out: everything in the space is deleted for good.
+            // The last one out: everything in the space is deleted for good. Marking it closing
+            // takes you out of it straight away (you can join or start another); the deleting
+            // carries on in the background, whatever screen you go to, and is picked up again
+            // next time the app opens if it gets cut off.
             coupleRef.update(CLOSING, true).await()
-            SpaceWipe.deleteEverything(db, coupleRef)
-            db.batch().delete(coupleRef).set(meRef, unlink).commit().await()
+            finishClosing(coupleId, uid)
         }
         Unit
     }.mapFailure("Couldn't leave. Check your connection and try again.")
+
+    /** Clean-ups under way, so the same space isn't deleted twice at once. */
+    private val closingNow = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private fun finishClosing(coupleId: String, uid: String) {
+        if (!closingNow.add(coupleId)) return
+        background.launch {
+            try {
+                val coupleRef = db.collection(COUPLES).document(coupleId)
+                SpaceWipe.deleteEverything(db, coupleRef)
+                val meRef = db.collection(USERS).document(uid)
+                // Only unlink if you haven't joined or started another space meanwhile.
+                val stillHere = meRef.get(Source.SERVER).await().getString("coupleId") == coupleId
+                val batch = db.batch().delete(coupleRef)
+                if (stillHere) batch.set(meRef, mapOf("coupleId" to null, "updatedAt" to FieldValue.serverTimestamp()))
+                batch.commit().await()
+            } catch (e: Exception) {
+                Log.w("ChoomHub", "Clean-up of a closed space didn't finish; will retry: ${e.message}")
+            } finally {
+                closingNow.remove(coupleId)
+            }
+        }
+    }
 
     private fun requireUid(): String = auth.currentUser?.uid ?: throw SpaceException("Sign in first.")
 
@@ -231,12 +267,20 @@ class FirebaseSpaceRepository @Inject constructor() : SpaceRepository {
         const val CLOSING = "closing"
 
         /** Pure mapping from the couple document to a [SpaceState]; unit-tested. */
-        fun spaceStateFrom(account: Account, coupleId: String, members: List<*>?, inviteCode: String?, ids: Map<*, *>? = null): SpaceState {
+        fun spaceStateFrom(
+            account: Account,
+            coupleId: String,
+            members: List<*>?,
+            inviteCode: String?,
+            ids: Map<*, *>? = null,
+            closing: Boolean = false,
+        ): SpaceState {
             val uids = members?.filterIsInstance<String>().orEmpty()
             fun memberId(uid: String) = ids?.get(uid) as? String ?: uid
             val partner = uids.firstOrNull { it != account.uid }
             return when {
-                account.uid !in uids -> SpaceState.NoSpace(account)
+                // Being deleted (you were the last one out): you're already out of it.
+                closing || account.uid !in uids -> SpaceState.NoSpace(account)
                 partner != null -> SpaceState.Paired(account, coupleId, memberId(partner), memberId(account.uid))
                 else -> SpaceState.Waiting(account, coupleId, inviteCode.orEmpty(), memberId(account.uid))
             }
