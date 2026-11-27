@@ -217,7 +217,7 @@ class ScreenshotCaptureTest {
         composeRule.onNodeWithTag("home_list").performScrollToNode(androidx.compose.ui.test.hasTestTag("latest_snap_card"))
         capture("phone_snap_home")
         composeRule.onNodeWithTag("latest_snap_open").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
-        kotlinx.coroutines.runBlocking { fakeSnaps.setCollections("s1", listOf(fakeSnaps.createCollection("crows"))) }
+        kotlinx.coroutines.runBlocking { fakeSnaps.addToCollection("s1", fakeSnaps.createCollection("crows")) }
         kotlinx.coroutines.runBlocking { fakeSnaps.createCollection("rainy days") }
         capture("phone_snap_viewer")
         composeRule.onNodeWithTag(TopLevelDestination.OurWorld.testTag).performClick()

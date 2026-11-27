@@ -267,6 +267,10 @@ describe('snaps and Memory Lane', () => {
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s2'), snap('bob')));
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s3'), snap('alice', { thumb: bytes(70000) })));
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s4'), snap('alice', { kept: true, collections: ['x'] })));
+    // "Keep it" while sending: kept in a collection, with you as the one who put it there.
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples/c1/snaps/s7'), snap('alice', { kept: true, collections: ['x'], addedBy: { x: 'alice' } })));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s8'), snap('alice', { kept: true, collections: ['x'], addedBy: { x: 'bob' } })));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s9'), snap('alice', { kept: true, collections: ['x', 'y'], addedBy: { x: 'alice' } })));
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/snaps/s5'), snap('alice', { caption: 'x'.repeat(141) })));
     const fa = db('alice');
     const big = writeBatch(fa);
@@ -283,13 +287,17 @@ describe('snaps and Memory Lane', () => {
     await assertSucceeds(deleteDoc(doc(db('bob'), 'couples/c1/snaps/s0')));
     await send('alice', 's1');
     await assertFails(deleteDoc(doc(db('mallory'), 'couples/c1/snaps/s1')));
-    await assertSucceeds(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: ['c9'], kept: true }));
+    await assertSucceeds(setDoc(doc(db('bob'), 'couples/c1/collections/c9'), { name: 'crows', createdBy: 'bob', createdAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: ['c9'], kept: true }));
+    await assertSucceeds(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: ['c9'], kept: true, 'addedBy.c9': 'bob' }));
     await assertFails(deleteDoc(doc(db('bob'), 'couples/c1/snaps/s1')));
     await assertFails(deleteDoc(doc(db('alice'), 'couples/c1/snaps/s1/image/full')));
     await assertFails(deleteDoc(doc(db('alice'), 'couples/c1/snaps/s1')));
     await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { caption: 'edited' }));
-    await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: [], kept: true }));
-    await assertSucceeds(updateDoc(doc(db('alice'), 'couples/c1/snaps/s1'), { collections: [], kept: false }));
+    await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: [], kept: true, 'addedBy.c9': deleteField() }));
+    // Only Bob put it in c9, so only Bob can take it out.
+    await assertFails(updateDoc(doc(db('alice'), 'couples/c1/snaps/s1'), { collections: [], kept: false, 'addedBy.c9': deleteField() }));
+    await assertSucceeds(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: [], kept: false, 'addedBy.c9': deleteField() }));
     const fa = db('alice');
     const cleanup = writeBatch(fa);
     cleanup.delete(doc(fa, 'couples/c1/snaps/s1/image/full'));
@@ -345,7 +353,7 @@ describe('snaps and Memory Lane', () => {
     await assertFails(setDoc(doc(db('mallory'), 'couples/c1/collections/k3'), { name: 'x', createdBy: 'mallory', createdAt: serverTimestamp() }));
   });
 
-  test('collections get a cover and can be deleted by either of you', async () => {
+  test('collections get a cover, and deleting one takes both of you', async () => {
     const ref = (uid) => doc(db(uid), 'couples/c1/collections/k1');
     await assertSucceeds(setDoc(ref('alice'), { name: 'crows', createdBy: 'alice', createdAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(ref('bob'), { cover: 's1' }));
@@ -353,7 +361,25 @@ describe('snaps and Memory Lane', () => {
     await assertFails(updateDoc(ref('bob'), { cover: 5 }));
     await assertFails(updateDoc(ref('bob'), { cover: 'x'.repeat(65) }));
     await assertFails(deleteDoc(ref('mallory')));
-    await assertSucceeds(deleteDoc(ref('bob')));
+    // Nobody asked yet: no one can delete it.
+    await assertFails(deleteDoc(ref('bob')));
+    await assertFails(updateDoc(ref('alice'), { deleteAskedBy: 'bob' }));
+    await assertSucceeds(updateDoc(ref('alice'), { deleteAskedBy: 'alice' }));
+    // The asker can't finish it alone.
+    await assertFails(deleteDoc(ref('alice')));
+    // Bob keeps it; then Alice asks again and Bob agrees, taking her snap out with it.
+    await assertSucceeds(updateDoc(ref('bob'), { deleteAskedBy: deleteField() }));
+    await assertSucceeds(updateDoc(ref('alice'), { deleteAskedBy: 'alice' }));
+    await send('alice', 's1');
+    await assertSucceeds(updateDoc(doc(db('alice'), 'couples/c1/snaps/s1'), { collections: ['k1'], kept: true, 'addedBy.k1': 'alice' }));
+    // Bob can't take Alice's snap out on its own...
+    await assertFails(updateDoc(doc(db('bob'), 'couples/c1/snaps/s1'), { collections: [], kept: false, 'addedBy.k1': deleteField() }));
+    // ...but can as part of deleting the collection.
+    const fb = db('bob');
+    const del = writeBatch(fb);
+    del.delete(doc(fb, 'couples/c1/collections/k1'));
+    del.update(doc(fb, 'couples/c1/snaps/s1'), { collections: [], kept: false, 'addedBy.k1': deleteField() });
+    await assertSucceeds(del.commit());
   });
 });
 

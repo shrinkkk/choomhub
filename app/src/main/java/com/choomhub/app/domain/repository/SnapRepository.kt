@@ -19,7 +19,8 @@ interface SnapRepository {
     /** The full picture as JPEG bytes; null while loading or if it's gone. */
     fun observeImage(id: String): Flow<ByteArray?>
 
-    suspend fun send(snap: PreparedSnap, caption: String?): SnapSendResult
+    /** Sends it, already kept in [keepIn] (you count as the one who put it there). */
+    suspend fun send(snap: PreparedSnap, caption: String?, keepIn: List<String> = emptyList()): SnapSendResult
 
     fun observeCollections(): Flow<List<SnapCollection>>
 
@@ -32,8 +33,8 @@ interface SnapRepository {
     /** Your reaction to a snap (any one emoji, see [com.choomhub.app.domain.model.SnapRules.isReaction]); null removes it. */
     suspend fun react(snapId: String, reaction: String?)
 
-    /** Which collections a snap is kept in. To take it out of one, use [removeFromCollection]. */
-    suspend fun setCollections(snapId: String, collectionIds: List<String>)
+    /** Keeps a snap in a collection, with you as the one who put it there. */
+    suspend fun addToCollection(snapId: String, collectionId: String)
 
     suspend fun renameCollection(collectionId: String, name: String)
 
@@ -41,11 +42,20 @@ interface SnapRepository {
     suspend fun setCover(collectionId: String, snapId: String)
 
     /**
-     * Takes [snap] out of one collection. If that leaves it in none and it isn't anyone's
-     * current snap, it's deleted for good (see [com.choomhub.app.domain.model.SnapRules.deletesForGood]).
+     * Takes [snap] out of one collection (only if you put it there). If that leaves it in none and
+     * it isn't anyone's current snap, it's deleted for good (see [com.choomhub.app.domain.model.SnapRules.deletesForGood]).
      */
     suspend fun removeFromCollection(snap: SnapInfo, collectionId: String)
 
-    /** Deletes a collection, and for good every snap that was only in it (except current snaps). */
-    suspend fun deleteCollection(collectionId: String)
+    /** Asks to delete a collection; it goes only once they agree. */
+    suspend fun askToDeleteCollection(collectionId: String)
+
+    /** Takes back your own ask. */
+    suspend fun takeBackDeleteCollection(collectionId: String)
+
+    /**
+     * Answers their ask. Agreeing deletes the collection, and for good every snap that was only in it
+     * (except current snaps); declining keeps it.
+     */
+    suspend fun answerDeleteCollection(collectionId: String, agree: Boolean)
 }

@@ -21,18 +21,31 @@ data class SnapInfo(
     /** Reactions, one each: yours and theirs (any emoji, see [SnapRules.isReaction]). */
     val myReaction: String? = null,
     val partnerReaction: String? = null,
+    /** The collections you put it in. Only whoever put it in a collection can take it out. */
+    val addedByMe: Set<String> = emptySet(),
 ) {
     val isKept: Boolean get() = collections.isNotEmpty()
+
+    /** Whether you can take it out of [collectionId] (you're the one who put it there). */
+    fun canRemoveFrom(collectionId: String): Boolean = collectionId in addedByMe
 
     // ByteArray has identity equality; compare by id and the fields that change.
     override fun equals(other: Any?): Boolean =
         other is SnapInfo && other.id == id && other.collections == collections && other.sentAt == sentAt &&
-            other.caption == caption && other.myReaction == myReaction && other.partnerReaction == partnerReaction
+            other.caption == caption && other.myReaction == myReaction && other.partnerReaction == partnerReaction &&
+            other.addedByMe == addedByMe
     override fun hashCode(): Int = id.hashCode()
 }
 
 /** A named group of kept snaps, shown in Our World → Memory Lane. [cover] is the snap shown on top of its stack. */
-data class SnapCollection(val id: String, val name: String, val createdAt: Instant?, val cover: String? = null)
+data class SnapCollection(
+    val id: String,
+    val name: String,
+    val createdAt: Instant?,
+    val cover: String? = null,
+    /** Someone asked to delete it: true if it was you, false if them, null if nobody. It goes only when the other agrees. */
+    val deleteAskedByMe: Boolean? = null,
+)
 
 /** A photo ready to send: compressed full image and thumbnail. */
 class PreparedSnap(val full: ByteArray, val thumb: ByteArray, val width: Int, val height: Int)
@@ -110,8 +123,11 @@ object SnapRules {
     const val MAX_COLLECTION_NAME = 40
     const val MAX_COLLECTIONS_PER_SNAP = 20
 
-    /** Longest side of the full image, in pixels. */
-    const val FULL_EDGE = 1280
+    /**
+     * Longest side of the full image, in pixels. Kept snaps are the pictures in Memory Lane, so
+     * this is also the size collection photos are stored at (sharp on a phone, ~150 KB each).
+     */
+    const val FULL_EDGE = 1080
 
     /** Longest side of the thumbnail, in pixels. */
     const val THUMB_EDGE = 320

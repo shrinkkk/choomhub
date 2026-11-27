@@ -2,6 +2,7 @@ package com.choomhub.app.feature.world
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -42,12 +43,35 @@ internal fun WorldDialogs(
 
         is WorldDialog.CollectionMenu -> {
             val c = collections.firstOrNull { it.id == dialog.id } ?: return
+            val partner = viewModel.partnerName.collectAsStateWithLifecycle().value
             InkMenu(
                 title = c.name,
-                options = listOf(
-                    InkMenuOption("Rename", "collection_rename") { open(WorldDialog.Rename(c.id)) },
-                    InkMenuOption("Delete", "collection_delete") { open(WorldDialog.ConfirmDelete(c.id)) },
-                ),
+                whisper = when (c.deleteAskedByMe) {
+                    true -> "you asked to delete it; waiting for $partner"
+                    false -> "$partner wants to delete it"
+                    null -> null
+                },
+                options = buildList {
+                    add(InkMenuOption("Rename", "collection_rename") { open(WorldDialog.Rename(c.id)) })
+                    when (c.deleteAskedByMe) {
+                        null -> add(InkMenuOption("Delete", "collection_delete") { open(WorldDialog.ConfirmDelete(c.id)) })
+                        true -> add(
+                            InkMenuOption("Don't delete it after all", "collection_delete_take_back") {
+                                viewModel.takeBackDelete(c)
+                                onDismiss()
+                            },
+                        )
+                        false -> {
+                            add(InkMenuOption("Agree to delete it", "collection_delete_agree") { open(WorldDialog.ConfirmDelete(c.id)) })
+                            add(
+                                InkMenuOption("Keep it", "collection_delete_decline") {
+                                    viewModel.answerDelete(c, agree = false)
+                                    onDismiss()
+                                },
+                            )
+                        }
+                    }
+                },
                 onDismissRequest = onDismiss,
                 modifier = Modifier.testTag("collection_menu"),
             ) { GothicMotifArt(GothicMotif.Candle, Modifier.size(80.dp)) }
@@ -72,15 +96,22 @@ internal fun WorldDialogs(
 
         is WorldDialog.ConfirmDelete -> {
             val c = collections.firstOrNull { it.id == dialog.id } ?: return
+            val partner = viewModel.partnerName.collectAsStateWithLifecycle().value
+            // It takes both of you: asking first, then the other one agreeing.
+            val agreeing = c.deleteAskedByMe == false
             InkDialog(
-                title = "Delete “${c.name}”?",
+                title = if (agreeing) "Delete “${c.name}”?" else "Ask to delete “${c.name}”?",
                 whisper = "this one can't be undone",
-                message = deleteCollectionMessage(viewModel.deletion(c)),
+                message = if (agreeing) {
+                    deleteCollectionMessage(viewModel.deletion(c))
+                } else {
+                    "It's only deleted once $partner agrees. " + deleteCollectionMessage(viewModel.deletion(c))
+                },
                 confirm = "Keep it",
                 onConfirm = onDismiss,
-                dismissive = "Delete collection",
+                dismissive = if (agreeing) "Delete collection" else "Ask $partner",
                 onDismissive = {
-                    viewModel.delete(c.id)
+                    if (agreeing) viewModel.answerDelete(c, agree = true) else viewModel.askToDelete(c)
                     onDismiss()
                 },
                 onDismissRequest = onDismiss,
@@ -92,9 +123,15 @@ internal fun WorldDialogs(
             val c = collections.firstOrNull { it.id == dialog.collectionId } ?: return
             val snap = c.snaps.firstOrNull { it.id == dialog.snapId } ?: return
             val forGood = viewModel.deletesForGood(snap, c.id)
+            val partner = viewModel.partnerName.collectAsStateWithLifecycle().value
+            val mine = snap.canRemoveFrom(c.id)
             InkMenu(
                 title = "This snap",
-                whisper = snap.caption?.let { if (it.length > 48) it.take(47).trimEnd() + "…" else it },
+                whisper = if (mine) {
+                    snap.caption?.let { if (it.length > 48) it.take(47).trimEnd() + "…" else it }
+                } else {
+                    "$partner put it here, so only $partner can take it out"
+                },
                 options = buildList {
                     if (c.cover?.id != snap.id) {
                         add(
@@ -104,11 +141,13 @@ internal fun WorldDialogs(
                             },
                         )
                     }
-                    add(
-                        InkMenuOption(if (forGood) "Delete" else "Take it out of here", "snap_remove") {
-                            open(WorldDialog.ConfirmRemove(c.id, snap.id))
-                        },
-                    )
+                    if (mine) {
+                        add(
+                            InkMenuOption(if (forGood) "Delete" else "Take it out of here", "snap_remove") {
+                                open(WorldDialog.ConfirmRemove(c.id, snap.id))
+                            },
+                        )
+                    }
                 },
                 onDismissRequest = onDismiss,
                 modifier = Modifier.testTag("snap_menu"),

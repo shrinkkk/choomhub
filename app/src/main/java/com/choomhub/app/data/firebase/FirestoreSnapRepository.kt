@@ -66,7 +66,7 @@ class FirestoreSnapRepository @Inject constructor(
         image(coupleId, id).observe().map { it?.getBlob("data")?.toBytes() }
     }
 
-    override suspend fun send(snap: PreparedSnap, caption: String?): SnapSendResult {
+    override suspend fun send(snap: PreparedSnap, caption: String?, keepIn: List<String>): SnapSendResult {
         val space = spaceRepository.observeSpace().first()
         if (space !is SpaceState.Paired) return SnapSendResult.NotSent(NOT_PAIRED)
         val coupleId = space.coupleId
@@ -86,8 +86,9 @@ class FirestoreSnapRepository @Inject constructor(
                 "width" to snap.width,
                 "height" to snap.height,
                 "thumb" to Blob.fromBytes(snap.thumb),
-                "collections" to emptyList<String>(),
-                "kept" to false,
+                "collections" to keepIn,
+                "kept" to keepIn.isNotEmpty(),
+                "addedBy" to keepIn.associateWith { me },
             ),
         )
         batch.set(image(coupleId, ref.id), mapOf("data" to Blob.fromBytes(snap.full)))
@@ -106,7 +107,7 @@ class FirestoreSnapRepository @Inject constructor(
         return SnapSendResult.Sent
     }
 
-    override fun observeCollections(): Flow<List<SnapCollection>> = inSpace(emptyList()) { coupleId, _ ->
+    override fun observeCollections(): Flow<List<SnapCollection>> = inSpace(emptyList()) { coupleId, me ->
         couple(coupleId).collection("collections").orderBy("createdAt", Query.Direction.ASCENDING).observe()
             .map { snap ->
                 snap?.documents.orEmpty().mapNotNull { doc ->
@@ -116,6 +117,7 @@ class FirestoreSnapRepository @Inject constructor(
                         name,
                         doc.getTimestamp("createdAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.toInstant(),
                         cover = doc.getString("cover"),
+                        deleteAskedByMe = doc.getString("deleteAskedBy")?.let { it == me },
                     )
                 }
             }
@@ -143,9 +145,13 @@ class FirestoreSnapRepository @Inject constructor(
         snaps(coupleId).document(snapId).update("reactions.$me", reaction ?: FieldValue.delete())
     }
 
-    override suspend fun setCollections(snapId: String, collectionIds: List<String>) {
-        val coupleId = spaceRepository.observeSpace().first().coupleIdOrNull ?: return
-        snaps(coupleId).document(snapId).update(mapOf("collections" to collectionIds, "kept" to collectionIds.isNotEmpty()))
+    override suspend fun addToCollection(snapId: String, collectionId: String) {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return
+        val me = space.memberIdOrNull ?: return
+        snaps(coupleId).document(snapId).update(
+            mapOf("collections" to FieldValue.arrayUnion(collectionId), "kept" to true, "addedBy.$collectionId" to me),
+        )
     }
 
     override suspend fun renameCollection(collectionId: String, name: String) {
@@ -162,12 +168,31 @@ class FirestoreSnapRepository @Inject constructor(
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
         val me = space.memberIdOrNull ?: return
+        if (!snap.canRemoveFrom(collectionId)) return
         val remaining = snap.collections - collectionId
-        snaps(coupleId).document(snap.id).update(mapOf("collections" to remaining, "kept" to remaining.isNotEmpty()))
+        snaps(coupleId).document(snap.id).update(
+            mapOf("collections" to remaining, "kept" to remaining.isNotEmpty(), "addedBy.$collectionId" to FieldValue.delete()),
+        )
         if (remaining.isEmpty() && !SnapRules.isCurrent(snap, recent(coupleId, me))) deleteForGood(coupleId, listOf(snap.id))
     }
 
-    override suspend fun deleteCollection(collectionId: String) {
+    override suspend fun askToDeleteCollection(collectionId: String) {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return
+        val me = space.memberIdOrNull ?: return
+        couple(coupleId).collection("collections").document(collectionId).update("deleteAskedBy", me)
+    }
+
+    override suspend fun takeBackDeleteCollection(collectionId: String) {
+        val coupleId = spaceRepository.observeSpace().first().coupleIdOrNull ?: return
+        couple(coupleId).collection("collections").document(collectionId).update("deleteAskedBy", FieldValue.delete())
+    }
+
+    override suspend fun answerDeleteCollection(collectionId: String, agree: Boolean) {
+        if (agree) deleteCollection(collectionId) else takeBackDeleteCollection(collectionId)
+    }
+
+    private suspend fun deleteCollection(collectionId: String) {
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
         val me = space.memberIdOrNull ?: return
@@ -179,7 +204,10 @@ class FirestoreSnapRepository @Inject constructor(
         batch.delete(couple(coupleId).collection("collections").document(collectionId))
         inIt.forEach { snap ->
             val remaining = snap.collections - collectionId
-            batch.update(snaps(coupleId).document(snap.id), mapOf("collections" to remaining, "kept" to remaining.isNotEmpty()))
+            batch.update(
+                snaps(coupleId).document(snap.id),
+                mapOf("collections" to remaining, "kept" to remaining.isNotEmpty(), "addedBy.$collectionId" to FieldValue.delete()),
+            )
         }
         batch.commit()
         val recent = recent(coupleId, me)
@@ -225,6 +253,7 @@ class FirestoreSnapRepository @Inject constructor(
                 collections = (doc.get("collections") as? List<*>)?.filterIsInstance<String>().orEmpty(),
                 myReaction = reactions[me],
                 partnerReaction = reactions.entries.firstOrNull { it.key != me }?.value,
+                addedByMe = (doc.get("addedBy") as? Map<*, *>).orEmpty().filterValues { it == me }.keys.filterIsInstance<String>().toSet(),
             )
         }
     }

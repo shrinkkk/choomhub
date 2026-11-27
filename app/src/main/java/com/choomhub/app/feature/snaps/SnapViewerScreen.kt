@@ -137,6 +137,8 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
                 if (pickingSnap.collections == listOf(c.id)) confirmUnkeep = c.id else viewModel.toggle(c.id)
             },
             onDismiss = { picking = false },
+            locked = pickingSnap.collections.filterNot(pickingSnap::canRemoveFrom).toSet(),
+            partner = state.partnerName ?: "they",
         )
     }
     Box(Modifier.fillMaxSize().testTag("screen_snap"), contentAlignment = Alignment.TopCenter) {
@@ -221,6 +223,9 @@ internal fun KeepPicker(
     onCreate: () -> Unit,
     onToggle: (SnapCollection) -> Unit,
     onDismiss: () -> Unit,
+    /** Collections it's in that the other one put it in: only they can take it out. */
+    locked: Set<String> = emptySet(),
+    partner: String = "they",
 ) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
@@ -237,7 +242,11 @@ internal fun KeepPicker(
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
-                collections.forEach { c -> CollectionChip(c, selected = c.id in keptIn, onToggle = { onToggle(c) }) }
+                collections.forEach { c -> CollectionChip(c, selected = c.id in keptIn, locked = c.id in locked, onToggle = { onToggle(c) }) }
+            }
+            if (locked.isNotEmpty()) {
+                Spacer(Modifier.height(spacing.sm))
+                Text("🔒 $partner kept it there, so only $partner can take it out.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
             }
         }
         Spacer(Modifier.height(spacing.lg))
@@ -260,7 +269,7 @@ internal fun KeepPicker(
 }
 
 @Composable
-private fun CollectionChip(collection: SnapCollection, selected: Boolean, onToggle: () -> Unit) {
+private fun CollectionChip(collection: SnapCollection, selected: Boolean, locked: Boolean = false, onToggle: () -> Unit) {
     val colors = ChoomHubTheme.colors
     val shape = MaterialTheme.shapes.small
     Box(
@@ -268,12 +277,12 @@ private fun CollectionChip(collection: SnapCollection, selected: Boolean, onTogg
             .clip(shape)
             .background(if (selected) colors.pink.copy(alpha = 0.16f) else colors.surface)
             .border(1.dp, if (selected) colors.pink else colors.outline, shape)
-            .toggleable(value = selected, role = Role.Checkbox, onValueChange = { onToggle() })
+            .toggleable(value = selected, enabled = !locked, role = Role.Checkbox, onValueChange = { onToggle() })
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .testTag("collection_${collection.name}"),
     ) {
         Text(
-            (if (selected) "✓ " else "") + collection.name,
+            (if (locked) "🔒 " else if (selected) "✓ " else "") + collection.name,
             style = MaterialTheme.typography.titleSmall,
             color = if (selected) colors.pink else colors.textSecondary,
         )

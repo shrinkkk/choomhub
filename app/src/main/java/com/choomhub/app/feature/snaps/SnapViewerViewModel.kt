@@ -110,9 +110,10 @@ class SnapViewerViewModel @Inject constructor(
         val snap = state.value.snap ?: return
         viewModelScope.launch {
             if (collectionId in snap.collections) {
-                snapRepository.removeFromCollection(snap, collectionId)
-            } else {
-                snapRepository.setCollections(snap.id, (snap.collections + collectionId).take(SnapRules.MAX_COLLECTIONS_PER_SNAP))
+                // Only whoever put it there can take it out.
+                if (snap.canRemoveFrom(collectionId)) snapRepository.removeFromCollection(snap, collectionId)
+            } else if (snap.collections.size < SnapRules.MAX_COLLECTIONS_PER_SNAP) {
+                snapRepository.addToCollection(snap.id, collectionId)
             }
         }
     }
@@ -126,7 +127,7 @@ class SnapViewerViewModel @Inject constructor(
         _newCollection.value = ""
         viewModelScope.launch {
             val id = snapRepository.createCollection(name) ?: return@launch
-            snapRepository.setCollections(snap.id, (snap.collections + id).take(SnapRules.MAX_COLLECTIONS_PER_SNAP))
+            if (snap.collections.size < SnapRules.MAX_COLLECTIONS_PER_SNAP) snapRepository.addToCollection(snap.id, id)
         }
     }
 }

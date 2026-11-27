@@ -17,7 +17,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** A collection with its snaps (newest first) and the one shown on top of its stack. */
-data class CollectionUi(val id: String, val name: String, val snaps: List<SnapInfo>, val cover: SnapInfo?)
+data class CollectionUi(
+    val id: String,
+    val name: String,
+    val snaps: List<SnapInfo>,
+    val cover: SnapInfo?,
+    /** A delete waiting for a yes: true if you asked, false if they did, null if nobody. */
+    val deleteAskedByMe: Boolean? = null,
+)
 
 /** What deleting a collection would do, for its confirmation. */
 data class CollectionDeletion(val goneForGood: Int, val stayElsewhere: Int, val stayCurrent: Int)
@@ -27,13 +34,19 @@ data class CollectionDeletion(val goneForGood: Int, val stayElsewhere: Int, val 
 class MemoryLaneViewModel @Inject constructor(
     private val snapRepository: SnapRepository,
     private val savedState: SavedStateHandle,
+    private val notifier: com.choomhub.app.domain.repository.Notifier,
+    profile: com.choomhub.app.domain.repository.ProfileRepository,
 ) : ViewModel() {
+
+    /** Their name, for "only Jas can take it out". */
+    val partnerName: StateFlow<String> = profile.observeNames().map { it.partnerName ?: "they" }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "they")
 
     val collections: StateFlow<List<CollectionUi>?> =
         combine(snapRepository.observeCollections(), snapRepository.observeKept()) { collections, kept ->
             collections.map { c ->
                 val snaps = kept.filter { c.id in it.collections }
-                CollectionUi(c.id, c.name, snaps, SnapRules.coverOf(c, snaps))
+                CollectionUi(c.id, c.name, snaps, SnapRules.coverOf(c, snaps), c.deleteAskedByMe)
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -81,9 +94,25 @@ class MemoryLaneViewModel @Inject constructor(
         return CollectionDeletion(forGood, elsewhere, collection.snaps.size - elsewhere - forGood)
     }
 
-    fun delete(collectionId: String) {
-        setExpanded(collectionId, false)
-        viewModelScope.launch { snapRepository.deleteCollection(collectionId) }
+    /** Asks them to agree to deleting it. */
+    fun askToDelete(collection: CollectionUi) {
+        viewModelScope.launch {
+            snapRepository.askToDeleteCollection(collection.id)
+            notifier.notifyPartner(com.choomhub.app.domain.model.PushEvent.Collection, detail = collection.name, kind = "delete_ask")
+        }
+    }
+
+    fun takeBackDelete(collection: CollectionUi) {
+        viewModelScope.launch { snapRepository.takeBackDeleteCollection(collection.id) }
+    }
+
+    /** Answers their ask: agreeing deletes it now. */
+    fun answerDelete(collection: CollectionUi, agree: Boolean) {
+        if (agree) setExpanded(collection.id, false)
+        viewModelScope.launch {
+            snapRepository.answerDeleteCollection(collection.id, agree)
+            notifier.notifyPartner(com.choomhub.app.domain.model.PushEvent.Collection, detail = collection.name, kind = if (agree) "delete_agreed" else "delete_declined")
+        }
     }
 
     private companion object {

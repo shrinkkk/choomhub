@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -52,6 +53,18 @@ fun SnapComposeScreen(contentPadding: PaddingValues, onClose: () -> Unit, viewMo
     LaunchedEffect(state.done) { if (state.done) onClose() }
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
+    var picking by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    if (picking) {
+        KeepPicker(
+            collections = state.collections,
+            keptIn = state.keepIn,
+            newName = state.newCollection,
+            onNewNameChange = viewModel::onNewCollectionChange,
+            onCreate = viewModel::createAndKeep,
+            onToggle = { viewModel.toggleKeep(it.id) },
+            onDismiss = { picking = false },
+        )
+    }
     Box(Modifier.fillMaxSize().testTag("screen_snap_compose"), contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier
@@ -88,13 +101,25 @@ fun SnapComposeScreen(contentPadding: PaddingValues, onClose: () -> Unit, viewMo
                 capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
                 modifier = Modifier.fillMaxWidth().testTag("snap_caption"),
             )
+            if (state.keepIn.isNotEmpty()) {
+                val names = state.collections.filter { it.id in state.keepIn }.joinToString(", ") { it.name }
+                Text("Kept in $names as it's sent", style = MaterialTheme.typography.bodySmall, color = colors.candle, modifier = Modifier.testTag("snap_compose_kept"))
+            }
             Spacer(Modifier.height(spacing.lg))
-            ChoomHubPrimaryButton(
-                text = if (state.sending) "Sending…" else "Send",
-                onClick = viewModel::send,
-                enabled = !state.sending && state.preview != null,
-                modifier = Modifier.fillMaxWidth().testTag("snap_send"),
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                com.choomhub.app.core.designsystem.component.ChoomHubSecondaryButton(
+                    text = if (state.keepIn.isEmpty()) "Keep it" else "Kept · ${state.keepIn.size}",
+                    onClick = { picking = true },
+                    enabled = !state.sending,
+                    modifier = Modifier.weight(1f).testTag("snap_compose_keep"),
+                )
+                ChoomHubPrimaryButton(
+                    text = if (state.sending) "Sending…" else "Send",
+                    onClick = viewModel::send,
+                    enabled = !state.sending && state.preview != null,
+                    modifier = Modifier.weight(1f).testTag("snap_send"),
+                )
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 TextButton(onClick = onClose) {
                     Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)

@@ -31,6 +31,10 @@ data class SnapComposeUiState(
     val sending: Boolean = false,
     val error: String? = null,
     val done: Boolean = false,
+    /** Collections it'll be kept in as it's sent (you count as the one who put it there). */
+    val keepIn: List<String> = emptyList(),
+    val collections: List<com.choomhub.app.domain.model.SnapCollection> = emptyList(),
+    val newCollection: String = "",
 )
 
 /** Caption and send a picked or captured photo. */
@@ -50,6 +54,9 @@ class SnapComposeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            snapRepository.observeCollections().collect { list -> _state.update { it.copy(collections = list, keepIn = it.keepIn.filter { id -> list.any { c -> c.id == id } }) } }
+        }
+        viewModelScope.launch {
             val preview = images.preview(uri)
             _state.update {
                 it.copy(preview = preview, loading = false, error = if (preview == null) "Couldn't open that photo." else null)
@@ -58,6 +65,23 @@ class SnapComposeViewModel @Inject constructor(
     }
 
     fun onCaptionChange(value: String) = _state.update { it.copy(caption = value.take(SnapRules.MAX_CAPTION), error = null) }
+
+    /** Ticks or unticks a collection to keep it in. */
+    fun toggleKeep(collectionId: String) = _state.update {
+        it.copy(keepIn = if (collectionId in it.keepIn) it.keepIn - collectionId else (it.keepIn + collectionId).take(SnapRules.MAX_COLLECTIONS_PER_SNAP))
+    }
+
+    fun onNewCollectionChange(value: String) = _state.update { it.copy(newCollection = value.take(SnapRules.MAX_COLLECTION_NAME)) }
+
+    /** Makes a collection and ticks it. */
+    fun createAndKeep() {
+        val name = SnapRules.cleanCollectionName(_state.value.newCollection) ?: return
+        _state.update { it.copy(newCollection = "") }
+        viewModelScope.launch {
+            val id = snapRepository.createCollection(name) ?: return@launch
+            _state.update { it.copy(keepIn = (it.keepIn + id).distinct().take(SnapRules.MAX_COLLECTIONS_PER_SNAP)) }
+        }
+    }
 
     fun send() {
         val s = _state.value
@@ -70,7 +94,7 @@ class SnapComposeViewModel @Inject constructor(
                 return@launch
             }
             val caption = SnapRules.cleanCaption(s.caption)
-            when (val result = snapRepository.send(prepared, caption)) {
+            when (val result = snapRepository.send(prepared, caption, s.keepIn)) {
                 SnapSendResult.Sent -> {
                     notifier.notifyPartner(PushEvent.SnapSent, detail = caption)
                     CaptureFiles.clear(context)

@@ -49,7 +49,7 @@ class MemoryLaneDialogsTest {
     private val snaps = FakeSnapRepository()
 
     private fun showOurWorld() {
-        val viewModel = MemoryLaneViewModel(snaps, SavedStateHandle())
+        val viewModel = MemoryLaneViewModel(snaps, SavedStateHandle(), com.choomhub.app.testing.FakeNotifier(), com.choomhub.app.testing.FakeProfileRepository())
         rule.setContent { ChoomHubTheme { OurWorldScreen(PaddingValues(), onOpenSnap = {}, viewModel = viewModel) } }
         rule.waitForIdle()
     }

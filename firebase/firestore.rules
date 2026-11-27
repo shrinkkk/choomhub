@@ -17,9 +17,9 @@ rules_version = '2';
 //   couples/{coupleId}/moods/{uid}     -> { mood, label, note, updatedAt }  each person's current mood
 //   couples/{coupleId}/shared/moodOptions -> { options: [{key, label}], updatedBy, updatedAt }  the space's mood list
 //   couples/{coupleId}/gestures/{id}   -> { kind, from, sentAt }     append-only history
-//   couples/{coupleId}/snaps/{id}      -> { from, caption, sentAt, width, height, thumb, collections, kept, reactions }
+//   couples/{coupleId}/snaps/{id}      -> { from, caption, sentAt, width, height, thumb, collections, kept, addedBy {collectionId: member}, reactions }
 //   couples/{coupleId}/snaps/{id}/image/full -> { data }            the full JPEG
-//   couples/{coupleId}/collections/{id} -> { name, createdBy, createdAt, cover? }  Memory Lane; cover is a snap id
+//   couples/{coupleId}/collections/{id} -> { name, createdBy, createdAt, cover?, deleteAskedBy? }  Memory Lane; cover is a snap id
 //   couples/{coupleId}/points/{id}     -> { from, to, amount (±1..10), reason, at }  append-only points ledger
 //   couples/{coupleId}/focus/{uid}     -> { state, bankedMs, focusSince, breakEndsAt, updatedAt }  focus room session
 //   couples/{coupleId}/focusTotals/{uid} -> { totalMs, weekMs, weekStart, pointHours, togetherMs?, togetherHours? }  focus hours so far
@@ -236,21 +236,42 @@ service cloud.firestore {
       match /snaps/{snapId} {
         allow read: if isMember(coupleId);
         allow create: if isMember(coupleId)
-          && request.resource.data.keys().hasOnly(['from', 'caption', 'sentAt', 'width', 'height', 'thumb', 'collections', 'kept'])
+          && request.resource.data.keys().hasOnly(['from', 'caption', 'sentAt', 'width', 'height', 'thumb', 'collections', 'kept', 'addedBy'])
           && request.resource.data.from == self()
           && request.resource.data.sentAt == request.time
           && (request.resource.data.caption == null
               || (request.resource.data.caption is string && request.resource.data.caption.size() <= 140))
           && request.resource.data.width is int && request.resource.data.height is int
           && request.resource.data.thumb is bytes && request.resource.data.thumb.size() <= 60000
-          && request.resource.data.collections == [] && request.resource.data.kept == false;
+          // Kept in collections as it's sent ("Keep it"): the sender is the one who put it there.
+          && request.resource.data.collections is list && request.resource.data.collections.size() <= 20
+          && request.resource.data.kept == (request.resource.data.collections.size() > 0)
+          && request.resource.data.get('addedBy', {}).keys().hasOnly(request.resource.data.collections)
+          && request.resource.data.collections.hasOnly(request.resource.data.get('addedBy', {}).keys())
+          && request.resource.data.get('addedBy', {}).values().hasOnly([self()]);
         allow update: if isMember(coupleId) && (isKeep() || isReaction());
 
+        // Keeping a snap in one more collection (you become the one who put it there), or taking
+        // it out of one: only whoever put it there can, unless the collection is being deleted
+        // (after both agreed) in the same batch.
         function isKeep() {
-          return onlyChanged(['collections', 'kept'])
-            && request.resource.data.collections is list
-            && request.resource.data.collections.size() <= 20
-            && request.resource.data.kept == (request.resource.data.collections.size() > 0);
+          let before = resource.data.get('collections', []);
+          let after = request.resource.data.collections;
+          let byBefore = resource.data.get('addedBy', {});
+          let by = request.resource.data.get('addedBy', {});
+          let added = after.removeAll(before);
+          let removed = before.removeAll(after);
+          return onlyChanged(['collections', 'kept', 'addedBy'])
+            && after is list && after.size() <= 20
+            && request.resource.data.kept == (after.size() > 0)
+            && added.size() + removed.size() == 1
+            && (added.size() == 0
+                || (by.get(added[0], null) == self() && by.diff(byBefore).affectedKeys().hasOnly([added[0]])))
+            && (removed.size() == 0
+                || ((byBefore.get(removed[0], null) == self()
+                     || !existsAfter(/databases/$(database)/documents/couples/$(coupleId)/collections/$(removed[0])))
+                    && !(removed[0] in by)
+                    && by.diff(byBefore).affectedKeys().hasOnly([removed[0]])));
         }
 
         // Your own reaction only (or removed): any one emoji, as SnapRules.isReaction checks it.
@@ -315,14 +336,24 @@ service cloud.firestore {
           && request.resource.data.createdBy == self()
           && request.resource.data.createdAt == request.time;
         // Rename, or pick the snap shown on top of the stack.
-        allow update: if isMember(coupleId)
-          && onlyChanged(['name', 'cover'])
+        allow update: if isMember(coupleId) && ((
+          onlyChanged(['name', 'cover'])
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
           && (request.resource.data.get('cover', null) == null
-              || (request.resource.data.cover is string && request.resource.data.cover.size() <= 64));
-        // Deleting a collection; the app also deletes snaps that were only in it.
-        allow delete: if isMember(coupleId);
+              || (request.resource.data.cover is string && request.resource.data.cover.size() <= 64))
+        ) || (
+          // Asking to delete it (as yourself, when nobody has), or clearing the ask (taking
+          // yours back, or keeping it when they asked).
+          onlyChanged(['deleteAskedBy'])
+          && ((resource.data.get('deleteAskedBy', null) == null && request.resource.data.get('deleteAskedBy', null) == self())
+              || (resource.data.get('deleteAskedBy', null) != null && request.resource.data.get('deleteAskedBy', null) == null))
+        ));
+        // Deleting a collection takes both of you: one asks, the other deletes it. The app also
+        // deletes snaps that were only in it.
+        allow delete: if isMember(coupleId)
+          && resource.data.get('deleteAskedBy', null) != null
+          && resource.data.deleteAskedBy != self();
       }
 
       // The mood list both people pick from; either can edit it.

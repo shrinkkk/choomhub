@@ -315,6 +315,12 @@ private fun CollectionHeader(c: CollectionUi, open: Boolean, onToggle: () -> Uni
                 style = ChoomHubTextStyles.Eyebrow,
                 color = colors.textSecondary,
             )
+            // A delete waiting on a yes shows here, so it isn't missed (long-press to answer).
+            when (c.deleteAskedByMe) {
+                false -> Text("they want to delete it · hold to answer", style = MaterialTheme.typography.bodySmall, color = colors.candle, modifier = Modifier.testTag("collection_delete_asked"))
+                true -> Text("waiting for a yes to delete it", style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
+                null -> Unit
+            }
         }
         Text("▾", style = MaterialTheme.typography.titleMedium, color = colors.textSecondary, modifier = Modifier.graphicsLayer { rotationZ = 180f * (1 - fan) })
     }

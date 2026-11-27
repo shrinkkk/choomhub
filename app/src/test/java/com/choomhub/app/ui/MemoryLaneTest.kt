@@ -160,9 +160,38 @@ class MemoryLaneTest {
     }
 
     @Test
-    fun deletingACollectionKeepsSnapsThatAreElsewhereOrCurrent() {
+    fun deletingACollectionAsksThemFirst() {
         composeRule.onNodeWithTag("collection_card_late walks").performTouchInput { longClick() }
         composeRule.onNodeWithTag("collection_delete").performClick()
+        composeRule.onNodeWithText("It's only deleted once", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick() // "Ask ..."
+        composeRule.waitForIdle()
+        assertEquals(true, snaps.collections.value.first { it.id == walks }.deleteAskedByMe)
+        assertEquals(2, snaps.collections.value.size)
+        // Changing your mind.
+        composeRule.onNodeWithTag("collection_card_late walks").performTouchInput { longClick() }
+        composeRule.onNodeWithTag("collection_delete_take_back").performClick()
+        composeRule.waitForIdle()
+        assertEquals(null, snaps.collections.value.first { it.id == walks }.deleteAskedByMe)
+    }
+
+    @Test
+    fun aPhotoTheyAddedOnlyTheyCanTakeOut() {
+        snaps.keep("theirs", "their one", jpeg(), t0.plusSeconds(30), walks, addedByMe = false)
+        composeRule.onNodeWithTag("collection_card_late walks").performClick()
+        composeRule.waitForIdle()
+        scrollTo("collection_snap_theirs")
+        composeRule.onNodeWithTag("collection_snap_theirs").performTouchInput { longClick() }
+        composeRule.onNodeWithTag("snap_remove").assertDoesNotExist()
+        composeRule.onNodeWithText("can take it out", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun agreeingToTheirDeleteKeepsSnapsThatAreElsewhereOrCurrent() {
+        snaps.partnerAsksToDelete(walks)
+        composeRule.onNodeWithTag("collection_delete_asked", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("collection_card_late walks").performTouchInput { longClick() }
+        composeRule.onNodeWithTag("collection_delete_agree").performClick()
         composeRule.onNodeWithText("1 snap only in this collection will be deleted for good, for both of you.", substring = true).assertIsDisplayed()
         composeRule.onNodeWithTag("dialog_dismissive").performClick()
         composeRule.waitForIdle()

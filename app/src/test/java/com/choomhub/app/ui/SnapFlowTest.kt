@@ -100,7 +100,7 @@ class SnapFlowTest {
         // The picker itself has a text field in a dialog, which Robolectric can't idle at this
         // screen size; MemoryLaneDialogsTest covers it. Here the snap is kept through the repository.
         composeRule.onNodeWithTag("snap_keep").assertExists()
-        kotlinx.coroutines.runBlocking { snaps.setCollections("s1", listOf(snaps.createCollection("crows"))) }
+        kotlinx.coroutines.runBlocking { snaps.addToCollection("s1", snaps.createCollection("crows")) }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Kept in crows").assertExists()
 

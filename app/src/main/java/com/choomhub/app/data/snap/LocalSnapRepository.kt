@@ -14,15 +14,17 @@ class LocalSnapRepository @Inject constructor() : SnapRepository {
     override fun observeRecent(): Flow<List<SnapInfo>> = flowOf(emptyList())
     override fun observeSnap(id: String): Flow<SnapInfo?> = flowOf(null)
     override fun observeImage(id: String): Flow<ByteArray?> = flowOf(null)
-    override suspend fun send(snap: PreparedSnap, caption: String?): SnapSendResult =
+    override suspend fun send(snap: PreparedSnap, caption: String?, keepIn: List<String>): SnapSendResult =
         SnapSendResult.NotSent("Snaps need the shared space. This build keeps everything on this phone.")
     override fun observeCollections(): Flow<List<SnapCollection>> = flowOf(emptyList())
     override fun observeKept(): Flow<List<SnapInfo>> = flowOf(emptyList())
     override suspend fun createCollection(name: String): String? = null
     override suspend fun react(snapId: String, reaction: String?) = Unit
-    override suspend fun setCollections(snapId: String, collectionIds: List<String>) = Unit
+    override suspend fun addToCollection(snapId: String, collectionId: String) = Unit
     override suspend fun renameCollection(collectionId: String, name: String) = Unit
     override suspend fun setCover(collectionId: String, snapId: String) = Unit
     override suspend fun removeFromCollection(snap: SnapInfo, collectionId: String) = Unit
-    override suspend fun deleteCollection(collectionId: String) = Unit
+    override suspend fun askToDeleteCollection(collectionId: String) = Unit
+    override suspend fun takeBackDeleteCollection(collectionId: String) = Unit
+    override suspend fun answerDeleteCollection(collectionId: String, agree: Boolean) = Unit
 }
