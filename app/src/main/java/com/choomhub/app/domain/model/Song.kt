@@ -67,3 +67,18 @@ object SongRules {
     fun artistFromDescription(description: String?): String? =
         description?.split(" · ")?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_ARTIST }
 }
+
+/** A song on the record shelf: every song either of you has sent. */
+data class ShelfSong(
+    val key: String,
+    val trackId: String,
+    val title: String,
+    val artist: String?,
+    val cover: ByteArray?,
+    val fromMe: Boolean,
+    val sentAt: Instant?,
+    val rating: Int?,
+) {
+    override fun equals(other: Any?): Boolean = other is ShelfSong && key == other.key && rating == other.rating && title == other.title
+    override fun hashCode(): Int = key.hashCode()
+}

@@ -106,9 +106,12 @@ class SnapFlowTest {
 
         composeRule.onNodeWithTag(TopLevelDestination.OurWorld.testTag).performClick()
         composeRule.waitForIdle()
+        // Memory Lane is below the cabinet, the shelf and the atlas.
+        composeRule.onNodeWithTag("our_world_list").performScrollToNode(hasTestTag("collection_card_crows"))
         composeRule.onNodeWithTag("collection_card_crows").assertIsDisplayed()
         composeRule.onNodeWithTag("collection_card_crows").performClick()
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("our_world_list").performScrollToNode(hasTestTag("collection_snap_s1"))
         composeRule.onNodeWithTag("collection_snap_s1").assertIsDisplayed()
     }
 

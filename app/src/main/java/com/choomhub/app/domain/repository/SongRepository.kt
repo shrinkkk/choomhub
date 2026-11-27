@@ -3,6 +3,7 @@ package com.choomhub.app.domain.repository
 import com.choomhub.app.domain.model.SongDraft
 import com.choomhub.app.domain.model.SongPair
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /** The songs you share: one each, replaced when you send another. */
 interface SongRepository {
@@ -13,6 +14,14 @@ interface SongRepository {
 
     /** Rates the song they sent you, 1-10. */
     suspend fun rate(rating: Int)
+
+    /** Every song either of you has sent, newest first (the record shelf). */
+    fun observeShelf(): Flow<List<com.choomhub.app.domain.model.ShelfSong>> = observeSongs().map { pair ->
+        listOfNotNull(
+            pair.mine?.let { com.choomhub.app.domain.model.ShelfSong("me:${it.key}", it.trackId, it.title, it.artist, it.cover, true, it.sentAt, it.rating) },
+            pair.theirs?.let { com.choomhub.app.domain.model.ShelfSong("them:${it.key}", it.trackId, it.title, it.artist, it.cover, false, it.sentAt, it.rating) },
+        ).sortedByDescending { it.sentAt }
+    }
 }
 
 /** Turns a Spotify link into a song you can send. */

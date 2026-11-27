@@ -28,6 +28,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollToNode
+import com.choomhub.app.core.designsystem.theme.LocalAmbientMotionEnabled
+import com.choomhub.app.testing.worldViewModel
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -50,8 +55,16 @@ class MemoryLaneDialogsTest {
 
     private fun showOurWorld() {
         val viewModel = MemoryLaneViewModel(snaps, SavedStateHandle(), com.choomhub.app.testing.FakeNotifier(), com.choomhub.app.testing.FakeProfileRepository())
-        rule.setContent { ChoomHubTheme { OurWorldScreen(PaddingValues(), onOpenSnap = {}, viewModel = viewModel) } }
+        rule.setContent {
+            ChoomHubTheme {
+                CompositionLocalProvider(LocalAmbientMotionEnabled provides false) {
+                    OurWorldScreen(PaddingValues(), onOpenSnap = {}, viewModel = viewModel, world = worldViewModel())
+                }
+            }
+        }
         rule.waitForIdle()
+        // Memory Lane sits below the cabinet, the shelf and the atlas.
+        rule.onNodeWithTag("our_world_list").performScrollToNode(hasTestTag("collection_new"))
     }
 
     private fun captureDialog(name: String) {

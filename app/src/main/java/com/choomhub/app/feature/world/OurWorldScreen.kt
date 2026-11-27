@@ -68,10 +68,9 @@ import com.choomhub.app.core.designsystem.component.PillBadge
 import com.choomhub.app.core.designsystem.component.PolaroidFilter
 import com.choomhub.app.core.designsystem.component.SnapPhoto
 import com.choomhub.app.core.designsystem.component.polaroidFinish
-import com.choomhub.app.core.designsystem.illustration.GothicMotif
-import com.choomhub.app.core.designsystem.illustration.GothicMotifArt
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
+import com.choomhub.app.domain.model.MeetupLog
 import com.choomhub.app.domain.model.SnapInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -85,8 +84,8 @@ import kotlin.math.min
 @Serializable
 data object OurWorldRoute
 
-fun NavGraphBuilder.ourWorldScreen(contentPadding: PaddingValues, onOpenSnap: (String) -> Unit = {}) {
-    composable<OurWorldRoute> { OurWorldScreen(contentPadding, onOpenSnap) }
+fun NavGraphBuilder.ourWorldScreen(contentPadding: PaddingValues, onOpenSnap: (String) -> Unit = {}, doors: WorldDoors = WorldDoors()) {
+    composable<OurWorldRoute> { OurWorldScreen(contentPadding, onOpenSnap, doors) }
 }
 
 /** Polaroid size in the string. */
@@ -118,8 +117,18 @@ internal sealed interface WorldDialog {
 }
 
 @Composable
-fun OurWorldScreen(contentPadding: PaddingValues, onOpenSnap: (String) -> Unit, viewModel: MemoryLaneViewModel = hiltViewModel()) {
+fun OurWorldScreen(
+    contentPadding: PaddingValues,
+    onOpenSnap: (String) -> Unit,
+    doors: WorldDoors = WorldDoors(),
+    viewModel: MemoryLaneViewModel = hiltViewModel(),
+    world: WorldViewModel = hiltViewModel(),
+) {
     val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val logs by world.logs.collectAsStateWithLifecycle()
+    val shelf by world.shelf.collectAsStateWithLifecycle()
+    val names by world.names.collectAsStateWithLifecycle()
+    val now by world.now.collectAsStateWithLifecycle()
     val expanded by viewModel.expanded.collectAsStateWithLifecycle()
     val spacing = ChoomHubTheme.spacing
     val scope = rememberCoroutineScope()
@@ -151,10 +160,6 @@ fun OurWorldScreen(contentPadding: PaddingValues, onOpenSnap: (String) -> Unit, 
     WorldDialogs(dialog, collections.orEmpty(), viewModel, onDismiss = { dialog = null }, open = { dialog = it })
 
     Box(Modifier.fillMaxSize().testTag("screen_our_world"), contentAlignment = Alignment.TopCenter) {
-        GothicMotifArt(
-            GothicMotif.Cobweb,
-            Modifier.align(Alignment.TopStart).padding(top = contentPadding.calculateTopPadding()).size(110.dp),
-        )
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -167,7 +172,8 @@ fun OurWorldScreen(contentPadding: PaddingValues, onOpenSnap: (String) -> Unit, 
                 bottom = contentPadding.calculateBottomPadding() + spacing.xxl,
             ),
         ) {
-            item(key = "title") { Title() }
+            item(key = "title") { Title(logs.orEmpty(), now, doors.onConstellation) }
+            item(key = "rooms") { WorldRooms(logs, shelf, names, now, doors) }
             item(key = "lane") { LaneHeader(onNew = { dialog = WorldDialog.New }) }
             val list = collections
             when {
@@ -192,12 +198,17 @@ fun OurWorldScreen(contentPadding: PaddingValues, onOpenSnap: (String) -> Unit, 
 }
 
 @Composable
-private fun Title() {
+private fun Title(logs: List<MeetupLog>, now: Instant, onSky: () -> Unit) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
-    Column(Modifier.fillMaxWidth().padding(horizontal = spacing.screenGutter).padding(top = spacing.xxl), horizontalAlignment = Alignment.End) {
-        Text("Our World", style = MaterialTheme.typography.displaySmall, color = colors.textMain)
-        Text("a shared room, slowly filling up", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
+    Box(Modifier.fillMaxWidth()) {
+        // The constellation, small and quiet, in the top-left corner behind the title.
+        SkyPreview(logs, now, onSky, Modifier.align(Alignment.TopStart))
+        Column(Modifier.fillMaxWidth().padding(horizontal = spacing.screenGutter).padding(top = 70.dp), horizontalAlignment = Alignment.End) {
+            Text("Our World", style = MaterialTheme.typography.displaySmall, color = colors.textMain)
+            Text("a shared room, slowly filling up", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
+            Text("TAP THE STARS", style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 9.sp), color = colors.textFaint, modifier = Modifier.padding(top = 2.dp))
+        }
     }
 }
 

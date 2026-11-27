@@ -44,7 +44,17 @@ import com.choomhub.app.feature.mood.moodOptionsScreen
 import com.choomhub.app.feature.mood.moodScreen
 import com.choomhub.app.feature.onboarding.OnboardingScreen
 import com.choomhub.app.feature.settings.settingsScreen
+import com.choomhub.app.feature.world.MeetupRoute
+import com.choomhub.app.feature.world.WorldDoors
+import com.choomhub.app.feature.world.atlas.AtlasRoute
+import com.choomhub.app.feature.world.atlas.atlasScreen
+import com.choomhub.app.feature.world.cabinet.CabinetRoute
+import com.choomhub.app.feature.world.cabinet.cabinetScreens
+import com.choomhub.app.feature.world.constellation.ConstellationRoute
+import com.choomhub.app.feature.world.constellation.constellationScreen
 import com.choomhub.app.feature.world.ourWorldScreen
+import com.choomhub.app.feature.world.shelf.ShelfRoute
+import com.choomhub.app.feature.world.shelf.shelfScreen
 import com.choomhub.app.feature.focus.FocusRoomRoute
 import com.choomhub.app.feature.focus.focusRoomScreen
 import com.choomhub.app.feature.shop.PointsShopRoute
@@ -113,8 +123,11 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
         containerColor = Color.Transparent,
         contentColor = colors.textMain,
         bottomBar = {
-            // The focus room and the shop take the whole screen: no tab bar.
-            val fullScreen = backStackEntry?.destination?.let { it.hasRoute<FocusRoomRoute>() || it.hasRoute<PointsShopRoute>() || it.hasRoute<BountyBoardRoute>() } == true
+            // The focus room, the shop, the board and Our World's big rooms take the whole screen: no tab bar.
+            val fullScreen = backStackEntry?.destination?.let {
+                it.hasRoute<FocusRoomRoute>() || it.hasRoute<PointsShopRoute>() || it.hasRoute<BountyBoardRoute>() ||
+                    it.hasRoute<ConstellationRoute>() || it.hasRoute<ShelfRoute>() || it.hasRoute<AtlasRoute>()
+            } == true
             if (!fullScreen) {
                 ChoomHubBottomBar(
                     currentDestination = backStackEntry?.destination,
@@ -155,10 +168,22 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
             bountyBoardScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             pointsShopScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             focusRoomScreen(contentPadding = padding, onLeft = { navController.popBackStack() })
+            val openMeetup: (String) -> Unit = { id -> navController.navigate(MeetupRoute(id)) { launchSingleTop = true } }
+            val back: () -> Unit = { navController.popBackStack() }
             ourWorldScreen(
                 contentPadding = padding,
                 onOpenSnap = { id -> navController.navigate(SnapViewerRoute(id)) },
+                doors = WorldDoors(
+                    onCabinet = { navController.navigate(CabinetRoute) { launchSingleTop = true } },
+                    onConstellation = { navController.navigate(ConstellationRoute) { launchSingleTop = true } },
+                    onShelf = { navController.navigate(ShelfRoute) { launchSingleTop = true } },
+                    onAtlas = { navController.navigate(AtlasRoute) { launchSingleTop = true } },
+                ),
             )
+            cabinetScreens(contentPadding = padding, onOpenMeetup = openMeetup, onBack = back)
+            constellationScreen(contentPadding = padding, onOpenMeetup = openMeetup, onBack = back)
+            shelfScreen(contentPadding = padding, onBack = back)
+            atlasScreen(contentPadding = padding, onOpenMeetup = openMeetup, onBack = back)
             settingsScreen(contentPadding = padding, onEditMoods = { navController.navigate(MoodOptionsRoute) })
             moodOptionsScreen(contentPadding = padding)
         }

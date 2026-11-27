@@ -25,6 +25,7 @@ fun ChoomHubTextField(
     onDone: () -> Unit = {},
     keyboardType: KeyboardType = KeyboardType.Text,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Words,
+    singleLine: Boolean = true,
 ) {
     val colors = ChoomHubTheme.colors
     OutlinedTextField(
@@ -34,13 +35,14 @@ fun ChoomHubTextField(
         label = { Text(label.uppercase(), style = MaterialTheme.typography.labelSmall) },
         supportingText = supportingText?.let { { Text(it, style = MaterialTheme.typography.bodySmall) } },
         isError = isError,
-        singleLine = true,
-        textStyle = MaterialTheme.typography.headlineSmall,
+        singleLine = singleLine,
+        // Longer notes read better a size down.
+        textStyle = if (singleLine) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
         shape = MaterialTheme.shapes.small,
         keyboardOptions = KeyboardOptions(
             capitalization = if (keyboardType == KeyboardType.Number) KeyboardCapitalization.None else capitalization,
             keyboardType = keyboardType,
-            imeAction = ImeAction.Done,
+            imeAction = if (singleLine) ImeAction.Done else ImeAction.Default,
         ),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         colors = OutlinedTextFieldDefaults.colors(

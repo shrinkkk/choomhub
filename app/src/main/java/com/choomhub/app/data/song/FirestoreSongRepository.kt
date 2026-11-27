@@ -3,6 +3,9 @@ package com.choomhub.app.data.song
 import com.choomhub.app.data.firebase.FirebaseSpaceRepository
 import com.choomhub.app.data.firebase.observe
 import com.choomhub.app.domain.model.SharedSong
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.firestore.Source
+import com.choomhub.app.domain.model.ShelfSong
 import com.choomhub.app.domain.model.SongDraft
 import com.choomhub.app.domain.model.SongPair
 import com.choomhub.app.domain.model.SpaceState
@@ -49,26 +52,60 @@ class FirestoreSongRepository @Inject constructor(
         val space = spaceRepository.observeSpace().first()
         val coupleId = space.coupleIdOrNull ?: return
         val me = space.memberIdOrNull ?: return
-        // A full replace: the old song's rating goes with it.
-        songs(coupleId).document(me).set(
-            buildMap {
-                put("trackId", song.trackId)
-                put("title", song.title)
-                if (song.artist != null) put("artist", song.artist)
-                if (song.cover != null) put("cover", Blob.fromBytes(song.cover))
-                put("sentAt", FieldValue.serverTimestamp())
-            },
-        )
+        // A full replace: the old song's rating goes with it. The same song also goes on the
+        // record shelf (records/), which keeps every one ever sent.
+        val record = records(coupleId).document()
+        val fields = buildMap {
+            put("trackId", song.trackId)
+            put("title", song.title)
+            if (song.artist != null) put("artist", song.artist)
+            if (song.cover != null) put("cover", Blob.fromBytes(song.cover))
+            put("sentAt", FieldValue.serverTimestamp())
+        }
+        val batch = db.batch()
+        batch.set(songs(coupleId).document(me), fields + ("recordId" to record.id))
+        batch.set(record, fields + ("by" to me))
+        batch.commit()
     }
 
     override suspend fun rate(rating: Int) {
         val space = spaceRepository.observeSpace().first() as? SpaceState.Paired ?: return
-        songs(space.coupleId).document(space.partnerUid)
-            .update(mapOf("rating" to rating, "ratedAt" to FieldValue.serverTimestamp()))
+        val theirs = songs(space.coupleId).document(space.partnerUid)
+        val recordId = runCatching { theirs.get(Source.CACHE).await().getString("recordId") }.getOrNull()
+        val batch = db.batch()
+        batch.update(theirs, mapOf("rating" to rating, "ratedAt" to FieldValue.serverTimestamp()))
+        if (recordId != null) batch.update(records(space.coupleId).document(recordId), mapOf("rating" to rating, "ratedAt" to FieldValue.serverTimestamp()))
+        batch.commit()
     }
+
+    private fun records(coupleId: String) = db.collection(FirebaseSpaceRepository.COUPLES).document(coupleId).collection(RECORDS)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeShelf(): Flow<List<ShelfSong>> = spaceRepository.observeSpace().flatMapLatest { space ->
+        val coupleId = space.coupleIdOrNull
+        val me = space.memberIdOrNull
+        if (coupleId == null || me == null) return@flatMapLatest flowOf(emptyList())
+        // The shelf: every record, plus the current songs (songs from before the shelf existed
+        // only live there). The same sending appears once.
+        combine(records(coupleId).observe(), observeSongs()) { recs, pair ->
+            val fromRecords = recs?.documents.orEmpty().mapNotNull { doc ->
+                val s = songFrom(doc) ?: return@mapNotNull null
+                ShelfSong(doc.id, s.trackId, s.title, s.artist, s.cover, doc.getString("by") == me, s.sentAt, s.rating)
+            }
+            val current = listOfNotNull(
+                pair.mine?.let { ShelfSong("song:me", it.trackId, it.title, it.artist, it.cover, true, it.sentAt, it.rating) },
+                pair.theirs?.let { ShelfSong("song:them", it.trackId, it.title, it.artist, it.cover, false, it.sentAt, it.rating) },
+            ).filter { c -> fromRecords.none { r -> r.fromMe == c.fromMe && r.trackId == c.trackId && sameMoment(r.sentAt, c.sentAt) } }
+            (fromRecords + current).sortedByDescending { it.sentAt }
+        }
+    }.distinctUntilChanged()
+
+    private fun sameMoment(a: java.time.Instant?, b: java.time.Instant?) =
+        a != null && b != null && kotlin.math.abs(a.toEpochMilli() - b.toEpochMilli()) < 5_000
 
     companion object {
         const val SONGS = "songs"
+        const val RECORDS = "records"
 
         fun songFrom(doc: DocumentSnapshot): SharedSong? {
             if (!doc.exists()) return null

@@ -4,6 +4,9 @@
 
     <!-- Focus room: Do Not Disturb while you focus, and an exact alarm when a break ends. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only for "Use where we are" in the specimen cabinet, asked the first time it's tapped. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission

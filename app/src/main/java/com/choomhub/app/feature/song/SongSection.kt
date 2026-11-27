@@ -226,17 +226,18 @@ internal fun Sleeve(cover: ImageBitmap?, rating: Int?, modifier: Modifier) {
 
 /** A rubber stamp: "8/10" in a double ring, pressed on at an angle. */
 @Composable
-private fun RatingStamp(rating: Int, modifier: Modifier) {
-    Box(modifier.size(62.dp).rotate(-14f), contentAlignment = Alignment.Center) {
+internal fun RatingStamp(rating: Int, modifier: Modifier, stampSize: androidx.compose.ui.unit.Dp = 62.dp) {
+    val k = stampSize.value / 62f
+    Box(modifier.size(stampSize).rotate(-14f), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val r = size.minDimension / 2f
             drawCircle(StampRed.copy(alpha = 0.18f), r, center)
-            drawCircle(StampRed.copy(alpha = 0.9f), r - 2f, center, style = Stroke(5f))
-            drawCircle(StampRed.copy(alpha = 0.9f), r - 11f, center, style = Stroke(2f))
+            drawCircle(StampRed.copy(alpha = 0.9f), r - 2f * k, center, style = Stroke(5f * k))
+            drawCircle(StampRed.copy(alpha = 0.9f), r - 11f * k, center, style = Stroke(2f * k))
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("$rating", color = StampRed, fontSize = 22.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
-            Text("/10", color = StampRed, fontSize = 10.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(bottom = 4.dp))
+            Text("$rating", color = StampRed, fontSize = 22.sp * k, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
+            Text("/10", color = StampRed, fontSize = 10.sp * k, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(bottom = 4.dp * k))
         }
     }
 }

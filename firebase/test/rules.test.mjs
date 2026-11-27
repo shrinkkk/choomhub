@@ -475,6 +475,36 @@ describe('focus room', () => {
     await assertFails(getDoc(doc(db('mallory'), 'couples/c1/bounties/b1')));
   });
 
+  test('meetups: either of you logs and edits them; only the date is required', async () => {
+    const ref = (uid) => doc(db(uid), 'couples/c1/meetups/m1');
+    const base = { date: '2026-11-27', live: true, startedAt: Timestamp.now(), did: [], photos: [], thumbs: {}, by: 'alice', createdAt: serverTimestamp(), updatedBy: 'alice', updatedAt: serverTimestamp() };
+    await assertFails(setDoc(ref('alice'), { ...base, date: 'today' }));
+    await assertFails(setDoc(ref('alice'), { ...base, by: 'bob' }));
+    await assertSucceeds(setDoc(ref('alice'), base));
+    // Bob fills things in and adds a photo.
+    await assertSucceeds(updateDoc(ref('bob'), { live: false, minutes: 340, place: 'Lodhi Garden', lat: 28.5933, lon: 77.2197, did: ['walk', 'food'], note: 'momos after', updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { did: ['karaoke'], updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { by: 'bob', updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { minutes: 2000, updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    const fb = db('bob');
+    const add = writeBatch(fb);
+    add.set(doc(fb, 'couples/c1/meetups/m1/photos/p1'), { data: Bytes.fromUint8Array(new Uint8Array(150000)), by: 'bob', at: serverTimestamp() });
+    add.update(doc(fb, 'couples/c1/meetups/m1'), { photos: ['p1'], 'thumbs.p1': Bytes.fromUint8Array(new Uint8Array(20000)), updatedBy: 'bob', updatedAt: serverTimestamp() });
+    await assertSucceeds(add.commit());
+    await assertFails(updateDoc(ref('bob'), { photos: Array.from({ length: 13 }, (_, i) => `p${i}`), updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(db('mallory'), 'couples/c1/meetups/m1/photos/p1')));
+    await assertSucceeds(deleteDoc(doc(db('alice'), 'couples/c1/meetups/m1/photos/p1')));
+    await assertSucceeds(deleteDoc(ref('alice')));
+  });
+
+  test('records: each song you send goes on the shelf; only the other one rates it', async () => {
+    const rec = { trackId: '4uLU6hMCjMI75M1A2tKUQC', title: 'Song', by: 'alice', sentAt: serverTimestamp() };
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples/c1/records/r1'), rec));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/records/r2'), { ...rec, by: 'bob' }));
+    await assertFails(updateDoc(doc(db('alice'), 'couples/c1/records/r1'), { rating: 9, ratedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(db('bob'), 'couples/c1/records/r1'), { rating: 9, ratedAt: serverTimestamp() }));
+  });
+
   test('the pet: shared, but coins and bond are your own and coins never go negative', async () => {
     const cat = (uid) => doc(db(uid), 'couples/c1/pet/cat');
     await assertSucceeds(setDoc(cat('alice'), { name: 'Mochi', coins: { alice: 10 }, bond: { alice: 2 }, needs: { hunger: { v: 80, at: Timestamp.now() } } }));

@@ -119,6 +119,17 @@ object ShopModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object MeetupLogModule {
+    @Provides
+    @Singleton
+    fun provideMeetupLogRepository(
+        firestore: Provider<com.choomhub.app.data.meetuplog.FirestoreMeetupLogRepository>,
+        local: Provider<com.choomhub.app.data.meetuplog.LocalMeetupLogRepository>,
+    ): com.choomhub.app.domain.repository.MeetupLogRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object BountyModule {
     @Provides
     @Singleton

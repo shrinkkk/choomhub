@@ -25,6 +25,9 @@ rules_version = '2';
 //   couples/{coupleId}/focusTotals/{uid} -> { totalMs, weekMs, weekStart, pointHours, togetherMs?, togetherHours? }  focus hours so far
 //   couples/{coupleId}/shared/focusRate -> { rate, proposed?, proposedBy?, at }  points per focus hour, agreed by both
 //   couples/{coupleId}/bounties/{id}   -> { task, reward 1-20, due, by, status: open|claimed|paid, at, claimedAt?, paidAt? }
+//   couples/{coupleId}/records/{id}    -> { trackId, title, artist?, cover?, by, sentAt, rating?, ratedAt? }  the record shelf
+//   couples/{coupleId}/meetups/{id}    -> { date, minutes?, live, startedAt?, place?, lat?, lon?, note?, did, first?, photos, thumbs, by, createdAt, updatedBy, updatedAt }
+//   couples/{coupleId}/meetups/{id}/photos/{pid} -> { data, by, at }
 //   couples/{coupleId}/shared/jam      -> { url, by, at }  a music jam link left in the record player
 //   couples/{coupleId}/shared/cat      -> { activity, since, by }  where the cat went when last tapped
 //   couples/{coupleId}/pet/cat         -> the Pet House cat (needs, coins {uid}, bond {uid}, things, gifts...)
@@ -593,7 +596,8 @@ service cloud.firestore {
       match /songs/{sender} {
         allow read: if isMember(coupleId);
         allow create, update: if isMember(coupleId) && sender == self()
-          && request.resource.data.keys().hasOnly(['trackId', 'title', 'artist', 'cover', 'sentAt'])
+          && request.resource.data.keys().hasOnly(['trackId', 'title', 'artist', 'cover', 'sentAt', 'recordId'])
+          && (request.resource.data.get('recordId', null) == null || (request.resource.data.recordId is string && request.resource.data.recordId.size() <= 40))
           && request.resource.data.trackId is string && request.resource.data.trackId.matches('^[A-Za-z0-9]{22}$')
           && request.resource.data.title is string
           && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
@@ -607,6 +611,71 @@ service cloud.firestore {
           && request.resource.data.rating is int
           && request.resource.data.rating >= 1 && request.resource.data.rating <= 10
           && request.resource.data.ratedAt == request.time;
+      }
+
+      // The record shelf: every song either of you sent (written with songs/{you}). The other
+      // one's rating is copied on.
+      match /records/{rid} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['trackId', 'title', 'artist', 'cover', 'sentAt', 'by'])
+          && request.resource.data.by == self()
+          && request.resource.data.trackId is string && request.resource.data.trackId.matches('^[A-Za-z0-9]{22}$')
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
+          && (request.resource.data.get('artist', null) == null
+              || (request.resource.data.artist is string && request.resource.data.artist.size() <= 200))
+          && (request.resource.data.get('cover', null) == null
+              || (request.resource.data.cover is bytes && request.resource.data.cover.size() <= 60000))
+          && request.resource.data.sentAt == request.time;
+        allow update: if isMember(coupleId) && resource.data.by != self()
+          && onlyChanged(['rating', 'ratedAt'])
+          && request.resource.data.rating is int
+          && request.resource.data.rating >= 1 && request.resource.data.rating <= 10
+          && request.resource.data.ratedAt == request.time;
+      }
+
+      // The specimen cabinet: every meetup you've logged. Either of you can change anything
+      // (who made it and when stays); only the date is required. Photos sit in documents under it.
+      match /meetups/{mid} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId) && meetupOk()
+          && request.resource.data.by == self()
+          && request.resource.data.createdAt == request.time;
+        allow update: if isMember(coupleId) && meetupOk()
+          && request.resource.data.by == resource.data.by
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isMember(coupleId);
+
+        function meetupOk() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['date', 'minutes', 'live', 'startedAt', 'place', 'lat', 'lon', 'note', 'did', 'first',
+                                   'photos', 'thumbs', 'by', 'createdAt', 'updatedBy', 'updatedAt'])
+            && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && (d.get('minutes', null) == null || (d.minutes is int && d.minutes >= 0 && d.minutes <= 1440))
+            && d.live is bool
+            && (d.get('startedAt', null) == null || d.startedAt is timestamp)
+            && (d.get('place', null) == null || (d.place is string && d.place.size() <= 80))
+            && (d.get('lat', null) == null || (d.lat is number && d.lat >= -90 && d.lat <= 90))
+            && (d.get('lon', null) == null || (d.lon is number && d.lon >= -180 && d.lon <= 180))
+            && (d.get('note', null) == null || (d.note is string && d.note.size() <= 500))
+            && d.did is list && d.did.size() <= 7
+            && d.did.hasOnly(['food', 'walk', 'talked', 'cigs', 'drinks', 'movie', 'other'])
+            && (d.get('first', null) == null || (d.first is string && d.first.size() <= 80))
+            && d.photos is list && d.photos.size() <= 12
+            && d.thumbs is map && d.thumbs.size() <= 12
+            && d.updatedBy == self() && d.updatedAt == request.time;
+        }
+
+        match /photos/{pid} {
+          allow read: if isMember(coupleId);
+          allow create: if isMember(coupleId)
+            && request.resource.data.keys().hasOnly(['data', 'by', 'at'])
+            && request.resource.data.data is bytes && request.resource.data.data.size() <= 900000
+            && request.resource.data.by == self()
+            && request.resource.data.at == request.time;
+          allow delete: if isMember(coupleId);
+        }
       }
 
       // The cat: either of you can send it somewhere.
