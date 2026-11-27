@@ -20,6 +20,14 @@ enum class MeetupActivity(val wire: String, val label: String) {
     }
 }
 
+/** Somewhere you went that day: its name, and its spot on the map if it has one. */
+data class MeetupPlace(val name: String, val lat: Double? = null, val lon: Double? = null) {
+    val hasPin: Boolean get() = lat != null && lon != null
+
+    /** Typed nothing and pinned nothing: not worth keeping. */
+    val isBlank: Boolean get() = name.isBlank() && !hasPin
+}
+
 /** A photo in a meetup: [thumb] is small, for lists; the full picture loads separately. */
 data class MeetupPhoto(val id: String, val thumb: ByteArray?) {
     override fun equals(other: Any?): Boolean = other is MeetupPhoto && other.id == id && (thumb?.size ?: 0) == (other.thumb?.size ?: 0)
@@ -37,9 +45,8 @@ data class MeetupLog(
     val minutes: Int? = null,
     val live: Boolean = false,
     val startedAt: Instant? = null,
-    val place: String? = null,
-    val lat: Double? = null,
-    val lon: Double? = null,
+    /** Where you went, in the order you went (or added them). The first is the one previews show. */
+    val places: List<MeetupPlace> = emptyList(),
     val note: String? = null,
     val did: Set<MeetupActivity> = emptySet(),
     val first: String? = null,
@@ -55,7 +62,13 @@ data class MeetupLog(
         minutes
     }
 
-    val hasPin: Boolean get() = lat != null && lon != null
+    /** The first place's name, for previews. */
+    val place: String? get() = places.firstOrNull { it.name.isNotBlank() }?.name
+
+    /** The places that are on the map, in order. */
+    val pins: List<MeetupPlace> get() = places.filter { it.hasPin }
+
+    val hasPin: Boolean get() = pins.isNotEmpty()
 
     val photoIds: List<String> get() = photos.map { it.id }
 
@@ -63,7 +76,7 @@ data class MeetupLog(
     val thumb: ByteArray? get() = photos.firstOrNull()?.thumb
 
     override fun equals(other: Any?): Boolean = other is MeetupLog && other.id == id && other.date == date && other.minutes == minutes &&
-        other.live == live && other.startedAt == startedAt && other.place == place && other.lat == lat && other.lon == lon &&
+        other.live == live && other.startedAt == startedAt && other.places == places &&
         other.note == note && other.did == did && other.first == first && other.photos == photos
 
     override fun hashCode(): Int = id.hashCode()
@@ -73,9 +86,8 @@ data class MeetupLog(
 data class MeetupEdit(
     val date: LocalDate? = null,
     val minutes: Int? = null,
-    val place: String? = null,
-    val lat: Double? = null,
-    val lon: Double? = null,
+    /** The whole list, replaced (blank entries are dropped). */
+    val places: List<MeetupPlace>? = null,
     val note: String? = null,
     val did: Set<MeetupActivity>? = null,
     val first: String? = null,
@@ -85,6 +97,7 @@ data class MeetupEdit(
 object MeetupRules {
     const val MAX_PHOTOS = 12
     const val MAX_PLACE = 80
+    const val MAX_PLACES = 6
     const val MAX_NOTE = 500
     const val MAX_FIRST = 80
     const val MAX_MINUTES = 24 * 60
@@ -108,10 +121,16 @@ object MeetupRules {
     }
 
     /** Places within about 300 m of each other count as one pin. */
-    fun samePlace(a: MeetupLog, b: MeetupLog): Boolean {
+    fun samePlace(a: MeetupPlace, b: MeetupPlace): Boolean {
         if (!a.hasPin || !b.hasPin) return false
         return kotlin.math.abs(a.lat!! - b.lat!!) < 0.003 && kotlin.math.abs(a.lon!! - b.lon!!) < 0.003
     }
+
+    /** The places worth saving: trimmed, blanks dropped, at most [MAX_PLACES]. */
+    fun cleanPlaces(places: List<MeetupPlace>): List<MeetupPlace> = places
+        .map { it.copy(name = clean(it.name, MAX_PLACE).orEmpty()) }
+        .filterNot { it.isBlank }
+        .take(MAX_PLACES)
 
     /** Meetups in date order (oldest first), for the sky. */
     fun inOrder(all: List<MeetupLog>): List<MeetupLog> = all.sortedWith(compareBy<MeetupLog> { it.date }.thenBy { it.createdAt })

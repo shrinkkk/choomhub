@@ -17,6 +17,9 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.geometry.Size
 import com.choomhub.app.feature.world.constellation.starPoints
+import com.choomhub.app.domain.model.MeetupPlace
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.choomhub.app.MainActivity
 import com.choomhub.app.core.navigation.TopLevelDestination
@@ -113,6 +116,12 @@ class OurWorldRoomsTest {
         composeRule.waitForIdle()
     }
 
+    /** Lets the screen's "save after a pause" timers run. */
+    private fun pause() {
+        org.robolectric.shadows.ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS)
+        composeRule.waitForIdle()
+    }
+
     private fun waitFor(tag: String) = composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
 
     @Test
@@ -144,8 +153,25 @@ class OurWorldRoomsTest {
 
         composeRule.onNodeWithTag("meetup_hours").performTextInput("3")
         composeRule.onNodeWithTag("meetup_minutes").performTextInput("20")
-        composeRule.onNodeWithTag("meetup_time_save").performClick()
+        // No button: it saves itself a moment after typing stops.
+        pause()
         composeRule.waitUntil(5_000) { local.meetups.value.single().minutes == 200 }
+        composeRule.onNodeWithText("Saved: 3h 20m").assertExists()
+    }
+
+    @Test
+    fun pinningTakesTheTimeJustTyped() {
+        open("world_cabinet")
+        waitFor("screen_cabinet")
+        composeRule.onNodeWithTag("cabinet_log").performClick()
+        composeRule.onNodeWithTag("cabinet_past").performClick()
+        waitFor("date_panel")
+        composeRule.onNodeWithTag("date_ok").performClick()
+        waitFor("screen_meetup")
+        composeRule.onNodeWithTag("meetup_hours").performTextInput("2")
+        // Straight to pin, no pause.
+        composeRule.onNodeWithTag("meetup_done").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        runCatching { composeRule.waitUntil(5_000) { local.meetups.value.single().minutes == 120 } }.onFailure { throw AssertionError("saved: " + local.meetups.value) }
     }
 
     @Test
@@ -154,6 +180,9 @@ class OurWorldRoomsTest {
         open("world_cabinet")
         waitFor("specimen_m1")
         composeRule.onNodeWithTag("specimen_m1").performClick()
+        // A finished date opens to look at; EDIT opens the editor.
+        waitFor("screen_meetup_view")
+        composeRule.onNodeWithTag("meetup_edit").performClick()
         waitFor("screen_meetup")
 
         composeRule.onNodeWithTag("meetup_photo_2").performSemanticsAction(SemanticsActions.OnClick)
@@ -168,7 +197,7 @@ class OurWorldRoomsTest {
     @Test
     fun theSkyOpensFromThePreviewAndAStarZoomsToItsDate() {
         seed(
-            MeetupLog("m1", LocalDate.of(2026, 10, 4), minutes = 150, place = "Lodhi Garden", note = "the ducks", createdAt = Instant.now()),
+            MeetupLog("m1", LocalDate.of(2026, 10, 4), minutes = 150, places = listOf(MeetupPlace("Lodhi Garden")), note = "the ducks", createdAt = Instant.now()),
             MeetupLog("m2", LocalDate.of(2026, 11, 2), minutes = 60, createdAt = Instant.now()),
         )
         composeRule.onNodeWithTag("world_sky").performClick()
@@ -194,8 +223,8 @@ class OurWorldRoomsTest {
         composeRule.onNodeWithTag("constellation_sky").performTouchInput { click(star) }
         waitFor("star_open")
         composeRule.onNodeWithTag("star_open").performClick()
-        waitFor("screen_meetup")
-        composeRule.onNodeWithText("Lodhi Garden").assertIsDisplayed()
+        waitFor("screen_meetup_view")
+        composeRule.onNodeWithText("Lodhi Garden").assertExists()
     }
 
     @Test
@@ -223,11 +252,55 @@ class OurWorldRoomsTest {
 
     @Test
     fun theAtlasShowsPinnedDates() {
-        seed(MeetupLog("m1", LocalDate.of(2026, 10, 4), minutes = 150, place = "Lodhi Garden", lat = 28.5931, lon = 77.2197, createdAt = Instant.now()))
+        seed(MeetupLog("m1", LocalDate.of(2026, 10, 4), minutes = 150, places = listOf(MeetupPlace("Lodhi Garden", 28.5931, 77.2197)), createdAt = Instant.now()))
         composeRule.onNodeWithTag("our_world_list").performScrollToNode(hasTestTag("world_atlas"))
         composeRule.onNodeWithText("1 place in Delhi").assertIsDisplayed()
         open("world_atlas")
         waitFor("screen_atlas")
         composeRule.onNodeWithTag("atlas_map").assertIsDisplayed()
+    }
+
+    @Test
+    fun aFinishedDateOpensToLookAtWithItsRoute() {
+        seed(
+            MeetupLog(
+                "m1", LocalDate.of(2026, 10, 4), minutes = 340,
+                places = listOf(MeetupPlace("Lodhi Garden", 28.5931, 77.2197), MeetupPlace("Khan Market", 28.6003, 77.2270), MeetupPlace("a chai stall")),
+                note = "the ducks", first = "rowing boat", createdAt = Instant.now(),
+            ),
+        )
+        open("world_cabinet")
+        waitFor("specimen_m1")
+        // The label shows only the first place.
+        composeRule.onNodeWithText("Lodhi Garden").assertExists()
+        assertTrue(composeRule.onAllNodesWithText("Khan Market").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("specimen_m1").performClick()
+        waitFor("screen_meetup_view")
+        composeRule.onNodeWithTag("view_together").assertTextEquals("5h 40m together")
+        composeRule.onNodeWithTag("view_route").assertExists()
+        listOf("Lodhi Garden", "Khan Market", "a chai stall").forEach { composeRule.onNodeWithText(it).assertExists() }
+        composeRule.onNodeWithText("First rowing boat").assertExists()
+        // Nothing to type into here.
+        assertTrue(composeRule.onAllNodesWithTag("meetup_place").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun aDateTakesSeveralPlacesInOrder() {
+        seed(MeetupLog("m1", LocalDate.of(2026, 10, 4), minutes = 60, createdAt = Instant.now()))
+        open("world_cabinet")
+        waitFor("specimen_m1")
+        composeRule.onNodeWithTag("specimen_m1").performClick()
+        waitFor("screen_meetup_view")
+        composeRule.onNodeWithTag("meetup_edit").performClick()
+        waitFor("screen_meetup")
+        composeRule.onNodeWithTag("meetup_place").performTextInput("Lodhi Garden")
+        pause()
+        composeRule.waitUntil(5_000) { local.meetups.value.single().places.map { it.name } == listOf("Lodhi Garden") }
+        composeRule.onNodeWithTag("meetup_add_place").performScrollTo().performClick()
+        composeRule.onNodeWithTag("meetup_place_1").performScrollTo().performTextInput("Khan Market")
+        pause()
+        composeRule.waitUntil(5_000) { local.meetups.value.single().places.map { it.name } == listOf("Lodhi Garden", "Khan Market") }
+        composeRule.onNodeWithTag("meetup_place_remove_0").performScrollTo().performClick()
+        composeRule.waitUntil(5_000) { local.meetups.value.single().places.map { it.name } == listOf("Khan Market") }
     }
 }

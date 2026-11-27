@@ -1,5 +1,8 @@
 package com.choomhub.app.feature.world
 
+import kotlinx.coroutines.flow.combine
+import com.choomhub.app.data.place.FoundPlace
+import com.choomhub.app.domain.model.MeetupPlace
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -82,7 +85,7 @@ class MeetupViewModel @Inject constructor(
     savedState: SavedStateHandle,
     private val meetups: MeetupLogRepository,
     private val images: SnapImages,
-    private val places: PlaceFinder,
+    private val placesFinder: PlaceFinder,
     private val notifier: Notifier,
     ticker: SecondTicker,
     private val clock: Clock,
@@ -105,14 +108,25 @@ class MeetupViewModel @Inject constructor(
     fun photo(photoId: String): Flow<ByteArray?> = meetups.observePhoto(id, photoId)
 
     private val pending = HashMap<String, Job>()
+    private val unsaved = HashMap<String, MeetupEdit>()
 
     /** Saves after a short pause, so typing doesn't write on every key. */
-    private fun later(key: String, edit: MeetupEdit) {
+    private fun later(key: String, edit: MeetupEdit, then: () -> Unit = {}) {
         pending.remove(key)?.cancel()
+        unsaved[key] = edit
         pending[key] = viewModelScope.launch {
             delay(700)
+            unsaved.remove(key)
             meetups.edit(id, edit)
+            then()
         }
+    }
+
+    override fun onCleared() {
+        // Left the screen mid-typing: what was typed still gets saved.
+        val left = unsaved.values.toList()
+        unsaved.clear()
+        if (left.isNotEmpty()) Flush.scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { left.forEach { meetups.edit(id, it) } }
     }
 
     private fun now(edit: MeetupEdit) {
@@ -123,50 +137,109 @@ class MeetupViewModel @Inject constructor(
 
     fun setMinutes(minutes: Int?) = if (minutes == null) now(MeetupEdit(clear = setOf("minutes"))) else now(MeetupEdit(minutes = minutes.coerceIn(0, MeetupRules.MAX_MINUTES)))
 
+    /** Hours and minutes as they're typed: saved after a pause, no button needed. */
+    fun typeMinutes(minutes: Int?) = later("minutes", if (minutes == null) MeetupEdit(clear = setOf("minutes")) else MeetupEdit(minutes = minutes.coerceIn(0, MeetupRules.MAX_MINUTES)))
+
     fun stopLive() {
         val m = meetup.value ?: return
         viewModelScope.launch { meetups.stopLive(m) }
     }
 
-    fun setPlace(text: String) = later("place", if (text.isBlank()) MeetupEdit(clear = setOf("place", "lat", "lon")) else MeetupEdit(place = text))
+    // --- Places: a working list, so quick edits to two of them don't undo each other ---
 
-    /** Finds the typed place on the map (Delhi), so it gets a pin. */
-    fun findPlace(text: String) {
-        if (text.isBlank()) return
-        viewModelScope.launch {
-            _busy.value = "Finding it on the map…"
-            val hit = places.search(text)
-            _busy.value = null
-            if (hit == null) {
-                _message.value = "Couldn't find that on the map. Pin it yourself instead."
-            } else {
-                meetups.edit(id, MeetupEdit(place = text, lat = hit.lat, lon = hit.lon))
+    private val draft = MutableStateFlow<List<MeetupPlace>?>(null)
+
+    /** The places as the screen shows them: what's saved, plus edits still on their way. */
+    val places: StateFlow<List<MeetupPlace>> = combine(meetup, draft) { m, d -> d ?: m?.places.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private fun changePlaces(typing: Boolean = false, block: (MutableList<MeetupPlace>) -> Unit) {
+        val next = places.value.toMutableList().also(block)
+        draft.value = next
+        val edit = MeetupEdit(places = next)
+        if (typing) {
+            later("places", edit) { if (draft.value == next && next.none { it.isBlank }) draft.value = null }
+        } else {
+            pending.remove("places")?.cancel()
+            unsaved.remove("places")
+            viewModelScope.launch {
+                meetups.edit(id, edit)
+                if (draft.value == next && next.none { it.isBlank }) draft.value = null
             }
         }
     }
 
-    val canFindHere: Boolean get() = places.hasLocationPermission()
+    /** A new, empty place at the end (kept on screen; saved once it has a name or a pin). */
+    fun addPlace() {
+        if (places.value.size >= MeetupRules.MAX_PLACES) return
+        draft.value = places.value + MeetupPlace("")
+    }
 
-    /** Pins it where this phone is now, and names the place. */
-    fun useHere() {
+    fun removePlace(index: Int) = changePlaces { if (index in it.indices) it.removeAt(index) }
+
+    /** Room for [index] (the screen always shows at least one place, even before it's saved). */
+    private fun MutableList<MeetupPlace>.reach(index: Int): Boolean {
+        if (index < 0 || index >= MeetupRules.MAX_PLACES) return false
+        while (size <= index) add(MeetupPlace(""))
+        return true
+    }
+
+    /** Typing a name: the pin it had stays until it's found again or moved. */
+    fun setPlaceName(index: Int, text: String) = changePlaces(typing = true) { if (it.reach(index)) it[index] = it[index].copy(name = text.take(MeetupRules.MAX_PLACE)) }
+
+    private fun pin(index: Int, lat: Double, lon: Double, name: String? = null) = changePlaces {
+        if (it.reach(index)) it[index] = it[index].copy(lat = lat, lon = lon, name = it[index].name.ifBlank { name.orEmpty() })
+    }
+
+    /** Several spots share the typed name: which one it was. */
+    data class PlaceChoices(val index: Int, val typed: String, val options: List<FoundPlace>)
+
+    private val _choices = MutableStateFlow<PlaceChoices?>(null)
+    val choices: StateFlow<PlaceChoices?> = _choices.asStateFlow()
+
+    /** Finds the typed place on the map (Delhi) and asks which of the matches it was. */
+    fun findPlace(index: Int) {
+        val text = places.value.getOrNull(index)?.name?.trim().orEmpty()
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            _busy.value = "Finding it on the map…"
+            val hits = placesFinder.searchAll(text)
+            _busy.value = null
+            // Always shown to check, even one match: a name can belong to more than one spot
+            // (Sheesh Mahal in Shalimar Bagh, Sheesh Mahal near Jama Masjid), and the phone's
+            // first guess isn't always yours.
+            if (hits.isEmpty()) _message.value = "Couldn't find that on the map. Add the area (\"$text, Shalimar Bagh\") or pin it yourself."
+            else _choices.value = PlaceChoices(index, text, hits)
+        }
+    }
+
+    fun choose(option: FoundPlace?) {
+        val c = _choices.value ?: return
+        _choices.value = null
+        if (option != null) pin(c.index, option.lat, option.lon)
+    }
+
+    val canFindHere: Boolean get() = placesFinder.hasLocationPermission()
+
+    /** Pins place [index] where this phone is now, and names it if it has no name. */
+    fun useHere(index: Int) {
         viewModelScope.launch {
             _busy.value = "Finding where you are…"
-            val here = places.here()
+            val here = placesFinder.here()
             _busy.value = null
             if (here == null) {
                 _message.value = "Couldn't get your location. Turn on location, or pin it yourself."
             } else {
-                val name = here.name ?: meetup.value?.place
-                meetups.edit(id, MeetupEdit(place = name, lat = here.lat, lon = here.lon, clear = if (name == null) setOf("place") else emptySet()))
+                pin(index, here.lat, here.lon, here.name)
             }
         }
     }
 
-    /** A pin dropped on the map by hand; names it if the place has no name yet. */
-    fun pinAt(lat: Double, lon: Double) {
+    /** A pin dropped on the map by hand; names it if it has no name yet. */
+    fun pinAt(index: Int, lat: Double, lon: Double) {
         viewModelScope.launch {
-            val name = meetup.value?.place ?: places.nameOf(lat, lon)
-            meetups.edit(id, MeetupEdit(lat = lat, lon = lon, place = name))
+            val name = if (places.value.getOrNull(index)?.name.isNullOrBlank()) placesFinder.nameOf(lat, lon) else null
+            pin(index, lat, lon, name)
         }
     }
 
@@ -214,9 +287,20 @@ class MeetupViewModel @Inject constructor(
     fun makeFirst(photoId: String) = movePhoto(photoId, -MeetupRules.MAX_PHOTOS)
 
     /** Done for now: tells them it's pinned (once). */
+    /** Writes whatever was typed and is still waiting for its pause, right now. */
+    private suspend fun saveNow() {
+        val left = unsaved.values.toList()
+        unsaved.keys.toList().forEach { pending.remove(it)?.cancel() }
+        unsaved.clear()
+        left.forEach { meetups.edit(id, it) }
+    }
+
     fun pinned() {
-        val m = meetup.value ?: return
-        viewModelScope.launch {
+        // Pinning takes the time (and anything else) as typed, no need to wait or press anything.
+        // It outlives the screen, which closes straight after.
+        Flush.scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            saveNow()
+            val m = meetup.value ?: return@launch
             notifier.notifyPartner(PushEvent.MeetupLog, detail = listOfNotNull(m.place, m.minutes?.let(MeetupRules::duration)).joinToString(" · ").ifEmpty { null }, kind = "logged")
         }
     }
@@ -228,4 +312,9 @@ class MeetupViewModel @Inject constructor(
             then()
         }
     }
+}
+
+/** Outlives a screen, for saving what was typed just before leaving it. */
+private object Flush {
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate)
 }

@@ -45,7 +45,7 @@ data class MapWindow(val west: Float, val east: Float, val south: Float, val nor
 }
 
 /** A meetup pinned on the map. */
-data class AtlasPin(val id: String, val lon: Float, val lat: Float, val count: Int = 1)
+data class AtlasPin(val id: String, val lon: Float, val lat: Float, val count: Int = 1, val name: String? = null)
 
 private val Paper = Color(0xFF16121C)
 private val PaperLit = Color(0xFF1F1926)

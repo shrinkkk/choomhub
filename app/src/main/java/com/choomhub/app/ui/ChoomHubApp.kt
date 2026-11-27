@@ -49,6 +49,7 @@ import com.choomhub.app.feature.world.WorldDoors
 import com.choomhub.app.feature.world.atlas.AtlasRoute
 import com.choomhub.app.feature.world.atlas.atlasScreen
 import com.choomhub.app.feature.world.cabinet.CabinetRoute
+import com.choomhub.app.feature.world.cabinet.MeetupViewRoute
 import com.choomhub.app.feature.world.cabinet.cabinetScreens
 import com.choomhub.app.feature.world.constellation.ConstellationRoute
 import com.choomhub.app.feature.world.constellation.constellationScreen
@@ -170,7 +171,8 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
             bountyBoardScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             pointsShopScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             focusRoomScreen(contentPadding = padding, onLeft = { navController.popBackStack() })
-            val openMeetup: (String) -> Unit = { id -> navController.navigate(MeetupRoute(id)) { launchSingleTop = true } }
+            val editMeetup: (String) -> Unit = { id -> navController.navigate(MeetupRoute(id)) { launchSingleTop = true } }
+            val openMeetup: (String) -> Unit = { id -> navController.navigate(MeetupViewRoute(id)) { launchSingleTop = true } }
             val back: () -> Unit = { navController.popBackStack() }
             ourWorldScreen(
                 contentPadding = padding,
@@ -182,7 +184,7 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
                     onAtlas = { navController.navigate(AtlasRoute) { launchSingleTop = true } },
                 ),
             )
-            cabinetScreens(contentPadding = padding, onOpenMeetup = openMeetup, onBack = back)
+            cabinetScreens(contentPadding = padding, onEditMeetup = editMeetup, onViewMeetup = openMeetup, onBack = back)
             constellationScreen(contentPadding = padding, onOpenMeetup = openMeetup, onBack = back)
             shelfScreen(contentPadding = padding, onBack = back)
             atlasScreen(contentPadding = padding, onOpenMeetup = openMeetup, onBack = back)

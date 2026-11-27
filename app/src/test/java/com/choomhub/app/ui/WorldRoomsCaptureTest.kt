@@ -130,7 +130,8 @@ class WorldRoomsCaptureTest {
             val p = places[i % places.size]
             MeetupLog(
                 "m$i", LocalDate.of(2026, 6, 1).plusDays(i * 13L), minutes = 60 + (i * 37) % 300,
-                place = p.first, lat = p.second, lon = p.third,
+                places = listOf(com.choomhub.app.domain.model.MeetupPlace(p.first, p.second, p.third)) +
+                    if (i == 7) listOf(com.choomhub.app.domain.model.MeetupPlace("Khan Market", 28.6003, 77.2270), com.choomhub.app.domain.model.MeetupPlace("India Gate", 28.6129, 77.2295), com.choomhub.app.domain.model.MeetupPlace("a chai stall somewhere")) else emptyList(),
                 note = if (i == 7) "fed the ducks, argued about the best momos, walked till the guard whistled" else null,
                 did = setOf(MeetupActivity.entries[i % MeetupActivity.entries.size], MeetupActivity.Walk),
                 first = if (i == 7) "rowing boat" else null,
@@ -160,7 +161,7 @@ class WorldRoomsCaptureTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h891dp-xxhdpi")
+    @Config(qualifiers = "w411dp-h2200dp-xxhdpi")
     fun rooms() {
         hiltRule.inject()
         waitFor("home_list")
@@ -176,8 +177,13 @@ class WorldRoomsCaptureTest {
         composeRule.mainClock.advanceTimeBy(1_500)
         capture("world_sky_star")
         composeRule.onNodeWithTag("star_open").performClick()
+        waitFor("screen_meetup_view")
+        capture("world_meetup_view")
+        composeRule.onNodeWithTag("meetup_edit").performClick()
         waitFor("screen_meetup")
         capture("world_meetup")
+        composeRule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        waitFor("screen_meetup_view")
         composeRule.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithTag("constellation_back").performClick()
         composeRule.waitForIdle()

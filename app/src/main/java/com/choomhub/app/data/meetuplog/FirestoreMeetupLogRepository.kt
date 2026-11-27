@@ -6,6 +6,7 @@ import com.choomhub.app.domain.model.MeetupActivity
 import com.choomhub.app.domain.model.MeetupEdit
 import com.choomhub.app.domain.model.MeetupLog
 import com.choomhub.app.domain.model.MeetupPhoto
+import com.choomhub.app.domain.model.MeetupPlace
 import com.choomhub.app.domain.model.MeetupRules
 import com.choomhub.app.domain.model.PreparedSnap
 import com.choomhub.app.domain.model.coupleIdOrNull
@@ -32,7 +33,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * couples/{id}/meetups/{mid}  { date "2026-11-27", minutes?, live, startedAt?, place?, lat?, lon?, note?,
+ * couples/{id}/meetups/{mid}  { date "2026-11-27", minutes?, live, startedAt?, places? [{ name, lat?, lon? }], note?,
  *                               did [..], first?, photos [ids, in order], thumbs {id: small JPEG},
  *                               by, createdAt, updatedBy, updatedAt }
  * couples/{id}/meetups/{mid}/photos/{pid}  { data, by, at }  the full picture
@@ -114,9 +115,11 @@ class FirestoreMeetupLogRepository @Inject constructor(
         val changes = buildMap<String, Any?> {
             edit.date?.let { put("date", it.toString()) }
             edit.minutes?.let { put("minutes", it.coerceIn(0, MeetupRules.MAX_MINUTES)); put("live", false) }
-            edit.place?.let { put("place", MeetupRules.clean(it, MeetupRules.MAX_PLACE)) }
-            edit.lat?.let { put("lat", it) }
-            edit.lon?.let { put("lon", it) }
+            edit.places?.let { list ->
+                put("places", MeetupRules.cleanPlaces(list).map { p -> buildMap { put("name", p.name); p.lat?.let { put("lat", it) }; p.lon?.let { put("lon", it) } } })
+                // The single place older versions kept goes; the list replaces it.
+                put("place", FieldValue.delete()); put("lat", FieldValue.delete()); put("lon", FieldValue.delete())
+            }
             edit.note?.let { put("note", MeetupRules.clean(it, MeetupRules.MAX_NOTE)) }
             edit.did?.let { put("did", it.map(MeetupActivity::wire)) }
             edit.first?.let { put("first", MeetupRules.clean(it, MeetupRules.MAX_FIRST)) }
@@ -167,6 +170,17 @@ class FirestoreMeetupLogRepository @Inject constructor(
         const val COLLECTION = "meetups"
         const val PHOTOS = "photos"
 
+        /** The places list, or (logged before there could be several) the one place. */
+        fun placesFrom(doc: DocumentSnapshot): List<MeetupPlace> {
+            val list = (doc.get("places") as? List<*>)?.mapNotNull { item ->
+                val map = item as? Map<*, *> ?: return@mapNotNull null
+                MeetupPlace((map["name"] as? String).orEmpty(), (map["lat"] as? Number)?.toDouble(), (map["lon"] as? Number)?.toDouble())
+            }
+            if (list != null) return list
+            val old = MeetupPlace(doc.getString("place").orEmpty(), doc.getDouble("lat"), doc.getDouble("lon"))
+            return if (old.isBlank) emptyList() else listOf(old)
+        }
+
         fun meetupFrom(doc: DocumentSnapshot, me: String): MeetupLog? {
             val date = doc.getString("date")?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
             val photos = (doc.get("photos") as? List<*>).orEmpty().filterIsInstance<String>()
@@ -177,9 +191,7 @@ class FirestoreMeetupLogRepository @Inject constructor(
                 minutes = doc.getLong("minutes")?.toInt(),
                 live = doc.getBoolean("live") == true,
                 startedAt = doc.getTimestamp("startedAt")?.toDate()?.toInstant(),
-                place = doc.getString("place"),
-                lat = doc.getDouble("lat"),
-                lon = doc.getDouble("lon"),
+                places = placesFrom(doc),
                 note = doc.getString("note"),
                 did = (doc.get("did") as? List<*>).orEmpty().mapNotNull { (it as? String)?.let(MeetupActivity::fromWire) }.toSet(),
                 first = doc.getString("first"),

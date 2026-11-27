@@ -486,6 +486,15 @@ describe('focus room', () => {
     await assertFails(updateDoc(ref('bob'), { did: ['karaoke'], updatedBy: 'bob', updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(ref('bob'), { by: 'bob', updatedBy: 'bob', updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(ref('bob'), { minutes: 2000, updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    // Several places, in order; the old single place goes when the list is written.
+    const lodhi = { name: 'Lodhi Garden', lat: 28.5933, lon: 77.2197 };
+    await assertSucceeds(updateDoc(ref('alice'), { places: [lodhi, { name: 'Khan Market', lat: 28.6003, lon: 77.2270 }, { name: 'Somewhere unpinned' }], place: deleteField(), lat: deleteField(), lon: deleteField(), updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref('alice'), { places: [{ name: '', lat: 28.61, lon: 77.21 }], updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('alice'), { places: Array.from({ length: 7 }, () => lodhi), updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('alice'), { places: [lodhi, { name: 'x'.repeat(81) }], updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('alice'), { places: [lodhi, { name: 'Bad', lat: 200 }], updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('alice'), { places: [{ name: 'Extra', note: 'no' }], updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('alice'), { places: ['Lodhi Garden'], updatedBy: 'alice', updatedAt: serverTimestamp() }));
     const fb = db('bob');
     const add = writeBatch(fb);
     add.set(doc(fb, 'couples/c1/meetups/m1/photos/p1'), { data: Bytes.fromUint8Array(new Uint8Array(150000)), by: 'bob', at: serverTimestamp() });

@@ -44,9 +44,7 @@ open class LocalMeetupLogRepository @Inject constructor(private val clock: Clock
             date = edit.date ?: m.date,
             minutes = edit.minutes?.coerceIn(0, MeetupRules.MAX_MINUTES) ?: m.minutes,
             live = if (edit.minutes != null) false else m.live,
-            place = edit.place?.let { MeetupRules.clean(it, MeetupRules.MAX_PLACE) } ?: m.place,
-            lat = edit.lat ?: m.lat,
-            lon = edit.lon ?: m.lon,
+            places = edit.places?.let(MeetupRules::cleanPlaces) ?: m.places,
             note = edit.note?.let { MeetupRules.clean(it, MeetupRules.MAX_NOTE) } ?: m.note,
             did = edit.did ?: m.did,
             first = edit.first?.let { MeetupRules.clean(it, MeetupRules.MAX_FIRST) } ?: m.first,
@@ -54,9 +52,7 @@ open class LocalMeetupLogRepository @Inject constructor(private val clock: Clock
         edit.clear.forEach { field ->
             r = when (field) {
                 "minutes" -> r.copy(minutes = null)
-                "place" -> r.copy(place = null)
-                "lat" -> r.copy(lat = null)
-                "lon" -> r.copy(lon = null)
+                "places" -> r.copy(places = emptyList())
                 "note" -> r.copy(note = null)
                 "first" -> r.copy(first = null)
                 else -> r

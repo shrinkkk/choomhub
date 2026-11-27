@@ -77,4 +77,26 @@ class MonthCalendarTest {
         compose.onNodeWithTag("date_ok").performClick()
         assertEquals(LocalDate.of(2026, 10, 3), picked)
     }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-xxhdpi")
+    fun twoSheeshMahals() {
+        var chosen: com.choomhub.app.data.place.FoundPlace? = null
+        val options = listOf(
+            com.choomhub.app.data.place.FoundPlace(28.6507, 77.2334, "Sheesh Mahal", "Sheesh Mahal, Chandni Chowk, near Jama Masjid, Delhi 110006"),
+            com.choomhub.app.data.place.FoundPlace(28.7168, 77.1615, "Sheesh Mahal", "Sheesh Mahal, Shalimar Bagh, Delhi 110088"),
+        )
+        compose.setContent {
+            ChoomHubTheme {
+                Box(Modifier.fillMaxSize().background(ChoomHubTheme.colors.night)) {
+                    PlaceChoicesPanel(com.choomhub.app.feature.world.MeetupViewModel.PlaceChoices(0, "Sheesh Mahal", options), onChoose = { chosen = it }, onPinMyself = {})
+                }
+            }
+        }
+        compose.waitForIdle()
+        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        File(screenshotDir(), "place_choices.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        compose.onNodeWithTag("place_choice_1").performClick()
+        assertEquals(options[1], chosen)
+    }
 }

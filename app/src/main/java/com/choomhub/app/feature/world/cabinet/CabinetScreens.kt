@@ -1,5 +1,11 @@
 package com.choomhub.app.feature.world.cabinet
 
+import com.choomhub.app.data.place.FoundPlace
+import com.choomhub.app.feature.world.atlas.AtlasPin
+import com.choomhub.app.feature.world.atlas.DelhiAtlas
+import androidx.compose.ui.text.style.TextOverflow
+import com.choomhub.app.core.designsystem.icon.PointIcons
+import com.choomhub.app.domain.model.MeetupPlace
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.aspectRatio
@@ -94,8 +100,13 @@ import java.util.Locale
 @Serializable
 data object CabinetRoute
 
-fun NavGraphBuilder.cabinetScreens(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit, onBack: () -> Unit) {
-    composable<CabinetRoute> { CabinetScreen(contentPadding, onOpenMeetup, onBack) }
+/**
+ * The cabinet, a date to look at, and its editor. [onEditMeetup] opens the editor (new dates and
+ * live ones go straight there); [onViewMeetup] opens a finished date to look at.
+ */
+fun NavGraphBuilder.cabinetScreens(contentPadding: PaddingValues, onEditMeetup: (String) -> Unit, onViewMeetup: (String) -> Unit, onBack: () -> Unit) {
+    composable<CabinetRoute> { CabinetScreen(contentPadding, onEditMeetup, onBack, onViewMeetup = onViewMeetup) }
+    composable<MeetupViewRoute> { MeetupViewScreen(contentPadding, onEditMeetup, onBack) }
     composable<MeetupRoute> { MeetupScreen(contentPadding, onBack) }
 }
 
@@ -134,7 +145,7 @@ private fun BackRow(onBack: () -> Unit, eyebrow: String) {
 // --- The cabinet ---
 
 @Composable
-fun CabinetScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit, onBack: () -> Unit, viewModel: WorldViewModel = hiltViewModel()) {
+fun CabinetScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit, onBack: () -> Unit, viewModel: WorldViewModel = hiltViewModel(), onViewMeetup: (String) -> Unit = onOpenMeetup) {
     val logs by viewModel.logs.collectAsStateWithLifecycle()
     val now by viewModel.now.collectAsStateWithLifecycle()
     val colors = ChoomHubTheme.colors
@@ -206,7 +217,7 @@ fun CabinetScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit,
             }
             list.forEachIndexed { i, m ->
                 Row(
-                    Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = "Open") { onOpenMeetup(m.id) }.testTag("specimen_${m.id}"),
+                    Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = "Open") { if (m.live) onOpenMeetup(m.id) else onViewMeetup(m.id) }.testTag("specimen_${m.id}"),
                     verticalAlignment = Alignment.Top,
                 ) {
                     Box {
@@ -358,6 +369,55 @@ internal fun monthGrid(month: java.time.YearMonth, firstDay: java.time.DayOfWeek
 
 // --- One meetup ---
 
+/** Which of the spots with that name it was (or, with one match, whether it's the right one). */
+@Composable
+internal fun PlaceChoicesPanel(c: MeetupViewModel.PlaceChoices, onChoose: (FoundPlace?) -> Unit, onPinMyself: () -> Unit) {
+    val colors = ChoomHubTheme.colors
+    InkPanel({ onChoose(null) }, Modifier.testTag("place_choices")) {
+        Text(if (c.options.size == 1) "Is this the one?" else "Which ${c.typed}?", style = MaterialTheme.typography.headlineSmall, color = colors.textMain, textAlign = TextAlign.Center)
+        Text(if (c.options.size == 1) "check the area" else "there's more than one in Delhi", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
+        Spacer(Modifier.height(12.dp))
+        c.options.forEachIndexed { i, option ->
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(colors.surface)
+                    .border(1.dp, colors.lavender.copy(alpha = 0.2f), MaterialTheme.shapes.medium)
+                    .clickable(role = Role.Button) { onChoose(option) }
+                    .padding(14.dp)
+                    .testTag("place_choice_$i"),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Where in Delhi it is, at a glance.
+                    DelhiAtlas(
+                        listOf(AtlasPin("c$i", option.lon.toFloat(), option.lat.toFloat())),
+                        Modifier.size(64.dp).clip(MaterialTheme.shapes.small),
+                        selected = "c$i",
+                        small = true,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(option.name ?: c.typed, style = MaterialTheme.typography.titleSmall, color = colors.textMain)
+                        Text(option.address ?: "%.4f, %.4f".format(Locale.ENGLISH, option.lat, option.lon), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        Text(
+            "Not here? Add the area to the name (\"${c.typed}, Shalimar Bagh\") and find it again, or pin it yourself.",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textFaint,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        TextButton({ onPinMyself() }, Modifier.fillMaxWidth().testTag("place_choice_pin")) {
+            OneLineText(if (c.options.size == 1) "NOT THIS ONE · PIN IT MYSELF" else "NONE OF THESE · PIN IT MYSELF", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+        }
+    }
+}
+
+
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: MeetupViewModel = hiltViewModel()) {
@@ -372,7 +432,7 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
         return
     }
     var pickingDate by rememberSaveable { mutableStateOf(false) }
-    var pinning by rememberSaveable { mutableStateOf(false) }
+    var pinning by rememberSaveable { mutableStateOf<Int?>(null) }
     var photoMenu by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var pendingCapture by rememberSaveable { mutableStateOf<String?>(null) }
@@ -384,19 +444,25 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MeetupRules.MAX_PHOTOS)) { uris ->
         if (uris.isNotEmpty()) viewModel.addPhotos(uris)
     }
+    val places by viewModel.places.collectAsStateWithLifecycle()
+    val choices by viewModel.choices.collectAsStateWithLifecycle()
+    var locatingFor by rememberSaveable { mutableStateOf(0) }
     val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) viewModel.useHere()
+        if (granted.values.any { it }) viewModel.useHere(locatingFor)
     }
     if (pickingDate) DatePanel(meetup.date, onPick = { pickingDate = false; viewModel.setDate(it) }, onDismiss = { pickingDate = false })
-    if (pinning) {
-        InkPanel({ pinning = false }, Modifier.testTag("pin_panel")) {
+    pinning?.let { index ->
+        val place = places.getOrNull(index)
+        InkPanel({ pinning = null }, Modifier.testTag("pin_panel")) {
             Text("Tap where it was", style = MaterialTheme.typography.headlineSmall, color = colors.textMain)
+            place?.name?.takeIf { it.isNotBlank() }?.let { Text(it, style = ChoomHubTextStyles.Handwritten, color = colors.pink) }
             Spacer(Modifier.height(8.dp))
-            AtlasPicker(meetup.lat, meetup.lon, onPick = { lat, lon -> viewModel.pinAt(lat, lon) }, modifier = Modifier.fillMaxWidth().height(320.dp))
+            AtlasPicker(place?.lat, place?.lon, onPick = { lat, lon -> viewModel.pinAt(index, lat, lon) }, modifier = Modifier.fillMaxWidth().height(320.dp))
             Spacer(Modifier.height(8.dp))
-            ChoomHubPrimaryButton("Done", { pinning = false }, Modifier.fillMaxWidth())
+            ChoomHubPrimaryButton("Done", { pinning = null }, Modifier.fillMaxWidth())
         }
     }
+    choices?.let { c -> PlaceChoicesPanel(c, onChoose = viewModel::choose, onPinMyself = { viewModel.choose(null); pinning = c.index }) }
     photoMenu?.let { pid ->
         val index = meetup.photoIds.indexOf(pid)
         if (index < 0) {
@@ -466,26 +532,31 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
                 ValueBox("${MeetupRules.duration(meetup.minutesAt(now) ?: 0)} · counting", "STOP", Modifier.testTag("meetup_stop")) { viewModel.stopLive() }
                 Text("Counts while you're out. Stop it when you part.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, modifier = Modifier.padding(top = 4.dp))
             } else {
-                MinutesField(meetup.minutes, viewModel::setMinutes)
+                MinutesField(meetup.minutes, viewModel::typeMinutes)
             }
         }
         Field("Where") {
-            var place by rememberSaveable(meetup.id) { mutableStateOf(meetup.place.orEmpty()) }
-            LaunchedEffect(meetup.place) { if (meetup.place != null && place.isBlank()) place = meetup.place.orEmpty() }
-            ChoomHubTextField(
-                value = place,
-                onValueChange = { place = it.take(MeetupRules.MAX_PLACE); viewModel.setPlace(place) },
-                label = "Place",
-                supportingText = if (meetup.hasPin) "On the map ✓" else "Not on the map yet",
-                onDone = { viewModel.findPlace(place) },
-                modifier = Modifier.fillMaxWidth().testTag("meetup_place"),
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                SmallAction("FIND ON THE MAP", "meetup_find") { viewModel.findPlace(place) }
-                SmallAction("USE WHERE WE ARE", "meetup_here") {
-                    if (viewModel.canFindHere) viewModel.useHere() else askLocation.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
-                }
-                SmallAction("PIN IT MYSELF", "meetup_pin") { pinning = true }
+            val shown = places.ifEmpty { listOf(MeetupPlace("")) }
+            shown.forEachIndexed { index, place ->
+                PlaceRow(
+                    index = index,
+                    place = place,
+                    count = shown.size,
+                    onName = { viewModel.setPlaceName(index, it) },
+                    onFind = { viewModel.findPlace(index) },
+                    onHere = {
+                        if (viewModel.canFindHere) viewModel.useHere(index) else {
+                            locatingFor = index
+                            askLocation.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                        }
+                    },
+                    onPin = { pinning = index },
+                    onRemove = { viewModel.removePlace(index) },
+                )
+            }
+            if (shown.size < MeetupRules.MAX_PLACES && shown.last().name.isNotBlank()) {
+                SmallAction("+ ANOTHER PLACE", "meetup_add_place") { viewModel.addPlace() }
+                Text("Went somewhere after? Add it in order; the atlas draws your route.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, modifier = Modifier.padding(top = 4.dp))
             }
         }
         Field("Photos · ${meetup.photos.size} of ${MeetupRules.MAX_PHOTOS}") {
@@ -568,11 +639,50 @@ private fun ValueBox(text: String, action: String, modifier: Modifier = Modifier
 }
 
 /** Hours and minutes, typed in (for one from before, or to correct the clock). */
+/** One place of the day: its name, whether it's on the map, and ways to put it there. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlaceRow(index: Int, place: MeetupPlace, count: Int, onName: (String) -> Unit, onFind: () -> Unit, onHere: () -> Unit, onPin: () -> Unit, onRemove: () -> Unit) {
+    val colors = ChoomHubTheme.colors
+    var text by rememberSaveable(index) { mutableStateOf(place.name) }
+    LaunchedEffect(place.name) { if (place.name != text) text = place.name }
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).testTag("meetup_place_row_$index")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (count > 1) {
+                Box(Modifier.size(26.dp).clip(CircleShape).background(CabinetInk.Wine.copy(alpha = 0.85f)), contentAlignment = Alignment.Center) {
+                    Text("${index + 1}", style = ChoomHubTextStyles.Eyebrow, color = colors.bone)
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            ChoomHubTextField(
+                value = text,
+                onValueChange = { text = it.take(MeetupRules.MAX_PLACE); onName(text) },
+                label = if (index == 0) "Place" else "Then",
+                supportingText = if (place.hasPin) "On the map ✓" else "Not on the map yet",
+                onDone = onFind,
+                modifier = Modifier.weight(1f).testTag(if (index == 0) "meetup_place" else "meetup_place_$index"),
+            )
+            if (count > 1) {
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Remove this place", onClick = onRemove).testTag("meetup_place_remove_$index"),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(PointIcons.Close, contentDescription = "Remove this place", tint = colors.textFaint, modifier = Modifier.size(16.dp)) }
+            }
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp, start = if (count > 1) 34.dp else 0.dp)) {
+            SmallAction("FIND ON THE MAP", if (index == 0) "meetup_find" else "meetup_find_$index", onFind)
+            SmallAction("USE WHERE WE ARE", if (index == 0) "meetup_here" else "meetup_here_$index", onHere)
+            SmallAction("PIN IT MYSELF", if (index == 0) "meetup_pin" else "meetup_pin_$index", onPin)
+        }
+    }
+}
+
 @Composable
 private fun MinutesField(minutes: Int?, onChange: (Int?) -> Unit) {
     val colors = ChoomHubTheme.colors
-    var h by rememberSaveable(minutes) { mutableStateOf(minutes?.let { (it / 60).toString() }.orEmpty()) }
-    var m by rememberSaveable(minutes) { mutableStateOf(minutes?.let { (it % 60).toString() }.orEmpty()) }
+    var h by rememberSaveable { mutableStateOf(minutes?.let { (it / 60).toString() }.orEmpty()) }
+    var m by rememberSaveable { mutableStateOf(minutes?.let { (it % 60).toString() }.orEmpty()) }
+    // Saved as you type (after a short pause), like the other fields: no button to forget.
     fun push() {
         val hours = h.toIntOrNull()
         val mins = m.toIntOrNull()
@@ -580,18 +690,22 @@ private fun MinutesField(minutes: Int?, onChange: (Int?) -> Unit) {
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ChoomHubTextField(
-            h, { h = it.filter(Char::isDigit).take(2) }, label = "Hours",
+            h, { h = it.filter(Char::isDigit).take(2); push() }, label = "Hours",
             keyboardType = KeyboardType.Number, onDone = ::push,
             modifier = Modifier.weight(1f).testTag("meetup_hours"),
         )
         ChoomHubTextField(
-            m, { m = it.filter(Char::isDigit).take(2) }, label = "Minutes",
+            m, { m = it.filter(Char::isDigit).take(2); push() }, label = "Minutes",
             keyboardType = KeyboardType.Number, onDone = ::push,
             modifier = Modifier.weight(1f).testTag("meetup_minutes"),
         )
-        TextButton(::push, Modifier.testTag("meetup_time_save")) { OneLineText("SET", style = MaterialTheme.typography.labelLarge, color = colors.lavender) }
     }
-    if (minutes != null) Text("Set to ${MeetupRules.duration(minutes)}", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, modifier = Modifier.padding(top = 4.dp))
+    Text(
+        if (minutes != null) "Saved: ${MeetupRules.duration(minutes)}" else "Saves as you type",
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.textFaint,
+        modifier = Modifier.padding(top = 4.dp).testTag("meetup_time_saved"),
+    )
 }
 
 @Composable
@@ -602,7 +716,7 @@ private fun SmallAction(text: String, tag: String, onClick: () -> Unit) {
         style = ChoomHubTextStyles.Eyebrow,
         color = colors.lavender,
         modifier = Modifier.clip(MaterialTheme.shapes.small).border(1.dp, colors.lavender.copy(alpha = 0.3f), MaterialTheme.shapes.small)
-            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 10.dp, vertical = 7.dp).testTag(tag),
+            .clickable(role = Role.Button, onClick = onClick).padding(start = 10.dp, end = 12.dp, top = 7.dp, bottom = 7.dp).testTag(tag),
     )
 }
 

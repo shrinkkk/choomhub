@@ -46,6 +46,7 @@ import androidx.navigation.compose.composable
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.MeetupLog
+import com.choomhub.app.domain.model.MeetupPlace
 import com.choomhub.app.domain.model.MeetupRules
 import com.choomhub.app.feature.pet.PetIcons
 import com.choomhub.app.feature.world.WorldViewModel
@@ -60,16 +61,26 @@ fun NavGraphBuilder.atlasScreen(contentPadding: PaddingValues, onOpenMeetup: (St
     composable<AtlasRoute> { AtlasScreen(contentPadding, onOpenMeetup, onBack) }
 }
 
-/** Pins for the meetups with a place on the map: nearby ones share a pin. */
+/**
+ * Pins for every place on the map, across all your dates: places near each other share a pin,
+ * which lists the dates you were there (each once, newest first).
+ */
 fun atlasPins(logs: List<MeetupLog>): List<Pair<AtlasPin, List<MeetupLog>>> {
-    val groups = mutableListOf<MutableList<MeetupLog>>()
-    logs.filter { it.hasPin }.forEach { m ->
-        val g = groups.firstOrNull { MeetupRules.samePlace(it.first(), m) }
-        if (g != null) g += m else groups += mutableListOf(m)
+    class Spot(val place: MeetupPlace, val id: String, val meetups: MutableList<MeetupLog>)
+    val spots = mutableListOf<Spot>()
+    logs.forEach { m ->
+        m.places.forEachIndexed { i, p ->
+            if (!p.hasPin) return@forEachIndexed
+            val spot = spots.firstOrNull { MeetupRules.samePlace(it.place, p) }
+            when {
+                spot == null -> spots += Spot(p, "${m.id}#$i", mutableListOf(m))
+                m !in spot.meetups -> spot.meetups += m
+            }
+        }
     }
-    return groups.map { g ->
-        val first = g.first()
-        AtlasPin(first.id, first.lon!!.toFloat(), first.lat!!.toFloat(), g.size) to g.sortedByDescending { it.date }
+    return spots.map { s ->
+        val name = s.place.name.ifBlank { null } ?: s.meetups.firstNotNullOfOrNull { m -> m.places.firstOrNull { MeetupRules.samePlace(it, s.place) && it.name.isNotBlank() }?.name }
+        AtlasPin(s.id, s.place.lon!!.toFloat(), s.place.lat!!.toFloat(), s.meetups.size, name) to s.meetups.sortedByDescending { it.date }
     }
 }
 
@@ -128,7 +139,7 @@ fun AtlasScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit, o
         }
         val group = groups.firstOrNull { it.first.id == selected }
         if (group != null) {
-            val (_, items) = group
+            val (pin, items) = group
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = contentPadding.calculateBottomPadding()).padding(14.dp)
                     .shadow(12.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp))
@@ -137,7 +148,7 @@ fun AtlasScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit, o
                     .testTag("atlas_card"),
             ) {
                 Text(
-                    "${(items.firstNotNullOfOrNull { it.place } ?: "This spot").uppercase()} · ${items.size} DATE${if (items.size == 1) "" else "S"}",
+                    "${(pin.name ?: "This spot").uppercase()} · ${items.size} DATE${if (items.size == 1) "" else "S"}",
                     style = ChoomHubTextStyles.Eyebrow,
                     color = colors.candle,
                 )

@@ -3,6 +3,7 @@ package com.choomhub.app.feature.world
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import com.choomhub.app.domain.model.MeetupLog
+import com.choomhub.app.domain.model.MeetupPlace
 import com.choomhub.app.domain.model.MeetupRules
 import com.choomhub.app.domain.model.ShelfSong
 import com.choomhub.app.feature.world.atlas.MapWindow
@@ -25,7 +26,10 @@ import java.time.LocalDate
 class WorldRoomsRulesTest {
     private val now = Instant.parse("2026-11-27T18:00:00Z")
     private fun log(id: String, day: Int, minutes: Int? = 120, place: String? = null, lat: Double? = null, lon: Double? = null, live: Boolean = false, startedAt: Instant? = null) =
-        MeetupLog(id, LocalDate.of(2026, 11, day), minutes = minutes, live = live, startedAt = startedAt, place = place, lat = lat, lon = lon, createdAt = now)
+        MeetupLog(
+            id, LocalDate.of(2026, 11, day), minutes = minutes, live = live, startedAt = startedAt,
+            places = if (place != null || lat != null) listOf(MeetupPlace(place.orEmpty(), lat, lon)) else emptyList(), createdAt = now,
+        )
 
     @Test
     fun photosMoveWithinTheRowAndTheFrontOneIsTheThumbnail() {
@@ -113,5 +117,44 @@ class WorldRoomsRulesTest {
         assertEquals(listOf("2"), songs.shownFor(ShelfFilter.Theirs).map { it.key })
         assertEquals("3 records · last from Wren", shelfLine(songs, "you", "Wren"))
         assertEquals("Every song you send lands here", shelfLine(emptyList(), "you", "Wren"))
+    }
+
+    @Test
+    fun everyPlaceOfADateGetsAPinAndADateCountsOncePerPin() {
+        val day = MeetupLog(
+            "x", LocalDate.of(2026, 11, 2),
+            places = listOf(
+                MeetupPlace("Lodhi Garden", 28.5931, 77.2197), MeetupPlace("Khan Market", 28.6003, 77.2270),
+                MeetupPlace("Lodhi Garden again", 28.5933, 77.2199), MeetupPlace("unpinned"),
+            ),
+            createdAt = now,
+        )
+        val other = log("y", 5, place = "Lodhi Garden", lat = 28.5935, lon = 77.2201)
+        val pins = atlasPins(listOf(day, other))
+        assertEquals(2, pins.size)
+        val lodhi = pins.first { it.first.name == "Lodhi Garden" }
+        assertEquals(listOf("y", "x"), lodhi.second.map { it.id })
+        assertEquals(2, lodhi.first.count)
+        // The preview shows the first place only.
+        assertEquals("Lodhi Garden", day.place)
+        assertEquals(3, day.pins.size)
+    }
+
+    @Test
+    fun placesAreTidiedBeforeSaving() {
+        val cleaned = MeetupRules.cleanPlaces(listOf(MeetupPlace("  Lodhi   Garden "), MeetupPlace(""), MeetupPlace("", 28.6, 77.2)) + List(8) { MeetupPlace("p$it") })
+        assertEquals("Lodhi Garden", cleaned[0].name)
+        assertEquals(MeetupPlace("", 28.6, 77.2), cleaned[1])
+        assertEquals(MeetupRules.MAX_PLACES, cleaned.size)
+    }
+
+    @Test
+    fun theSameSpotFoundTwiceIsOneChoice() {
+        val found = listOf(
+            com.choomhub.app.data.place.FoundPlace(28.5931, 77.2197, "Social", "Hauz Khas Village"),
+            com.choomhub.app.data.place.FoundPlace(28.5935, 77.2200, "Social", "Hauz Khas Village, again"),
+            com.choomhub.app.data.place.FoundPlace(28.6315, 77.2167, "Social", "Connaught Place"),
+        )
+        assertEquals(listOf("Hauz Khas Village", "Connaught Place"), com.choomhub.app.data.place.PlaceRules.distinct(found).map { it.address })
     }
 }
