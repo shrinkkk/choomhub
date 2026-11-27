@@ -67,6 +67,7 @@ import com.choomhub.app.domain.model.MeetupRules
 import com.choomhub.app.feature.pet.PetIcons
 import com.choomhub.app.feature.world.WorldViewModel
 import com.choomhub.app.feature.world.cabinet.MeetupPolaroid
+import com.choomhub.app.feature.world.cabinet.activityLabels
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import java.time.format.DateTimeFormatter
@@ -191,7 +192,7 @@ fun ConstellationScreen(contentPadding: PaddingValues, onOpenMeetup: (String) ->
         }
         if (stars.isEmpty()) {
             Text(
-                "Your sky fills up as you log meetups in the specimen cabinet: a star for every one.",
+                "Your sky fills up as you log dates in the archive: a star for every one.",
                 style = ChoomHubTextStyles.Handwritten,
                 color = colors.pink.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center,
@@ -242,7 +243,7 @@ private fun StarOverview(m: MeetupLog, now: java.time.Instant, modifier: Modifie
             Box(Modifier.fillMaxWidth().height(130.dp)) {
                 m.photos.take(3).forEachIndexed { i, p ->
                     Box(Modifier.offset(x = (i * 96).dp, y = listOf(10, 0, 14)[i].dp)) {
-                        MeetupPolaroid(p.thumb, 104.dp, listOf(-7f, 3f, 8f)[i])
+                        MeetupPolaroid(p.thumb, 104.dp, listOf(-7f, 3f, 8f)[i], stamp = m.stamps[p.id])
                     }
                 }
             }
@@ -252,16 +253,16 @@ private fun StarOverview(m: MeetupLog, now: java.time.Instant, modifier: Modifie
             Spacer(Modifier.height(8.dp))
             Text(it, style = ChoomHubTextStyles.Handwritten, color = colors.pink, maxLines = 4)
         }
-        if (m.did.isNotEmpty() || m.first != null) {
+        if (m.did.isNotEmpty() || m.firsts.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                m.did.sortedBy { it.ordinal }.forEach { PillBadge(it.label, color = colors.lavender) }
-                m.first?.let { PillBadge("First: $it", color = colors.candle) }
+                activityLabels(m).forEach { PillBadge(it, color = colors.lavender) }
+                m.firsts.forEach { PillBadge("★ $it", color = colors.candle) }
             }
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            "OPEN IN THE CABINET  ›",
+            "OPEN IN THE ARCHIVE  ›",
             style = ChoomHubTextStyles.Eyebrow,
             color = colors.lavender,
             modifier = Modifier.clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClick = onOpen).padding(vertical = 6.dp).testTag("star_open"),

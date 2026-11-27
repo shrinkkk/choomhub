@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -185,13 +186,25 @@ class OurWorldRoomsTest {
         composeRule.onNodeWithTag("meetup_edit").performClick()
         waitFor("screen_meetup")
 
-        composeRule.onNodeWithTag("meetup_photo_2").performSemanticsAction(SemanticsActions.OnClick)
-        composeRule.onNodeWithTag("photo_first").performClick()
+        // Hold the third photo and drag it onto the first: it becomes the cover.
+        composeRule.onNodeWithTag("meetup_photo_2").performScrollTo()
+        val first = composeRule.onNodeWithTag("meetup_photo_0").fetchSemanticsNode().boundsInRoot
+        val third = composeRule.onNodeWithTag("meetup_photo_2").fetchSemanticsNode().boundsInRoot
+        val target = first.center - third.topLeft
+        composeRule.onNodeWithTag("meetup_photo_2").performTouchInput {
+            down(center)
+            advanceEventTime(1_000)
+            moveTo((center + target) / 2f, delayMillis = 50)
+            moveTo(target, delayMillis = 50)
+            up()
+        }
         composeRule.waitUntil(5_000) { local.meetups.value.single().photoIds == listOf("c", "a", "b") }
 
-        composeRule.onNodeWithTag("meetup_photo_1").performSemanticsAction(SemanticsActions.OnClick)
-        composeRule.onNodeWithTag("photo_later").performClick()
-        composeRule.waitUntil(5_000) { local.meetups.value.single().photoIds == listOf("c", "b", "a") }
+        // The cross asks first, then takes it out.
+        composeRule.onNodeWithTag("meetup_photo_remove_1").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("photo_remove_confirm")
+        composeRule.onNodeWithText("Take it out", ignoreCase = true).performClick()
+        composeRule.waitUntil(5_000) { local.meetups.value.single().photoIds == listOf("c", "b") }
     }
 
     @Test
@@ -266,7 +279,7 @@ class OurWorldRoomsTest {
             MeetupLog(
                 "m1", LocalDate.of(2026, 10, 4), minutes = 340,
                 places = listOf(MeetupPlace("Lodhi Garden", 28.5931, 77.2197), MeetupPlace("Khan Market", 28.6003, 77.2270), MeetupPlace("a chai stall")),
-                note = "the ducks", first = "rowing boat", createdAt = Instant.now(),
+                note = "the ducks", firsts = listOf("rowing boat", "sushi"), did = setOf(com.choomhub.app.domain.model.MeetupActivity.Other), extras = listOf("karaoke"), createdAt = Instant.now(),
             ),
         )
         open("world_cabinet")
@@ -278,8 +291,11 @@ class OurWorldRoomsTest {
         waitFor("screen_meetup_view")
         composeRule.onNodeWithTag("view_together").assertTextEquals("5h 40m together")
         composeRule.onNodeWithTag("view_route").assertExists()
-        listOf("Lodhi Garden", "Khan Market", "a chai stall").forEach { composeRule.onNodeWithText(it).assertExists() }
-        composeRule.onNodeWithText("First rowing boat").assertExists()
+        // The sketch says the places in order (for TalkBack, and for this test).
+        composeRule.onNodeWithContentDescription("Route: 1 Lodhi Garden, 2 Khan Market, 3 a chai stall (not on the map)").assertExists()
+        composeRule.onNodeWithText("rowing boat").assertExists()
+        composeRule.onNodeWithText("sushi").assertExists()
+        composeRule.onNodeWithText("KARAOKE").assertExists()
         // Nothing to type into here.
         assertTrue(composeRule.onAllNodesWithTag("meetup_place").fetchSemanticsNodes().isEmpty())
     }
@@ -302,5 +318,31 @@ class OurWorldRoomsTest {
         composeRule.waitUntil(5_000) { local.meetups.value.single().places.map { it.name } == listOf("Lodhi Garden", "Khan Market") }
         composeRule.onNodeWithTag("meetup_place_remove_0").performScrollTo().performClick()
         composeRule.waitUntil(5_000) { local.meetups.value.single().places.map { it.name } == listOf("Khan Market") }
+    }
+
+    @Test
+    fun firstsAndYourOwnActivitiesAreSeparateLines() {
+        seed(MeetupLog("m1", LocalDate.of(2026, 10, 4), minutes = 60, createdAt = Instant.now()))
+        open("world_cabinet")
+        waitFor("specimen_m1")
+        composeRule.onNodeWithTag("specimen_m1").performClick()
+        waitFor("screen_meetup_view")
+        composeRule.onNodeWithTag("meetup_edit").performClick()
+        waitFor("screen_meetup")
+        composeRule.onNodeWithTag("meetup_first").performScrollTo().performTextInput("rowing boat")
+        pause()
+        composeRule.onNodeWithTag("meetup_first_add").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("meetup_first_1").performScrollTo().performTextInput("sushi")
+        pause()
+        composeRule.waitUntil(5_000) { local.meetups.value.single().firsts == listOf("rowing boat", "sushi") }
+
+        composeRule.onNodeWithTag("meetup_did_other").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        waitFor("meetup_extra")
+        composeRule.onNodeWithTag("meetup_extra").performScrollTo().performTextInput("karaoke")
+        pause()
+        composeRule.waitUntil(5_000) { local.meetups.value.single().extras == listOf("karaoke") }
+        // Unticking Other drops it.
+        composeRule.onNodeWithTag("meetup_did_other").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitUntil(5_000) { local.meetups.value.single().extras.isEmpty() }
     }
 }

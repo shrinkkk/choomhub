@@ -495,6 +495,13 @@ describe('focus room', () => {
     await assertFails(updateDoc(ref('alice'), { places: [lodhi, { name: 'Bad', lat: 200 }], updatedBy: 'alice', updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(ref('alice'), { places: [{ name: 'Extra', note: 'no' }], updatedBy: 'alice', updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(ref('alice'), { places: ['Lodhi Garden'], updatedBy: 'alice', updatedAt: serverTimestamp() }));
+    // Several firsts, your own activities, film stamps on live photos.
+    await assertSucceeds(updateDoc(ref('bob'), { firsts: ['rowing boat', 'sushi'], extras: ['karaoke'], 'stamps.p9': '21:43', first: deleteField(), updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { firsts: Array.from({ length: 7 }, () => 'x'), updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { firsts: ['ok', 'y'.repeat(81)], updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { extras: ['ok', ''], updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { extras: ['z'.repeat(41)], updatedBy: 'bob', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref('bob'), { extras: [1], updatedBy: 'bob', updatedAt: serverTimestamp() }));
     const fb = db('bob');
     const add = writeBatch(fb);
     add.set(doc(fb, 'couples/c1/meetups/m1/photos/p1'), { data: Bytes.fromUint8Array(new Uint8Array(150000)), by: 'bob', at: serverTimestamp() });

@@ -245,15 +245,70 @@ class MeetupViewModel @Inject constructor(
 
     fun toggle(activity: MeetupActivity) {
         val did = meetup.value?.did ?: return
-        now(MeetupEdit(did = if (activity in did) did - activity else did + activity))
+        val off = activity in did
+        // Unticking Other drops what was written for it too.
+        if (off && activity == MeetupActivity.Other) extrasDraft.value = null
+        now(MeetupEdit(did = if (off) did - activity else did + activity, extras = if (off && activity == MeetupActivity.Other) emptyList() else null))
     }
 
-    fun setFirst(text: String) = later("first", if (text.isBlank()) MeetupEdit(clear = setOf("first")) else MeetupEdit(first = text))
+    // --- Short lists (firsts, your own activities): a working copy, like the places ---
+
+    private val firstsDraft = MutableStateFlow<List<String>?>(null)
+    private val extrasDraft = MutableStateFlow<List<String>?>(null)
+
+    val firsts: StateFlow<List<String>> = combine(meetup, firstsDraft) { m, d -> d ?: m?.firsts.orEmpty() }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val extras: StateFlow<List<String>> = combine(meetup, extrasDraft) { m, d -> d ?: m?.extras.orEmpty() }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private fun changeLines(
+        key: String,
+        draft: MutableStateFlow<List<String>?>,
+        current: StateFlow<List<String>>,
+        edit: (List<String>) -> MeetupEdit,
+        typing: Boolean,
+        block: (MutableList<String>) -> Unit,
+    ) {
+        val next = current.value.toMutableList().also(block)
+        draft.value = next
+        val done = { if (draft.value == next && next.none { it.isBlank() }) draft.value = null }
+        if (typing) {
+            later(key, edit(next), done)
+        } else {
+            pending.remove(key)?.cancel()
+            unsaved.remove(key)
+            viewModelScope.launch { meetups.edit(id, edit(next)); done() }
+        }
+    }
+
+    private fun MutableList<String>.reachLine(index: Int, max: Int): Boolean {
+        if (index < 0 || index >= max) return false
+        while (size <= index) add("")
+        return true
+    }
+
+    fun addFirst() { if (firsts.value.size < MeetupRules.MAX_FIRSTS) firstsDraft.value = firsts.value + "" }
+
+    fun setFirst(index: Int, text: String) = changeLines("firsts", firstsDraft, firsts, { MeetupEdit(firsts = it) }, typing = true) {
+        if (it.reachLine(index, MeetupRules.MAX_FIRSTS)) it[index] = text.take(MeetupRules.MAX_FIRST)
+    }
+
+    fun removeFirst(index: Int) = changeLines("firsts", firstsDraft, firsts, { MeetupEdit(firsts = it) }, typing = false) { if (index in it.indices) it.removeAt(index) }
+
+    fun addExtra() { if (extras.value.size < MeetupRules.MAX_EXTRAS) extrasDraft.value = extras.value + "" }
+
+    fun setExtra(index: Int, text: String) = changeLines("extras", extrasDraft, extras, { MeetupEdit(extras = it) }, typing = true) {
+        if (it.reachLine(index, MeetupRules.MAX_EXTRAS)) it[index] = text.take(MeetupRules.MAX_EXTRA)
+    }
+
+    fun removeExtra(index: Int) = changeLines("extras", extrasDraft, extras, { MeetupEdit(extras = it) }, typing = false) { if (index in it.indices) it.removeAt(index) }
 
     fun setNote(text: String) = later("note", if (text.isBlank()) MeetupEdit(clear = setOf("note")) else MeetupEdit(note = text))
 
     /** Adds photos (camera or gallery), up to twelve in all, each made small (1080 px) first. */
-    fun addPhotos(uris: List<Uri>) {
+    /**
+     * Adds photos (camera or gallery), up to twelve in all, each made small (1080 px) first. One
+     * taken with the camera while the date is live gets the film time stamp.
+     */
+    fun addPhotos(uris: List<Uri>, fromCamera: Boolean = false) {
         val m = meetup.value ?: return
         val room = MeetupRules.MAX_PHOTOS - m.photos.size
         if (room <= 0) {
@@ -266,7 +321,8 @@ class MeetupViewModel @Inject constructor(
             uris.take(room).forEach { uri ->
                 val prepared = images.prepare(uri)
                 val current = meetup.value ?: return@forEach
-                if (prepared != null) meetups.addPhoto(current, prepared)
+                val stamp = if (fromCamera && current.live) MeetupRules.stamp(java.time.LocalTime.now(clock)) else null
+                if (prepared != null) meetups.addPhoto(current, prepared, stamp)
             }
             _busy.value = null
         }
@@ -285,6 +341,12 @@ class MeetupViewModel @Inject constructor(
     }
 
     fun makeFirst(photoId: String) = movePhoto(photoId, -MeetupRules.MAX_PHOTOS)
+
+    /** The photos in a new order, from dragging them about; the first is the cover. */
+    fun reorderTo(order: List<String>) {
+        val m = meetup.value ?: return
+        if (order != m.photoIds && order.toSet() == m.photoIds.toSet()) viewModelScope.launch { meetups.reorder(m, order) }
+    }
 
     /** Done for now: tells them it's pinned (once). */
     /** Writes whatever was typed and is still waiting for its pause, right now. */

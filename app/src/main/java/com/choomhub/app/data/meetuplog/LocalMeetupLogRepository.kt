@@ -47,27 +47,29 @@ open class LocalMeetupLogRepository @Inject constructor(private val clock: Clock
             places = edit.places?.let(MeetupRules::cleanPlaces) ?: m.places,
             note = edit.note?.let { MeetupRules.clean(it, MeetupRules.MAX_NOTE) } ?: m.note,
             did = edit.did ?: m.did,
-            first = edit.first?.let { MeetupRules.clean(it, MeetupRules.MAX_FIRST) } ?: m.first,
+            extras = edit.extras?.let { MeetupRules.cleanLines(it, MeetupRules.MAX_EXTRA, MeetupRules.MAX_EXTRAS) } ?: m.extras,
+            firsts = edit.firsts?.let { MeetupRules.cleanLines(it, MeetupRules.MAX_FIRST, MeetupRules.MAX_FIRSTS) } ?: m.firsts,
         )
         edit.clear.forEach { field ->
             r = when (field) {
                 "minutes" -> r.copy(minutes = null)
                 "places" -> r.copy(places = emptyList())
                 "note" -> r.copy(note = null)
-                "first" -> r.copy(first = null)
                 else -> r
             }
         }
         r
     }
 
-    override suspend fun addPhoto(meetup: MeetupLog, photo: PreparedSnap) {
+    override suspend fun addPhoto(meetup: MeetupLog, photo: PreparedSnap, stamp: String?) {
         val id = "p${next++}"
         pictures[id] = photo.full
-        change(meetup.id) { if (it.photos.size >= MeetupRules.MAX_PHOTOS) it else it.copy(photos = it.photos + MeetupPhoto(id, photo.thumb)) }
+        change(meetup.id) {
+            if (it.photos.size >= MeetupRules.MAX_PHOTOS) it else it.copy(photos = it.photos + MeetupPhoto(id, photo.thumb), stamps = if (stamp != null) it.stamps + (id to stamp) else it.stamps)
+        }
     }
 
-    override suspend fun removePhoto(meetup: MeetupLog, photoId: String) = change(meetup.id) { it.copy(photos = it.photos.filterNot { p -> p.id == photoId }) }
+    override suspend fun removePhoto(meetup: MeetupLog, photoId: String) = change(meetup.id) { it.copy(photos = it.photos.filterNot { p -> p.id == photoId }, stamps = it.stamps - photoId) }
 
     override suspend fun reorder(meetup: MeetupLog, order: List<String>) = change(meetup.id) { m ->
         if (order.toSet() != m.photoIds.toSet()) m else m.copy(photos = order.map { id -> m.photos.first { it.id == id } })

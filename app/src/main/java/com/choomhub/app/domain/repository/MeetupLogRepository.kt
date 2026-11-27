@@ -27,7 +27,8 @@ interface MeetupLogRepository {
 
     suspend fun edit(meetupId: String, edit: MeetupEdit)
 
-    suspend fun addPhoto(meetup: MeetupLog, photo: PreparedSnap)
+    /** [stamp] is the film time stamp for a photo taken while the date was live ("21:43"), or null. */
+    suspend fun addPhoto(meetup: MeetupLog, photo: PreparedSnap, stamp: String? = null)
 
     suspend fun removePhoto(meetup: MeetupLog, photoId: String)
 

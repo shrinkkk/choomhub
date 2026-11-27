@@ -233,8 +233,8 @@ export function compose(event, ctx) {
     }
     case 'meetup_log':
       return ctx.kind === 'started'
-        ? { title: `${who} started logging your meetup`, body: 'Add your photos to it in the cabinet.' }
-        : { title: `${who} pinned a meetup in the cabinet`, body: ctx.detail || 'Open Our World to see it.' };
+        ? { title: `${who} started logging your meetup`, body: 'Add your photos to it in the archive.' }
+        : { title: `${who} pinned a date in the archive`, body: ctx.detail || 'Open Our World to see it.' };
     case 'jam':
       return { title: `${who} left a jam in the record player`, body: 'Open the focus room to join it.' };
     default:

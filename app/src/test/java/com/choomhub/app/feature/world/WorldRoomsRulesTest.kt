@@ -92,7 +92,7 @@ class WorldRoomsRulesTest {
         val lodhi = pins.first { it.second.size == 2 }
         assertEquals(listOf("b", "a"), lodhi.second.map { it.id })
         assertEquals("2 places in Delhi · Lodhi Garden ×2", atlasLine(logs))
-        assertEquals("Pin a date to a place in the cabinet", atlasLine(emptyList()))
+        assertEquals("Pin a date to a place in the archive", atlasLine(emptyList()))
     }
 
     @Test

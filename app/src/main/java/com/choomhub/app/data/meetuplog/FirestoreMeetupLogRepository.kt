@@ -34,7 +34,7 @@ import javax.inject.Singleton
 
 /**
  * couples/{id}/meetups/{mid}  { date "2026-11-27", minutes?, live, startedAt?, places? [{ name, lat?, lon? }], note?,
- *                               did [..], first?, photos [ids, in order], thumbs {id: small JPEG},
+ *                               did [..], extras [..], firsts [..], photos [ids, in order], thumbs {id: small JPEG}, stamps {id: "21:43"},
  *                               by, createdAt, updatedBy, updatedAt }
  * couples/{id}/meetups/{mid}/photos/{pid}  { data, by, at }  the full picture
  *
@@ -80,7 +80,7 @@ class FirestoreMeetupLogRepository @Inject constructor(
         meetups(coupleId).document(meetupId).collection(PHOTOS).document(photoId).observe().map { it?.getBlob("data")?.toBytes() }
     }
 
-    private fun stamp(me: String) = mapOf("updatedBy" to me, "updatedAt" to FieldValue.serverTimestamp())
+    private fun touched(me: String) = mapOf("updatedBy" to me, "updatedAt" to FieldValue.serverTimestamp())
 
     private suspend fun create(fields: Map<String, Any?>): String? {
         val (coupleId, me) = ids() ?: return null
@@ -92,7 +92,7 @@ class FirestoreMeetupLogRepository @Inject constructor(
                 "thumbs" to emptyMap<String, Any>(),
                 "by" to me,
                 "createdAt" to FieldValue.serverTimestamp(),
-            ) + stamp(me),
+            ) + touched(me),
         )
         return ref.id
     }
@@ -106,7 +106,7 @@ class FirestoreMeetupLogRepository @Inject constructor(
     override suspend fun stopLive(meetup: MeetupLog) {
         val (coupleId, me) = ids() ?: return
         meetups(coupleId).document(meetup.id).update(
-            mapOf("live" to false, "minutes" to (meetup.minutesAt(clock.instant()) ?: 0)) + stamp(me),
+            mapOf("live" to false, "minutes" to (meetup.minutesAt(clock.instant()) ?: 0)) + touched(me),
         )
     }
 
@@ -122,21 +122,27 @@ class FirestoreMeetupLogRepository @Inject constructor(
             }
             edit.note?.let { put("note", MeetupRules.clean(it, MeetupRules.MAX_NOTE)) }
             edit.did?.let { put("did", it.map(MeetupActivity::wire)) }
-            edit.first?.let { put("first", MeetupRules.clean(it, MeetupRules.MAX_FIRST)) }
+            edit.extras?.let { put("extras", MeetupRules.cleanLines(it, MeetupRules.MAX_EXTRA, MeetupRules.MAX_EXTRAS)) }
+            edit.firsts?.let {
+                put("firsts", MeetupRules.cleanLines(it, MeetupRules.MAX_FIRST, MeetupRules.MAX_FIRSTS))
+                // The single first older versions kept goes; the list replaces it.
+                put("first", FieldValue.delete())
+            }
             edit.clear.forEach { put(it, FieldValue.delete()) }
         }
         if (changes.isEmpty()) return
-        meetups(coupleId).document(meetupId).update(changes + stamp(me))
+        meetups(coupleId).document(meetupId).update(changes + touched(me))
     }
 
-    override suspend fun addPhoto(meetup: MeetupLog, photo: PreparedSnap) {
+    override suspend fun addPhoto(meetup: MeetupLog, photo: PreparedSnap, stamp: String?) {
         val (coupleId, me) = ids() ?: return
         if (meetup.photoIds.size >= MeetupRules.MAX_PHOTOS) return
         val doc = meetups(coupleId).document(meetup.id)
         val ref = doc.collection(PHOTOS).document()
         val batch = db.batch()
         batch.set(ref, mapOf("data" to Blob.fromBytes(photo.full), "by" to me, "at" to FieldValue.serverTimestamp()))
-        batch.update(doc, mapOf("photos" to FieldValue.arrayUnion(ref.id), "thumbs.${ref.id}" to Blob.fromBytes(photo.thumb)) + stamp(me))
+        val stampField = if (stamp != null) mapOf("stamps.${ref.id}" to stamp) else emptyMap()
+        batch.update(doc, mapOf("photos" to FieldValue.arrayUnion(ref.id), "thumbs.${ref.id}" to Blob.fromBytes(photo.thumb)) + stampField + touched(me))
         batch.commit()
     }
 
@@ -144,7 +150,7 @@ class FirestoreMeetupLogRepository @Inject constructor(
         val (coupleId, me) = ids() ?: return
         val doc = meetups(coupleId).document(meetup.id)
         val batch = db.batch()
-        batch.update(doc, mapOf("photos" to FieldValue.arrayRemove(photoId), "thumbs.$photoId" to FieldValue.delete()) + stamp(me))
+        batch.update(doc, mapOf("photos" to FieldValue.arrayRemove(photoId), "thumbs.$photoId" to FieldValue.delete(), "stamps.$photoId" to FieldValue.delete()) + touched(me))
         batch.delete(doc.collection(PHOTOS).document(photoId))
         batch.commit()
     }
@@ -152,7 +158,7 @@ class FirestoreMeetupLogRepository @Inject constructor(
     override suspend fun reorder(meetup: MeetupLog, order: List<String>) {
         val (coupleId, me) = ids() ?: return
         if (order.toSet() != meetup.photoIds.toSet()) return
-        meetups(coupleId).document(meetup.id).update(mapOf("photos" to order) + stamp(me))
+        meetups(coupleId).document(meetup.id).update(mapOf("photos" to order) + touched(me))
     }
 
     override suspend fun delete(meetup: MeetupLog) {
@@ -194,7 +200,10 @@ class FirestoreMeetupLogRepository @Inject constructor(
                 places = placesFrom(doc),
                 note = doc.getString("note"),
                 did = (doc.get("did") as? List<*>).orEmpty().mapNotNull { (it as? String)?.let(MeetupActivity::fromWire) }.toSet(),
-                first = doc.getString("first"),
+                extras = (doc.get("extras") as? List<*>).orEmpty().filterIsInstance<String>(),
+                // Logged before there could be several: the one first.
+                firsts = (doc.get("firsts") as? List<*>)?.filterIsInstance<String>() ?: listOfNotNull(doc.getString("first")),
+                stamps = (doc.get("stamps") as? Map<*, *>).orEmpty().mapNotNull { (k, v) -> (k as? String)?.let { key -> (v as? String)?.let { key to it } } }.toMap(),
                 photos = photos.map { id -> MeetupPhoto(id, (thumbs[id] as? Blob)?.toBytes()) },
                 byMe = doc.getString("by") == me,
                 createdAt = doc.getTimestamp("createdAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.toInstant(),

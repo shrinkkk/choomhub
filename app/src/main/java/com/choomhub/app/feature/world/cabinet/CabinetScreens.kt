@@ -1,5 +1,17 @@
 package com.choomhub.app.feature.world.cabinet
 
+import com.choomhub.app.domain.model.MeetupPhoto
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import com.choomhub.app.data.place.FoundPlace
 import com.choomhub.app.feature.world.atlas.AtlasPin
 import com.choomhub.app.feature.world.atlas.DelhiAtlas
@@ -116,7 +128,7 @@ internal fun LocalDate.long(): String = format(dayFormat)
 
 /** A photo in the app's polaroid look. */
 @Composable
-internal fun MeetupPolaroid(bytes: ByteArray?, width: Dp, angle: Float = 0f, modifier: Modifier = Modifier) {
+internal fun MeetupPolaroid(bytes: ByteArray?, width: Dp, angle: Float = 0f, modifier: Modifier = Modifier, stamp: String? = null) {
     val colors = ChoomHubTheme.colors
     Box(
         modifier
@@ -127,7 +139,31 @@ internal fun MeetupPolaroid(bytes: ByteArray?, width: Dp, angle: Float = 0f, mod
             .width(width * 0.88f),
     ) {
         SnapPhoto(bytes, aspect = 1f, contentDescription = null, colorFilter = PolaroidFilter.colorFilter, modifier = Modifier.fillMaxWidth())
+        if (stamp != null) FilmStamp(stamp, (width.value * 0.11f).sp, Modifier.align(Alignment.BottomEnd).padding(end = width * 0.05f, bottom = width * 0.03f))
     }
+}
+
+internal val FilmOrange = Color(0xFFFF8A1F)
+
+/**
+ * The orange time an old film camera burns into the corner of a picture: "21:43", glowing a
+ * little, for photos taken while the date was live.
+ */
+@Composable
+internal fun FilmStamp(text: String, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = ChoomHubTextStyles.Eyebrow.copy(
+            fontSize = size,
+            letterSpacing = size * 0.08f,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            shadow = androidx.compose.ui.graphics.Shadow(FilmOrange.copy(alpha = 0.75f), blurRadius = size.value * 0.9f),
+        ),
+        color = FilmOrange.copy(alpha = 0.92f),
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier.testTag("film_stamp"),
+    )
 }
 
 @Composable
@@ -178,7 +214,7 @@ fun CabinetScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit,
     ) {
         Column(Modifier.padding(16.dp)) {
             BackRow(onBack, "EVERY TIME WE MET")
-            Text("Specimen cabinet", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
+            Text("The Archive", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
             Spacer(Modifier.height(10.dp))
             list.firstOrNull { it.live }?.let { live ->
                 Row(
@@ -209,7 +245,7 @@ fun CabinetScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit,
             } else {
                 val years = list.map { it.date.year }
                 Text(
-                    "${if (years.min() == years.max()) "${years.min()}" else "${years.min()} — ${years.max()}"} · ${list.size} SPECIMEN${if (list.size == 1) "" else "S"}",
+                    "${if (years.min() == years.max()) "${years.min()}" else "${years.min()} — ${years.max()}"} · ${list.size} ARCHIVED",
                     style = ChoomHubTextStyles.Eyebrow,
                     color = CabinetInk.Brass,
                     modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -222,7 +258,7 @@ fun CabinetScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit,
                 ) {
                     Box {
                         if (m.thumb != null) {
-                            MeetupPolaroid(m.thumb, 112.dp, if (i % 2 == 0) -3f else 2.5f)
+                            MeetupPolaroid(m.thumb, 112.dp, if (i % 2 == 0) -3f else 2.5f, stamp = m.photos.firstOrNull()?.let { m.stamps[it.id] })
                         } else {
                             Box(Modifier.size(112.dp, 124.dp).rotate(if (i % 2 == 0) -3f else 2.5f).border(1.dp, CabinetInk.Bone.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
                                 Text("no photos", style = ChoomHubTextStyles.Handwritten, color = CabinetInk.Bone.copy(alpha = 0.5f))
@@ -428,18 +464,20 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
     val colors = ChoomHubTheme.colors
     val context = LocalContext.current
     val meetup = m ?: run {
-        Box(Modifier.fillMaxSize().padding(contentPadding).padding(16.dp)) { BackRow(onBack, "THE CABINET") }
+        Box(Modifier.fillMaxSize().padding(contentPadding).padding(16.dp)) { BackRow(onBack, "THE ARCHIVE") }
         return
     }
     var pickingDate by rememberSaveable { mutableStateOf(false) }
     var pinning by rememberSaveable { mutableStateOf<Int?>(null) }
-    var photoMenu by rememberSaveable { mutableStateOf<String?>(null) }
+    var removing by rememberSaveable { mutableStateOf<String?>(null) }
+    val firsts by viewModel.firsts.collectAsStateWithLifecycle()
+    val extras by viewModel.extras.collectAsStateWithLifecycle()
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var pendingCapture by rememberSaveable { mutableStateOf<String?>(null) }
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         val uri = pendingCapture?.let(Uri::parse)
         pendingCapture = null
-        if (saved && uri != null) viewModel.addPhotos(listOf(uri))
+        if (saved && uri != null) viewModel.addPhotos(listOf(uri), fromCamera = true)
     }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MeetupRules.MAX_PHOTOS)) { uris ->
         if (uris.isNotEmpty()) viewModel.addPhotos(uris)
@@ -463,32 +501,27 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
         }
     }
     choices?.let { c -> PlaceChoicesPanel(c, onChoose = viewModel::choose, onPinMyself = { viewModel.choose(null); pinning = c.index }) }
-    photoMenu?.let { pid ->
-        val index = meetup.photoIds.indexOf(pid)
-        if (index < 0) {
-            photoMenu = null
+    removing?.let { pid ->
+        val photo = meetup.photos.firstOrNull { it.id == pid }
+        if (photo == null) {
+            removing = null
         } else {
-            InkPanel({ photoMenu = null }, Modifier.testTag("photo_menu")) {
-                MeetupPolaroid(meetup.photos[index].thumb, 120.dp)
-                Spacer(Modifier.height(12.dp))
-                Text("Photo ${index + 1} of ${meetup.photos.size}", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
-                if (index == 0) Text("the one on the label", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
-                Spacer(Modifier.height(12.dp))
-                if (index > 0) ChoomHubSecondaryButton("Put it first (the cover)", { viewModel.makeFirst(pid); photoMenu = null }, Modifier.fillMaxWidth().testTag("photo_first"))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                    ChoomHubSecondaryButton("← Earlier", { viewModel.movePhoto(pid, -1) }, Modifier.weight(1f).testTag("photo_earlier"), enabled = index > 0)
-                    ChoomHubSecondaryButton("Later →", { viewModel.movePhoto(pid, 1) }, Modifier.weight(1f).testTag("photo_later"), enabled = index < meetup.photos.lastIndex)
-                }
-                TextButton({ viewModel.removePhoto(pid); photoMenu = null }, Modifier.fillMaxWidth().testTag("photo_remove")) {
-                    OneLineText("TAKE IT OUT", style = MaterialTheme.typography.labelLarge, color = colors.tomato)
-                }
-                TextButton({ photoMenu = null }, Modifier.fillMaxWidth()) { OneLineText("DONE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
-            }
+            InkDialog(
+                title = "Take this photo out?",
+                whisper = "it's gone for both of you",
+                message = "The rest stay as they are.",
+                confirm = "Keep it",
+                onConfirm = { removing = null },
+                dismissive = "Take it out",
+                onDismissive = { viewModel.removePhoto(pid); removing = null },
+                onDismissRequest = { removing = null },
+                modifier = Modifier.testTag("photo_remove_confirm"),
+            ) { MeetupPolaroid(photo.thumb, 96.dp, -3f, stamp = meetup.stamps[pid]) }
         }
     }
     if (confirmDelete) {
         InkDialog(
-            title = "Take it out of the cabinet?",
+            title = "Take it out of the archive?",
             whisper = "this one can't be undone",
             message = "The date, the photos and everything written on it go, for both of you, and its star leaves the sky.",
             confirm = "Keep it",
@@ -513,7 +546,7 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
             .widthIn(max = 600.dp)
             .testTag("screen_meetup"),
     ) {
-        BackRow(onBack, "THE CABINET")
+        BackRow(onBack, "THE ARCHIVE")
         Text(if (meetup.live) "Logging it now" else meetup.date.long(), style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
         if (meetup.live) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
@@ -560,16 +593,12 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
             }
         }
         Field("Photos · ${meetup.photos.size} of ${MeetupRules.MAX_PHOTOS}") {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                meetup.photos.forEachIndexed { i, p ->
-                    Box(
-                        Modifier.combinedClickable(onClick = { photoMenu = p.id }, onLongClick = { photoMenu = p.id }, onClickLabel = "Move or take out")
-                            .testTag("meetup_photo_$i"),
-                    ) {
-                        MeetupPolaroid(p.thumb, 74.dp, listOf(-4f, 2f, -1f, 3f, -2f, 1.5f)[i % 6])
-                        if (i == 0) Text("COVER", style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 8.sp), color = CabinetInk.Wine, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
-                    }
-                }
+            PhotoGrid(
+                meetup.photos,
+                meetup.stamps,
+                onReorder = viewModel::reorderTo,
+                onRemove = { removing = it },
+            ) {
                 if (meetup.photos.size < MeetupRules.MAX_PHOTOS) {
                     AddTile("◉", "TAKE", "meetup_take") {
                         val uri = CaptureFiles.newCaptureUri(context)
@@ -579,7 +608,13 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
                     AddTile("↑", "UPLOAD", "meetup_upload") { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                 }
             }
-            Text("Every photo gets the polaroid look. Tap one to move it; the first is the cover.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, modifier = Modifier.padding(top = 6.dp))
+            Text(
+                if (meetup.photos.size > 1) "Hold a photo and drag it to move it; the first is the cover." else "Every photo gets the polaroid look; the first is the cover.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textFaint,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            if (meetup.live) Text("Taken with TAKE while it's live: they get the film time stamp.", style = MaterialTheme.typography.bodySmall, color = FilmOrange.copy(alpha = 0.8f), modifier = Modifier.padding(top = 2.dp))
         }
         Field("What we did") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -593,20 +628,43 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
                     )
                 }
             }
+            if (MeetupActivity.Other in meetup.did) {
+                Spacer(Modifier.height(10.dp))
+                LinesEditor(
+                    lines = extras,
+                    placeholder = { if (it == 0) "What else? (karaoke)" else "And?" },
+                    tag = "meetup_extra",
+                    max = MeetupRules.MAX_EXTRAS,
+                    maxLength = MeetupRules.MAX_EXTRA,
+                    addLabel = "+ ANOTHER",
+                    onChange = viewModel::setExtra,
+                    onRemove = viewModel::removeExtra,
+                    onAdd = viewModel::addExtra,
+                )
+            }
         }
-        Field("A first?") {
-            var first by rememberSaveable(meetup.id) { mutableStateOf(meetup.first.orEmpty()) }
-            ChoomHubTextField(first, { first = it.take(MeetupRules.MAX_FIRST); viewModel.setFirst(first) }, label = "first time at a rooftop café", capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences, modifier = Modifier.fillMaxWidth().testTag("meetup_first"))
+        Field("Firsts") {
+            LinesEditor(
+                lines = firsts,
+                placeholder = { if (it == 0) "first time at a rooftop café" else "and another first" },
+                tag = "meetup_first",
+                max = MeetupRules.MAX_FIRSTS,
+                maxLength = MeetupRules.MAX_FIRST,
+                addLabel = "+ ANOTHER FIRST",
+                onChange = viewModel::setFirst,
+                onRemove = viewModel::removeFirst,
+                onAdd = viewModel::addFirst,
+            )
         }
         Field("Note") {
             var note by rememberSaveable(meetup.id) { mutableStateOf(meetup.note.orEmpty()) }
             ChoomHubTextField(note, { note = it.take(MeetupRules.MAX_NOTE); viewModel.setNote(note) }, label = "Anything to remember", singleLine = false, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences, modifier = Modifier.fillMaxWidth().testTag("meetup_note"))
         }
         Spacer(Modifier.height(18.dp))
-        ChoomHubPrimaryButton("Pin it in the cabinet", { viewModel.pinned(); onBack() }, Modifier.fillMaxWidth().testTag("meetup_done"))
+        ChoomHubPrimaryButton("Pin it in the archive", { viewModel.pinned(); onBack() }, Modifier.fillMaxWidth().testTag("meetup_done"))
         Text("Only the date is needed. Everything saves as you go, and either of you can change it later.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
         TextButton({ confirmDelete = true }, Modifier.fillMaxWidth().testTag("meetup_delete")) {
-            OneLineText("TAKE IT OUT OF THE CABINET", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
+            OneLineText("TAKE IT OUT OF THE ARCHIVE", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
         }
     }
 }
@@ -674,6 +732,144 @@ private fun PlaceRow(index: Int, place: MeetupPlace, count: Int, onName: (String
             SmallAction("USE WHERE WE ARE", if (index == 0) "meetup_here" else "meetup_here_$index", onHere)
             SmallAction("PIN IT MYSELF", if (index == 0) "meetup_pin" else "meetup_pin_$index", onPin)
         }
+    }
+}
+
+/**
+ * A few short lines (firsts, your own activities), one field each: a cross takes one out, and
+ * there's room to add another until [max].
+ */
+@Composable
+private fun LinesEditor(
+    lines: List<String>,
+    placeholder: (Int) -> String,
+    tag: String,
+    max: Int,
+    maxLength: Int,
+    addLabel: String,
+    onChange: (Int, String) -> Unit,
+    onRemove: (Int) -> Unit,
+    onAdd: () -> Unit,
+) {
+    val colors = ChoomHubTheme.colors
+    val shown = lines.ifEmpty { listOf("") }
+    shown.forEachIndexed { index, line ->
+        var text by rememberSaveable(tag, index) { mutableStateOf(line) }
+        LaunchedEffect(line) { if (line != text) text = line }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
+            ChoomHubTextField(
+                text,
+                { text = it.take(maxLength); onChange(index, text) },
+                label = placeholder(index),
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                modifier = Modifier.weight(1f).testTag(if (index == 0) tag else "${tag}_$index"),
+            )
+            if (shown.size > 1 || line.isNotBlank()) {
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Remove") { text = ""; onRemove(index) }.testTag("${tag}_remove_$index"),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(PointIcons.Close, contentDescription = "Remove", tint = colors.textFaint, modifier = Modifier.size(16.dp)) }
+            }
+        }
+    }
+    if (shown.size < max && shown.last().isNotBlank()) SmallAction(addLabel, "${tag}_add", onAdd)
+}
+
+/**
+ * The photos as polaroids. Hold one and drag it to a new place (the others make room); the
+ * small cross in a corner asks before taking that one out. [trailing] (take, upload) comes last.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PhotoGrid(
+    photos: List<MeetupPhoto>,
+    stamps: Map<String, String>,
+    onReorder: (List<String>) -> Unit,
+    onRemove: (String) -> Unit,
+    trailing: @Composable () -> Unit,
+) {
+    val ids = photos.map { it.id }
+    var order by remember(ids) { mutableStateOf(ids) }
+    var dragging by remember { mutableStateOf<String?>(null) }
+    var drag by remember { mutableStateOf(Offset.Zero) }
+    val bounds = remember { mutableStateMapOf<String, Rect>() }
+    var grid by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val haptics = LocalHapticFeedback.current
+    FlowRow(
+        Modifier.onGloballyPositioned { grid = it }.testTag("meetup_photos"),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        order.forEachIndexed { i, id ->
+            val p = photos.firstOrNull { it.id == id } ?: return@forEachIndexed
+            key(id) {
+                val lifted = dragging == id
+                Box(
+                    Modifier
+                        .onGloballyPositioned { c -> grid?.let { g -> if (g.isAttached && c.isAttached) bounds[id] = g.localBoundingBoxOf(c) } }
+                        .zIndex(if (lifted) 1f else 0f)
+                        .graphicsLayer {
+                            if (lifted) {
+                                translationX = drag.x
+                                translationY = drag.y
+                                scaleX = 1.1f
+                                scaleY = 1.1f
+                            }
+                        }
+                        .pointerInput(id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    dragging = id
+                                    drag = Offset.Zero
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    drag += amount
+                                    val mine = bounds[id] ?: return@detectDragGesturesAfterLongPress
+                                    val at = mine.center + drag
+                                    val over = order.firstOrNull { other -> other != id && bounds[other]?.contains(at) == true }
+                                    if (over != null) {
+                                        val target = bounds[over]!!
+                                        order = order.toMutableList().apply { remove(id); add(order.indexOf(over), id) }
+                                        // It now lives where [over] was: keep it under the finger.
+                                        drag -= target.topLeft - mine.topLeft
+                                        bounds[id] = target
+                                    }
+                                },
+                                onDragEnd = {
+                                    dragging = null
+                                    drag = Offset.Zero
+                                    onReorder(order)
+                                },
+                                onDragCancel = {
+                                    dragging = null
+                                    drag = Offset.Zero
+                                    order = ids
+                                },
+                            )
+                        }
+                        .testTag("meetup_photo_$i"),
+                ) {
+                    MeetupPolaroid(p.thumb, 78.dp, if (lifted) 0f else listOf(-4f, 2f, -1f, 3f, -2f, 1.5f)[i % 6], stamp = stamps[id])
+                    if (i == 0) Text("COVER", style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 8.sp), color = CabinetInk.Wine, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
+                    // The cross, just over the corner.
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 8.dp, y = (-8).dp)
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xE6120E16))
+                            .border(1.dp, CabinetInk.Bone.copy(alpha = 0.5f), CircleShape)
+                            .clickable(role = Role.Button, onClickLabel = "Take this photo out") { onRemove(id) }
+                            .testTag("meetup_photo_remove_$i"),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(PointIcons.Close, contentDescription = "Take this photo out", tint = CabinetInk.Bone, modifier = Modifier.size(11.dp)) }
+                }
+            }
+        }
+        trailing()
     }
 }
 

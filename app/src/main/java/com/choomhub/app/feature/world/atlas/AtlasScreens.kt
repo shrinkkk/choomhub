@@ -132,7 +132,7 @@ fun AtlasScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit, o
             }
             Text("Atlas", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
             Text(
-                if (groups.isEmpty()) "pins appear as you log places in the cabinet" else "${groups.size} place${if (groups.size == 1) "" else "s"} · pinch to zoom, tap a pin",
+                if (groups.isEmpty()) "pins appear as you log places in the archive" else "${groups.size} place${if (groups.size == 1) "" else "s"} · pinch to zoom, tap a pin",
                 style = ChoomHubTextStyles.Handwritten,
                 color = colors.pink,
             )

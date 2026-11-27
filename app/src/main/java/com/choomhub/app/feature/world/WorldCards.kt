@@ -104,7 +104,7 @@ internal fun shelfLine(songs: List<ShelfSong>, myName: String, partner: String):
 /** What the atlas card says under its art. */
 internal fun atlasLine(logs: List<MeetupLog>): String {
     val groups = atlasPins(logs)
-    if (groups.isEmpty()) return "Pin a date to a place in the cabinet"
+    if (groups.isEmpty()) return "Pin a date to a place in the archive"
     val places = "${groups.size} place${if (groups.size == 1) "" else "s"} in Delhi"
     val top = groups.maxByOrNull { it.second.size }?.takeIf { it.second.size > 1 }
     val name = top?.second?.firstNotNullOfOrNull { it.place }
@@ -119,7 +119,7 @@ internal fun WorldRooms(logs: List<MeetupLog>?, shelf: List<ShelfSong>?, names: 
     val songs = shelf.orEmpty()
     val partner = names.partnerName ?: "them"
     Column(Modifier.fillMaxWidth().padding(horizontal = spacing.screenGutter).padding(top = spacing.lg), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        RoomCard("EVERY TIME WE MET", "Specimen cabinet", cabinetLine(kept, now), "world_cabinet", doors.onCabinet) {
+        RoomCard("EVERY TIME WE MET", "The Archive", cabinetLine(kept, now), "world_cabinet", doors.onCabinet) {
             SpecimenCabinetArt(Modifier.fillMaxSize())
         }
         val latest = remember(songs) { songs.sortedByDescending { it.sentAt ?: Instant.EPOCH }.take(2) }

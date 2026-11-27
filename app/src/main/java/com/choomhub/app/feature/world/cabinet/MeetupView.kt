@@ -1,5 +1,16 @@
 package com.choomhub.app.feature.world.cabinet
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.choomhub.app.domain.model.MeetupActivity
+import kotlin.random.Random
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -149,7 +160,7 @@ fun MeetupViewScreen(contentPadding: PaddingValues, onEdit: (String) -> Unit, on
                 Modifier.size(40.dp).clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = "Back", onClick = onBack).testTag("world_back"),
                 contentAlignment = Alignment.Center,
             ) { Icon(PetIcons.Back, contentDescription = "Back", tint = colors.textSecondary) }
-            Text("THE CABINET", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary, modifier = Modifier.weight(1f))
+            Text("THE ARCHIVE", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary, modifier = Modifier.weight(1f))
             if (ui != null) {
                 Row(
                     Modifier.clip(RoundedCornerShape(50)).border(1.dp, colors.lavender.copy(alpha = 0.45f), RoundedCornerShape(50))
@@ -172,7 +183,7 @@ fun MeetupViewScreen(contentPadding: PaddingValues, onEdit: (String) -> Unit, on
         if (ui == null) return@Column
         val m = ui.meetup
         Spacer(Modifier.height(14.dp))
-        Text("SPECIMEN No. %03d".format(ui.number), style = ChoomHubTextStyles.Eyebrow, color = colors.pink)
+        Text("ARCHIVE %03d".format(ui.number), style = ChoomHubTextStyles.Eyebrow, color = colors.pink)
         Text(m.date.format(weekday).uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.candle, modifier = Modifier.padding(top = 8.dp))
         Text(m.date.format(fullDate), style = MaterialTheme.typography.displaySmall, color = colors.textMain, modifier = Modifier.testTag("view_date"))
         val minutes = m.minutesAt(now)
@@ -185,13 +196,35 @@ fun MeetupViewScreen(contentPadding: PaddingValues, onEdit: (String) -> Unit, on
             Text("${MeetupRules.duration(minutes)} together", style = ChoomHubTextStyles.Handwritten, color = colors.pink, modifier = Modifier.testTag("view_together"))
         }
 
+        // One place: just where, up here. Several get the sketched route further down.
+        if (m.places.size == 1) {
+            val only = m.places.first()
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).testTag("view_place")) {
+                Canvas(Modifier.size(width = 18.dp, height = 24.dp)) { pushPin(Offset(size.width * 0.6f, size.height), 7.dp.toPx(), null, null, colors.bone, false) }
+                Spacer(Modifier.width(8.dp))
+                Text(only.name.ifBlank { "A pin on the map" }, style = MaterialTheme.typography.titleMedium, color = colors.textMain)
+            }
+        }
+
         // The numbers, as little ink tags.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 14.dp)) {
             listOfNotNull(
                 minutes?.let { "TIME" to MeetupRules.duration(it) },
-                m.places.size.takeIf { it > 0 }?.let { "PLACES" to "$it" },
+                m.places.size.takeIf { it > 1 }?.let { "PLACES" to "$it" },
                 m.photos.size.takeIf { it > 0 }?.let { "PHOTOS" to "$it" },
             ).forEach { (label, value) -> InkTag(label, value) }
+        }
+
+        m.note?.let { note ->
+            Box(Modifier.fillMaxWidth().padding(top = 22.dp)) {
+                Column(
+                    Modifier.fillMaxWidth().rotate(-0.8f).background(Color(0xFFE6DED0), RoundedCornerShape(3.dp)).padding(horizontal = 18.dp, vertical = 20.dp)
+                        .testTag("view_note"),
+                ) {
+                    Text(note, style = ChoomHubTextStyles.Handwritten.copy(fontSize = 20.sp, lineHeight = 26.sp), color = Color(0xFF2A2230))
+                }
+                BrassPin(Modifier.align(Alignment.TopCenter))
+            }
         }
 
         if (m.photos.isNotEmpty()) {
@@ -199,46 +232,33 @@ fun MeetupViewScreen(contentPadding: PaddingValues, onEdit: (String) -> Unit, on
             PhotoStrip(m, viewModel, onOpen = { bigPhoto = it })
         }
 
-        if (m.places.isNotEmpty()) {
-            Section(if (m.places.size > 1) "THE ROUTE" else "WHERE")
-            if (m.pins.isNotEmpty()) {
-                RouteMap(m.places, Modifier.fillMaxWidth().height(if (m.pins.size > 1) 280.dp else 220.dp).clip(RoundedCornerShape(16.dp)).testTag("view_route"))
-                Spacer(Modifier.height(12.dp))
-            }
-            Itinerary(m.places)
+        if (m.places.size > 1) {
+            Section("THE ROUTE")
+            RouteSketch(m.places, Modifier.fillMaxWidth().testTag("view_route"))
         }
 
-        if (m.did.isNotEmpty()) {
+        val did = activityLabels(m)
+        if (did.isNotEmpty()) {
             Section("WHAT WE DID")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                m.did.sortedBy { it.ordinal }.forEach { PillBadge(it.label, color = colors.lavender) }
+                did.forEach { PillBadge(it, color = colors.lavender) }
             }
         }
 
-        m.first?.let { first ->
-            Section("A FIRST")
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(colors.candle.copy(alpha = 0.14f))
-                    .border(1.dp, colors.candle.copy(alpha = 0.45f), RoundedCornerShape(4.dp)).padding(14.dp)
-                    .testTag("view_first"),
-                verticalAlignment = Alignment.CenterVertically,
+        if (m.firsts.isNotEmpty()) {
+            Section(if (m.firsts.size == 1) "A FIRST" else "FIRSTS")
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(colors.candle.copy(alpha = 0.12f))
+                    .border(1.dp, colors.candle.copy(alpha = 0.4f), RoundedCornerShape(4.dp)).padding(horizontal = 14.dp, vertical = 10.dp)
+                    .testTag("view_firsts"),
             ) {
-                Text("★", color = colors.candle, style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.width(12.dp))
-                Text("First $first", style = ChoomHubTextStyles.Handwritten, color = colors.bone)
-            }
-        }
-
-        m.note?.let { note ->
-            Section("THE NOTE")
-            Box(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                Column(
-                    Modifier.fillMaxWidth().rotate(-0.8f).background(Color(0xFFE6DED0), RoundedCornerShape(3.dp)).padding(horizontal = 18.dp, vertical = 20.dp)
-                        .testTag("view_note"),
-                ) {
-                    Text(note, style = ChoomHubTextStyles.Handwritten.copy(fontSize = 20.sp, lineHeight = 26.sp), color = Color(0xFF2A2230))
+                m.firsts.forEach { first ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Text("★", color = colors.candle, style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.width(12.dp))
+                        Text(first, style = ChoomHubTextStyles.Handwritten, color = colors.bone)
+                    }
                 }
-                BrassPin(Modifier.align(Alignment.TopCenter).padding(top = 0.dp))
             }
         }
 
@@ -259,7 +279,10 @@ fun MeetupViewScreen(contentPadding: PaddingValues, onEdit: (String) -> Unit, on
             Modifier.fillMaxSize().background(Color(0xF00B090F)).clickable(role = Role.Button, onClickLabel = "Close") { bigPhoto = null }.testTag("view_photo_big"),
             contentAlignment = Alignment.Center,
         ) {
-            SnapPhoto(bytes ?: thumb, aspect = 1f, contentDescription = "Photo", colorFilter = PolaroidFilter.colorFilter, modifier = Modifier.fillMaxWidth().padding(16.dp))
+            Box(Modifier.fillMaxWidth().padding(16.dp)) {
+                SnapPhoto(bytes ?: thumb, aspect = 1f, contentDescription = "Photo", colorFilter = PolaroidFilter.colorFilter, modifier = Modifier.fillMaxWidth())
+                ui?.meetup?.stamps?.get(pid)?.let { FilmStamp(it, 24.sp, Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 12.dp)) }
+            }
         }
     }
 }
@@ -305,7 +328,10 @@ private fun PhotoStrip(m: MeetupLog, viewModel: MeetupViewViewModel, onOpen: (St
                     .testTag("view_photo_$page"),
             ) {
                 Column(Modifier.background(colors.bone).padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 34.dp)) {
-                    SnapPhoto(full ?: p.thumb, aspect = 1f, contentDescription = "Photo ${page + 1}", colorFilter = PolaroidFilter.colorFilter, modifier = Modifier.fillMaxWidth())
+                    Box {
+                        SnapPhoto(full ?: p.thumb, aspect = 1f, contentDescription = "Photo ${page + 1}", colorFilter = PolaroidFilter.colorFilter, modifier = Modifier.fillMaxWidth())
+                        m.stamps[p.id]?.let { FilmStamp(it, 20.sp, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 8.dp)) }
+                    }
                 }
                 if (page == 0) Text("COVER", style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 9.sp), color = CabinetInk.Wine, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
             }
@@ -323,76 +349,125 @@ private fun PhotoStrip(m: MeetupLog, viewModel: MeetupViewViewModel, onOpen: (St
     }
 }
 
+/** What you did, as the chips say it: the list's own, and your own words in place of "Other". */
+internal fun activityLabels(m: MeetupLog): List<String> =
+    m.did.sortedBy { it.ordinal }.filterNot { it == MeetupActivity.Other && m.extras.isNotEmpty() }.map { it.label } + m.extras
+
 /**
- * The map of the day: every pinned place, numbered in order, joined by a dashed path drawn from
- * one to the next.
+ * A push-pin stuck in the page, drawn in ink: a short needle into the paper at [at], a round head
+ * up and to the left with a shine, [number] on the head. Hollow and dashed when [unknown] (a
+ * place that isn't on the map).
  */
-@Composable
-internal fun RouteMap(places: List<MeetupPlace>, modifier: Modifier = Modifier) {
-    val colors = ChoomHubTheme.colors
-    val pins = places.filter { it.hasPin }
-    val window = remember(pins) { MapWindow.around(pins.map { AtlasPin("p", it.lon!!.toFloat(), it.lat!!.toFloat()) }, margin = 0.012f) }
-    var size by remember { mutableStateOf(Size.Zero) }
-    val measurer = rememberTextMeasurer()
-    Box(modifier.onSizeChanged { size = Size(it.width.toFloat(), it.height.toFloat()) }) {
-        DelhiAtlas(emptyList(), Modifier.fillMaxSize(), small = false, window = window)
-        Canvas(Modifier.fillMaxSize()) {
-            if (size.width <= 0f) return@Canvas
-            val points = places.mapIndexedNotNull { i, p -> if (p.hasPin) i to projectPoint(window, size, p.lon!!.toFloat(), p.lat!!.toFloat()) else null }
-            // The path: a soft glow under a dashed ink line, from each place to the next.
-            points.zipWithNext().forEach { (a, b) ->
-                drawLine(colors.pink.copy(alpha = 0.18f), a.second, b.second, 9.dp.toPx(), StrokeCap.Round)
-                drawLine(
-                    colors.pink,
-                    a.second,
-                    b.second,
-                    2.dp.toPx(),
-                    StrokeCap.Round,
-                    PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx())),
-                )
-                // A small arrowhead halfway, pointing the way you went.
-                val mid = (a.second + b.second) / 2f
-                val dir = (b.second - a.second).let { it / it.getDistance().coerceAtLeast(1f) }
-                val side = Offset(-dir.y, dir.x)
-                val tip = mid + dir * 6.dp.toPx()
-                drawLine(colors.pink, tip, tip - dir * 7.dp.toPx() + side * 5.dp.toPx(), 2.dp.toPx(), StrokeCap.Round)
-                drawLine(colors.pink, tip, tip - dir * 7.dp.toPx() - side * 5.dp.toPx(), 2.dp.toPx(), StrokeCap.Round)
-            }
-            points.forEach { (i, at) ->
-                val r = 11.dp.toPx()
-                drawCircle(Color.Black.copy(alpha = 0.35f), r + 1.5f, at + Offset(0f, 2f))
-                drawCircle(CabinetInk.Wine, r, at)
-                drawCircle(colors.bone, r, at, style = Stroke(1.5.dp.toPx()))
-                val label = measurer.measure("${i + 1}", TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.bone))
-                drawText(label, topLeft = at - Offset(label.size.width / 2f, label.size.height / 2f))
-            }
+internal fun DrawScope.pushPin(at: Offset, r: Float, number: String?, measurer: TextMeasurer?, ink: Color, unknown: Boolean, seed: Int = 0) {
+    val rnd = Random(seed)
+    val head = at + Offset(-r * 0.58f, -r * 1.6f)
+    drawLine(Color.Black.copy(alpha = 0.35f), at, at + Offset(r * 0.75f, -r * 0.16f), r * 0.16f, StrokeCap.Round)
+    drawCircle(Color.Black.copy(alpha = 0.22f), r * 0.9f, head + Offset(r * 0.85f, r * 1.25f))
+    drawCircle(ink.copy(alpha = 0.6f), r * 0.13f, at)
+    drawLine(ink, at, head + Offset(r * 0.3f, r * 0.55f), r * 0.13f, StrokeCap.Round)
+    if (unknown) {
+        drawCircle(Color(0xFF17131D), r, head)
+        drawCircle(ink, r, head, style = Stroke(r * 0.13f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(r * 0.33f, r * 0.25f))))
+    } else {
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFC0506E), PinRed, Color(0xFF4E1C2C)), center = head - Offset(r * 0.35f, r * 0.4f), radius = r * 1.6f), r, head)
+        // Gone over twice with the pen, not quite in the same place.
+        repeat(2) {
+            val o = Offset((rnd.nextFloat() - 0.5f) * r * 0.18f, (rnd.nextFloat() - 0.5f) * r * 0.18f)
+            drawCircle(ink, r + o.x * 0.3f, head + o, style = Stroke(if (it == 0) r * 0.14f else r * 0.075f))
         }
+        drawArc(Color.White.copy(alpha = 0.55f), 200f, 60f, false, head - Offset(r * 0.62f, r * 0.62f), Size(r * 1.24f, r * 1.24f), style = Stroke(r * 0.13f, cap = StrokeCap.Round))
+    }
+    if (number != null && measurer != null) {
+        val label = measurer.measure(number, TextStyle(fontSize = (r / density * 1.1f).sp, color = ink, fontFamily = ChoomHubTextStyles.Handwritten.fontFamily, fontWeight = FontWeight.Bold))
+        drawText(label, topLeft = head - Offset(label.size.width / 2f, label.size.height / 2f))
     }
 }
 
-/** The places in order, down a dotted line: number, name, and whether it's on the map. */
+private val PinRed = Color(0xFF8E3350)
+
+/**
+ * Brush dashes along [path]: short, chunky, a little uneven, like a felt-tip line on a hand-drawn
+ * map.
+ */
+internal fun DrawScope.brushDashes(path: Path, color: Color, seed: Int) {
+    val r = Random(seed)
+    val measure = PathMeasure().apply { setPath(path, false) }
+    val total = measure.length
+    val dash = 9.dp.toPx()
+    val gap = 6.5.dp.toPx()
+    var at = 3.dp.toPx()
+    while (at < total - 3.dp.toPx()) {
+        val l = dash * (0.75f + r.nextFloat() * 0.5f)
+        val seg = Path()
+        measure.getSegment(at, (at + l).coerceAtMost(total), seg, true)
+        drawPath(seg, color, style = Stroke(3.4.dp.toPx() * (0.85f + r.nextFloat() * 0.3f), cap = StrokeCap.Round))
+        drawPath(seg, color.copy(alpha = 0.45f), style = Stroke(1.3.dp.toPx(), cap = StrokeCap.Butt))
+        at += l + gap
+    }
+}
+
+/** Where each stop sits on the sketch: down the left, swaying side to side, in order. */
+internal fun sketchSpots(count: Int, width: Float, top: Float, step: Float): List<Offset> =
+    List(count) { i -> Offset(width * (if (i % 2 == 0) 0.13f else 0.33f), top + i * step) }
+
+/**
+ * The day's places, sketched like a hand-drawn map: numbered push-pins down the left, joined in
+ * order by curved brush-dash lines, each name on the right. A place that isn't on the map gets a
+ * hollow pin and a fainter line.
+ */
 @Composable
-private fun Itinerary(places: List<MeetupPlace>) {
+internal fun RouteSketch(places: List<MeetupPlace>, modifier: Modifier = Modifier) {
     val colors = ChoomHubTheme.colors
-    Column(Modifier.fillMaxWidth().testTag("view_places")) {
-        places.forEachIndexed { i, p ->
-            Row(verticalAlignment = Alignment.Top) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(26.dp)) {
-                    Box(Modifier.size(22.dp).clip(CircleShape).background(CabinetInk.Wine), contentAlignment = Alignment.Center) {
-                        Text("${i + 1}", style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 10.sp), color = colors.bone)
-                    }
-                    if (i < places.lastIndex) {
-                        Canvas(Modifier.width(2.dp).height(24.dp)) {
-                            drawLine(colors.pink.copy(alpha = 0.5f), Offset(size.width / 2f, 2f), Offset(size.width / 2f, size.height), size.width, StrokeCap.Round, PathEffect.dashPathEffect(floatArrayOf(4f, 4f)))
-                        }
-                    }
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.padding(top = 1.dp)) {
-                    Text(p.name.ifBlank { "A pin on the map" }, style = MaterialTheme.typography.titleMedium, color = colors.textMain)
-                    if (!p.hasPin) Text("not on the map", style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
-                }
+    val measurer = rememberTextMeasurer()
+    val step = 84.dp
+    Canvas(
+        modifier
+            .height(step * (places.size - 1) + 92.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFF17131D))
+            .border(1.dp, colors.lavender.copy(alpha = 0.12f), RoundedCornerShape(18.dp))
+            .semantics {
+                contentDescription = "Route: " + places.mapIndexed { i, p -> "${i + 1} ${p.name.ifBlank { "a pin on the map" }}${if (p.hasPin) "" else " (not on the map)"}" }.joinToString(", ")
+            },
+    ) {
+        val spots = sketchSpots(places.size, size.width, 58.dp.toPx(), step.toPx())
+        // The lines first, so the pins sit on top of them.
+        spots.zipWithNext().forEachIndexed { k, (a, b) ->
+            val mid = (a + b) / 2f
+            val bow = (if (k % 2 == 0) -1f else 1f) * 26.dp.toPx()
+            val ctrl = Offset((mid.x + bow).coerceIn(10.dp.toPx(), size.width * 0.45f), mid.y)
+            val path = Path().apply {
+                moveTo(a.x, a.y)
+                quadraticTo(ctrl.x, ctrl.y, b.x, b.y)
             }
+            val faint = !places[k + 1].hasPin
+            brushDashes(path, if (faint) colors.bone.copy(alpha = 0.4f) else colors.bone.copy(alpha = 0.82f), seed = 10 + k)
+        }
+        places.forEachIndexed { i, p ->
+            val at = spots[i]
+            val name = measurer.measure(
+                p.name.ifBlank { "A pin on the map" },
+                TextStyle(fontSize = 19.sp, color = colors.bone, fontFamily = ChoomHubTextStyles.Handwritten.fontFamily, fontStyle = FontStyle.Italic),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                constraints = androidx.compose.ui.unit.Constraints(maxWidth = (size.width * 0.46f).toInt()),
+            )
+            val tl = Offset(size.width * 0.5f, at.y - 30.dp.toPx() - name.size.height / 2f)
+            // A faint pencil leader from the pin's head to its name.
+            drawLine(
+                colors.textSecondary.copy(alpha = 0.35f),
+                at + Offset(6.dp.toPx(), -19.dp.toPx()),
+                Offset(tl.x - 8.dp.toPx(), tl.y + name.size.height / 2f),
+                1.dp.toPx(),
+                StrokeCap.Round,
+                PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx())),
+            )
+            drawText(name, topLeft = tl)
+            if (!p.hasPin) {
+                val note = measurer.measure("not on the map", TextStyle(fontSize = 11.sp, color = colors.textFaint, fontFamily = ChoomHubTextStyles.Handwritten.fontFamily, fontStyle = FontStyle.Italic))
+                drawText(note, topLeft = tl + Offset(2f, name.size.height - 2f))
+            }
+            pushPin(at, 12.dp.toPx(), if (p.hasPin) "${i + 1}" else "?", measurer, colors.bone, unknown = !p.hasPin, seed = i)
         }
     }
 }

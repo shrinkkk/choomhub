@@ -148,7 +148,7 @@ private fun DrawScope.candle(base: Offset) {
  * (label, value) pairs; blank values are left as an empty ruled line.
  */
 @Composable
-fun SpecimenLabel(number: Int, fields: List<Pair<String, String?>>, modifier: Modifier = Modifier, title: String = "SPECIMEN") {
+fun SpecimenLabel(number: Int, fields: List<Pair<String, String?>>, modifier: Modifier = Modifier, title: String = "ARCHIVE") {
     Column(
         modifier
             .background(CabinetInk.LabelPaper)
@@ -159,7 +159,7 @@ fun SpecimenLabel(number: Int, fields: List<Pair<String, String?>>, modifier: Mo
     ) {
         Row {
             Text(title, style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 10.sp), color = CabinetInk.LabelInk, modifier = Modifier.weight(1f))
-            Text("No. %03d".format(number), style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 10.sp), color = CabinetInk.Wine)
+            Text("%03d".format(number), style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 10.sp), color = CabinetInk.Wine)
         }
         Spacer(Modifier.padding(top = 4.dp))
         fields.forEach { (label, value) -> LabelField(label, value) }

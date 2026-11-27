@@ -49,9 +49,14 @@ data class MeetupLog(
     val places: List<MeetupPlace> = emptyList(),
     val note: String? = null,
     val did: Set<MeetupActivity> = emptySet(),
-    val first: String? = null,
+    /** What you did that isn't on the list, in your words (with "Other" ticked). */
+    val extras: List<String> = emptyList(),
+    /** Firsts: things you did together for the first time that day. */
+    val firsts: List<String> = emptyList(),
     /** In order: the first one is the thumbnail. */
     val photos: List<MeetupPhoto> = emptyList(),
+    /** Photos taken with the camera while the date was live: photo id -> the time, "21:43". */
+    val stamps: Map<String, String> = emptyMap(),
     val byMe: Boolean = false,
     val createdAt: Instant? = null,
 ) {
@@ -77,7 +82,7 @@ data class MeetupLog(
 
     override fun equals(other: Any?): Boolean = other is MeetupLog && other.id == id && other.date == date && other.minutes == minutes &&
         other.live == live && other.startedAt == startedAt && other.places == places &&
-        other.note == note && other.did == did && other.first == first && other.photos == photos
+        other.note == note && other.did == did && other.extras == extras && other.firsts == firsts && other.photos == photos && other.stamps == stamps
 
     override fun hashCode(): Int = id.hashCode()
 }
@@ -90,7 +95,10 @@ data class MeetupEdit(
     val places: List<MeetupPlace>? = null,
     val note: String? = null,
     val did: Set<MeetupActivity>? = null,
-    val first: String? = null,
+    /** The whole list, replaced (blanks dropped). */
+    val extras: List<String>? = null,
+    /** The whole list, replaced (blanks dropped). */
+    val firsts: List<String>? = null,
     val clear: Set<String> = emptySet(),
 )
 
@@ -100,6 +108,15 @@ object MeetupRules {
     const val MAX_PLACES = 6
     const val MAX_NOTE = 500
     const val MAX_FIRST = 80
+    const val MAX_FIRSTS = 6
+    const val MAX_EXTRA = 40
+    const val MAX_EXTRAS = 5
+
+    /** Lines worth keeping: tidied, blanks dropped, each at most [max] long, at most [count] of them. */
+    fun cleanLines(lines: List<String>, max: Int, count: Int): List<String> = lines.mapNotNull { clean(it, max) }.take(count)
+
+    /** What a live photo's film stamp says: the time it was taken, "21:43". */
+    fun stamp(at: java.time.LocalTime): String = "%02d:%02d".format(at.hour, at.minute)
     const val MAX_MINUTES = 24 * 60
 
     fun clean(text: String?, max: Int): String? = text?.replace(Regex("[\\t ]+"), " ")?.trim()?.take(max)?.ifEmpty { null }

@@ -133,8 +133,10 @@ class WorldRoomsCaptureTest {
                 places = listOf(com.choomhub.app.domain.model.MeetupPlace(p.first, p.second, p.third)) +
                     if (i == 7) listOf(com.choomhub.app.domain.model.MeetupPlace("Khan Market", 28.6003, 77.2270), com.choomhub.app.domain.model.MeetupPlace("India Gate", 28.6129, 77.2295), com.choomhub.app.domain.model.MeetupPlace("a chai stall somewhere")) else emptyList(),
                 note = if (i == 7) "fed the ducks, argued about the best momos, walked till the guard whistled" else null,
-                did = setOf(MeetupActivity.entries[i % MeetupActivity.entries.size], MeetupActivity.Walk),
-                first = if (i == 7) "rowing boat" else null,
+                did = setOf(MeetupActivity.entries[i % MeetupActivity.entries.size], MeetupActivity.Walk) + if (i == 7) setOf(MeetupActivity.Other) else emptySet(),
+                firsts = if (i == 7) listOf("rowing boat", "sushi at that tiny place") else emptyList(),
+                extras = if (i == 7) listOf("karaoke") else emptyList(),
+                stamps = if (i == 7) mapOf("p70" to "21:43") else emptyMap(),
                 photos = (0 until (i % 5)).map { k -> MeetupPhoto("p$i$k", picture(i + k, 160)) },
                 createdAt = now,
             )
