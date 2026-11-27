@@ -1,5 +1,8 @@
 package com.choomhub.app.feature.world.cabinet
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.aspectRatio
 import com.choomhub.app.core.designsystem.component.OneLineText
 import android.Manifest
 import android.net.Uri
@@ -30,18 +33,16 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -244,41 +245,115 @@ fun CabinetScreen(contentPadding: PaddingValues, onOpenMeetup: (String) -> Unit,
 @Composable
 internal fun DatePanel(initial: LocalDate, onPick: (LocalDate) -> Unit, onDismiss: () -> Unit) {
     val colors = ChoomHubTheme.colors
-    val today = LocalDate.now()
-    val state = rememberDatePickerState(
-        initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-        selectableDates = object : androidx.compose.material3.SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long): Boolean =
-                !Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate().isAfter(today)
-        },
-    )
+    var picked by rememberSaveable { mutableStateOf(initial.toString()) }
     InkPanel(onDismiss, Modifier.testTag("date_panel")) {
-        DatePicker(
-            state = state,
-            title = null,
-            headline = null,
-            showModeToggle = false,
-            colors = DatePickerDefaults.colors(
-                containerColor = Color.Transparent,
-                dayContentColor = colors.textMain,
-                weekdayContentColor = colors.textSecondary,
-                navigationContentColor = colors.textSecondary,
-                yearContentColor = colors.textMain,
-                currentYearContentColor = colors.pink,
-                selectedYearContainerColor = colors.pink,
-                selectedDayContainerColor = colors.pink,
-                selectedDayContentColor = colors.night,
-                todayContentColor = colors.pink,
-                todayDateBorderColor = colors.pink,
-                subheadContentColor = colors.textSecondary,
-                disabledDayContentColor = colors.textFaint.copy(alpha = 0.4f),
-            ),
-        )
-        ChoomHubPrimaryButton("Use this date", {
-            state.selectedDateMillis?.let { onPick(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
-        }, Modifier.fillMaxWidth().testTag("date_ok"), enabled = state.selectedDateMillis != null)
+        Text("WHEN WAS IT?", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+        Spacer(Modifier.height(8.dp))
+        MonthCalendar(LocalDate.parse(picked), onPick = { picked = it.toString() }, latest = LocalDate.now())
+        Spacer(Modifier.height(12.dp))
+        ChoomHubPrimaryButton("Use ${LocalDate.parse(picked).format(shortDate)}", { onPick(LocalDate.parse(picked)) }, Modifier.fillMaxWidth().testTag("date_ok"))
         TextButton(onDismiss, Modifier.fillMaxWidth()) { OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
     }
+}
+
+private val shortDate = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+private val monthTitle = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+
+/**
+ * A month of days in seven even columns that always fit the panel (they share its width rather
+ * than asking for a fixed one). Days after [latest] can't be picked.
+ */
+@Composable
+internal fun MonthCalendar(selected: LocalDate, onPick: (LocalDate) -> Unit, latest: LocalDate, modifier: Modifier = Modifier) {
+    val colors = ChoomHubTheme.colors
+    var month by rememberSaveable { mutableStateOf(java.time.YearMonth.from(selected).toString()) }
+    val shown = java.time.YearMonth.parse(month)
+    // The phone's own first day of the week (Sunday in India, Monday in much of Europe).
+    val firstDay = java.time.temporal.WeekFields.of(androidx.compose.ui.platform.LocalConfiguration.current.locales.get(0)).firstDayOfWeek
+    val days = remember(shown, firstDay) { monthGrid(shown, firstDay) }
+    val canGoOn = shown < java.time.YearMonth.from(latest)
+    Column(modifier.fillMaxWidth().testTag("month_calendar")) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Previous month") { month = shown.minusMonths(1).toString() }.testTag("month_prev"),
+                contentAlignment = Alignment.Center,
+            ) { Icon(PetIcons.Back, contentDescription = "Previous month", tint = colors.textSecondary, modifier = Modifier.size(20.dp)) }
+            Text(
+                shown.format(monthTitle),
+                style = MaterialTheme.typography.titleLarge,
+                color = colors.textMain,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f).testTag("month_title"),
+            )
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).clickable(enabled = canGoOn, role = Role.Button, onClickLabel = "Next month") { month = shown.plusMonths(1).toString() }.testTag("month_next"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    PetIcons.Back,
+                    contentDescription = "Next month",
+                    tint = if (canGoOn) colors.textSecondary else colors.textFaint.copy(alpha = 0.3f),
+                    modifier = Modifier.size(20.dp).graphicsLayer { scaleX = -1f },
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth()) {
+            (0 until 7).forEach { k ->
+                Text(
+                    firstDay.plus(k.toLong()).getDisplayName(java.time.format.TextStyle.NARROW, Locale.ENGLISH),
+                    style = ChoomHubTextStyles.Eyebrow,
+                    color = colors.textFaint,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        days.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { day ->
+                    Box(Modifier.weight(1f).aspectRatio(1f).heightIn(max = 48.dp).padding(2.dp), contentAlignment = Alignment.Center) {
+                        if (day != null) {
+                            val future = day.isAfter(latest)
+                            val isPicked = day == selected
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .then(if (isPicked) Modifier.background(colors.pink) else Modifier)
+                                    .then(if (day == latest && !isPicked) Modifier.border(1.dp, colors.pink.copy(alpha = 0.7f), CircleShape) else Modifier)
+                                    .clickable(enabled = !future, role = Role.Button, onClickLabel = day.format(shortDate)) { onPick(day) }
+                                    .testTag("day_$day"),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "${day.dayOfMonth}",
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "lnum"),
+                                    color = when {
+                                        isPicked -> colors.night
+                                        future -> colors.textFaint.copy(alpha = 0.35f)
+                                        day == latest -> colors.pink
+                                        else -> colors.textMain
+                                    },
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A month laid out in weeks starting on [firstDay]; null where a cell is outside the month. */
+internal fun monthGrid(month: java.time.YearMonth, firstDay: java.time.DayOfWeek): List<LocalDate?> {
+    val first = month.atDay(1)
+    val lead = (first.dayOfWeek.value - firstDay.value + 7) % 7
+    val cells = List(lead) { null } + (1..month.lengthOfMonth()).map { month.atDay(it) }
+    return cells + List((7 - cells.size % 7) % 7) { null }
 }
 
 // --- One meetup ---
