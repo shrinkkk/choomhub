@@ -30,28 +30,60 @@ enum class PetPose { Sit, Loaf, Asleep, Walk, Eat, Pounce, Petted, BellyUp, Groo
 /** How it's built: it grows from a kitten, and can get chonky if it's overfed. */
 enum class PetBuild { Kitten, Cat, Chonky }
 
+/** Where on the cat an outfit goes; it can wear one of each at once. */
+enum class OutfitSlot(val label: String) { Head("Head"), Face("Face"), Neck("Neck"), Body("Body"), Feet("Feet") }
+
 /** Things it can wear (from the shop); [id] is the shop item. */
-enum class PetOutfit(val id: String?) {
-    None(null),
-    BowTie("bow_tie"),
-    BellCollar("bell_collar"),
-    SpikedCollar("spiked_collar"),
-    Bandana("bandana"),
-    Scarf("scarf"),
-    MoonPendant("moon_pendant"),
-    WitchHat("witch_hat"),
-    PumpkinHat("pumpkin_hat"),
-    FlowerCrown("flower_crown"),
-    Beret("beret"),
-    Sunglasses("sunglasses"),
-    BatWings("bat_wings"),
-    Cape("cape"),
-    Crown("crown"),
-    Headphones("headphones"),
+enum class PetOutfit(val id: String?, val slot: OutfitSlot?) {
+    None(null, null),
+    BowTie("bow_tie", OutfitSlot.Neck),
+    BellCollar("bell_collar", OutfitSlot.Neck),
+    SpikedCollar("spiked_collar", OutfitSlot.Neck),
+    Bandana("bandana", OutfitSlot.Neck),
+    Scarf("scarf", OutfitSlot.Neck),
+    MoonPendant("moon_pendant", OutfitSlot.Neck),
+    PearlNecklace("pearls", OutfitSlot.Neck),
+    FlowerLei("lei", OutfitSlot.Neck),
+    TinyCamera("tiny_camera", OutfitSlot.Neck),
+    WitchHat("witch_hat", OutfitSlot.Head),
+    PumpkinHat("pumpkin_hat", OutfitSlot.Head),
+    FlowerCrown("flower_crown", OutfitSlot.Head),
+    Beret("beret", OutfitSlot.Head),
+    Crown("crown", OutfitSlot.Head),
+    Headphones("headphones", OutfitSlot.Head),
+    Beanie("beanie", OutfitSlot.Head),
+    PartyHat("party_hat", OutfitSlot.Head),
+    BunnyEars("bunny_ears", OutfitSlot.Head),
+    FrogHat("frog_hat", OutfitSlot.Head),
+    MushroomCap("mushroom_cap", OutfitSlot.Head),
+    HardHat("hard_hat", OutfitSlot.Head),
+    Sunglasses("sunglasses", OutfitSlot.Face),
+    RoundGlasses("round_glasses", OutfitSlot.Face),
+    Monocle("monocle", OutfitSlot.Face),
+    HeartGlasses("heart_glasses", OutfitSlot.Face),
+    BatWings("bat_wings", OutfitSlot.Body),
+    Cape("cape", OutfitSlot.Body),
+    Jumper("jumper", OutfitSlot.Body),
+    Hoodie("hoodie", OutfitSlot.Body),
+    Raincoat("raincoat", OutfitSlot.Body),
+    Tutu("tutu", OutfitSlot.Body),
+    FieldVest("field_vest", OutfitSlot.Body),
+    StripedSocks("striped_socks", OutfitSlot.Feet),
+    RainBoots("rain_boots", OutfitSlot.Feet),
+    BunnySlippers("bunny_slippers", OutfitSlot.Feet),
+    Sneakers("sneakers", OutfitSlot.Feet),
+    ChunkyBoots("chunky_boots", OutfitSlot.Feet),
+    KnitBooties("knit_booties", OutfitSlot.Feet),
+    LegWarmers("leg_warmers", OutfitSlot.Feet),
+    GardenClogs("garden_clogs", OutfitSlot.Feet),
     ;
 
     companion object {
         fun fromId(id: String?): PetOutfit = entries.firstOrNull { it.id != null && it.id == id } ?: None
+
+        /** What it's wearing, one per slot, from shop ids. */
+        fun lookOf(ids: Collection<String>): Set<PetOutfit> =
+            ids.map(::fromId).filter { it != None }.groupBy { it.slot }.mapNotNull { it.value.lastOrNull() }.toSet()
     }
 }
 
@@ -77,20 +109,23 @@ fun PetCat(
     outfit: PetOutfit = PetOutfit.None,
     frame: Int = 0,
     facingLeft: Boolean = false,
+    /** Everything it's wearing (one per slot); [outfit] is added to it. */
+    outfits: Set<PetOutfit> = emptySet(),
 ) {
+    val look = if (outfit == PetOutfit.None) outfits else outfits.filterNot { it.slot == outfit.slot }.toSet() + outfit
     Canvas(modifier) {
         val s = size.minDimension / 100f
         translate((size.width - 100f * s) / 2f, (size.height - 100f * s) / 2f) {
             scale(s, s, pivot = Offset.Zero) {
                 scale(if (facingLeft) -1f else 1f, 1f, pivot = Offset(50f, 50f)) {
-                    drawPetCat(pose, expression, build, outfit, frame)
+                    drawPetCat(pose, expression, build, look, frame)
                 }
             }
         }
     }
 }
 
-internal fun DrawScope.drawPetCat(pose: PetPose, expression: CatExpression, build: PetBuild, outfit: PetOutfit, frame: Int) {
+internal fun DrawScope.drawPetCat(pose: PetPose, expression: CatExpression, build: PetBuild, outfit: Set<PetOutfit>, frame: Int) {
     when (pose) {
         PetPose.Sit -> sitting(expression, build, outfit)
         PetPose.Petted -> sitting(CatExpression.Ecstatic, build, outfit, purr = true)
@@ -163,7 +198,7 @@ private fun DrawScope.paws(xs: List<Float>, y: Float, w: Float) {
 private fun DrawScope.sitting(
     expression: CatExpression,
     build: PetBuild,
-    outfit: PetOutfit,
+    outfit: Set<PetOutfit>,
     purr: Boolean = false,
     grooming: Boolean = false,
     sick: Boolean = false,
@@ -186,8 +221,8 @@ private fun DrawScope.sitting(
             svgPath("M36 35 C22 46 8 62 8 78 C8 92 22 97 38 97 L62 97 C78 97 92 92 92 78 C92 62 78 46 64 35 Z"),
         )
     }
-    if (outfit == PetOutfit.BatWings) batWings(build)
-    if (outfit == PetOutfit.Cape) cape(build)
+    if (PetOutfit.BatWings in outfit) batWings(build)
+    if (PetOutfit.Cape in outfit) cape(build)
     // Tail curling round from behind.
     val tailD = when (build) {
         PetBuild.Kitten -> "M68 92 C84 93 88 84 85 74 C83 68 86 63 89 61"
@@ -218,6 +253,10 @@ private fun DrawScope.sitting(
         drawLine(Bone.copy(alpha = 0.12f), Offset(if (i == 0) x + half else x - half, legTop + 10f), Offset(if (i == 0) x + half else x - half, 92f), 0.4f)
     }
     paws(legXs.filterIndexed { i, _ -> !(grooming && i == 1) }, 95f, if (build == PetBuild.Cat) 8f else 10f)
+    val legHalf = if (build == PetBuild.Cat) 3f else 4f
+    outfit.firstOrNull { it.slot == OutfitSlot.Body }?.let { garment(it, body, legXs, legHalf, legTop, headAt, headSize) }
+    outfit.firstOrNull { it.slot == OutfitSlot.Feet }?.let { footwear(it, legXs.filterIndexed { i, _ -> !(grooming && i == 1) }, legHalf) }
+    if (PetOutfit.Hoodie in outfit) hood(headAt, headSize)
     head(expression, headAt, headSize)
     if (grooming) {
         // A front paw up at the mouth (its edge catching the light), and a little pink tongue.
@@ -231,7 +270,9 @@ private fun DrawScope.sitting(
         drawPath(paw, Bone.copy(alpha = 0.35f), style = Stroke(0.6f))
         drawArc(Tongue, 0f, 180f, true, Offset(mouth.x - 2.5f, mouth.y - 1f), Size(5f, 5f))
     }
-    wear(outfit, headAt, headSize)
+    listOf(OutfitSlot.Neck, OutfitSlot.Face, OutfitSlot.Head).forEach { slot ->
+        outfit.firstOrNull { it.slot == slot }?.let { wear(it, headAt, headSize) }
+    }
     if (purr) {
         // Purr lines either side.
         val c = Bone.copy(alpha = 0.6f)
@@ -268,7 +309,7 @@ private fun DrawScope.wear(outfit: PetOutfit, headAt: Offset, headSize: Float) {
         PetOutfit.Sunglasses -> sunglasses(headAt, headSize)
         PetOutfit.Cape -> capeCollar(headAt, headSize)
         PetOutfit.Headphones -> headphones(headAt, headSize)
-        else -> Unit
+        else -> wearMore(outfit, headAt, headSize)
     }
 }
 
@@ -471,7 +512,7 @@ private fun DrawScope.capeCollar(headAt: Offset, size: Float) {
     drawCircle(Gold, 1.6f, c)
 }
 
-private fun DrawScope.loaf(expression: CatExpression, build: PetBuild, outfit: PetOutfit = PetOutfit.None) {
+private fun DrawScope.loaf(expression: CatExpression, build: PetBuild, outfit: Set<PetOutfit> = emptySet()) {
     val w = when (build) {
         PetBuild.Kitten -> 24f
         PetBuild.Cat -> 24f
@@ -480,8 +521,11 @@ private fun DrawScope.loaf(expression: CatExpression, build: PetBuild, outfit: P
     tail("M${50 + w - 4} 90 C${50 + w + 2} 92 ${50 + w - 6} 96 ${50 - w / 2} 95", 5.5f, seed = 52)
     val body = svgPath("M${50 - w} 92 C${50 - w - 4} 70 ${50 - w / 2} 52 50 52 C${50 + w / 2} 52 ${50 + w + 4} 70 ${50 + w} 92 Z")
     inkFur(body, seed = 53)
+    outfit.firstOrNull { it.slot == OutfitSlot.Body }?.let { loafGarment(it, body) }
     head(if (expression == CatExpression.Happy) CatExpression.Bored else expression, Offset(25f, 18f), 50f)
-    wear(outfit, Offset(25f, 18f), 50f)
+    listOf(OutfitSlot.Neck, OutfitSlot.Face, OutfitSlot.Head).forEach { slot ->
+        outfit.firstOrNull { it.slot == slot }?.let { wear(it, Offset(25f, 18f), 50f) }
+    }
 }
 
 private fun DrawScope.asleep(build: PetBuild) {

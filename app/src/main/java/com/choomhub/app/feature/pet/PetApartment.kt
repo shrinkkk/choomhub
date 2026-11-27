@@ -206,7 +206,7 @@ fun PetApartment(state: PetState, now: Instant, modifier: Modifier = Modifier, o
                     .testTag("pet_cat"),
                 expression = shown.expression,
                 build = build,
-                outfit = PetOutfit.fromId(state.outfit),
+                outfits = PetOutfit.lookOf(state.wearing()),
                 frame = frame,
                 facingLeft = facingLeft,
             )
@@ -419,6 +419,147 @@ internal fun DrawScope.giftIcon(id: String, base: Offset, k: Float) {
         "key" -> {
             drawCircle(Color(0xFFD9B45A), 0.5f * k, Offset(x - 0.8f * k, y - 1f * k), style = Stroke(0.25f * k))
             drawLine(Color(0xFFD9B45A), Offset(x - 0.3f * k, y - 1f * k), Offset(x + 1f * k, y - 1f * k), 0.25f * k)
+        }
+        else -> moreGiftIcon(id, x, y, k)
+    }
+}
+
+private fun poly(x: Float, y: Float, k: Float, vararg pts: Float) = Path().apply {
+    moveTo(x + pts[0] * k, y - pts[1] * k)
+    var i = 2
+    while (i < pts.size) { lineTo(x + pts[i] * k, y - pts[i + 1] * k); i += 2 }
+    close()
+}
+
+/** The rarer rocks and finds. Coordinates are in gift units: x across from the centre, y up from the base. */
+private fun DrawScope.moreGiftIcon(id: String, x: Float, y: Float, k: Float) {
+    val ink = Color(0xFF15111A)
+    when (id) {
+        "pyrite" -> {
+            // Stacked brassy cubes.
+            drawRect(Color(0xFFB8963E), Offset(x - 1.1f * k, y - 1.2f * k), Size(1.3f * k, 1.2f * k))
+            drawRect(Color(0xFFD9B45A), Offset(x - 0.1f * k, y - 1.6f * k), Size(1.2f * k, 1.6f * k))
+            drawRect(Color(0xFFE8CF85), Offset(x - 0.1f * k, y - 1.6f * k), Size(1.2f * k, 0.3f * k))
+            drawLine(Color(0xFF8E6E2E), Offset(x + 0.1f * k, y - 1.1f * k), Offset(x + 0.9f * k, y - 1.1f * k), 0.08f * k)
+        }
+        "halite" -> {
+            drawRect(Color(0xFFE9E2DA), Offset(x - 0.9f * k, y - 1.8f * k), Size(1.8f * k, 1.8f * k))
+            drawPath(poly(x, y, k, -0.9f, 1.8f, -0.4f, 2.2f, 1.3f, 2.2f, 0.9f, 1.8f), Color(0xFFF6F1EA))
+            drawPath(poly(x, y, k, 0.9f, 1.8f, 1.3f, 2.2f, 1.3f, 0.4f, 0.9f, 0f), Color(0xFFC9C0B6))
+            drawLine(Color(0xFFD9A3B0).copy(alpha = 0.5f), Offset(x - 0.6f * k, y - 1.3f * k), Offset(x + 0.4f * k, y - 0.4f * k), 0.12f * k)
+        }
+        "pumice" -> {
+            drawOval(Color(0xFFB9B2A6), Offset(x - 1.2f * k, y - 1.3f * k), Size(2.4f * k, 1.3f * k))
+            listOf(-0.6f to 0.8f, 0.1f to 0.5f, 0.6f to 0.9f, -0.2f to 1f, 0.4f to 0.3f, -0.8f to 0.4f).forEach { (dx, dy) ->
+                drawCircle(Color(0xFF8C8578), 0.12f * k, Offset(x + dx * k, y - dy * k))
+            }
+        }
+        "rose_quartz" -> {
+            drawPath(poly(x, y, k, -1.1f, 0f, -0.9f, 1.3f, -0.2f, 2.1f, 0.7f, 1.6f, 1.1f, 0f), Color(0xFFE3B3BE))
+            drawPath(poly(x, y, k, -0.2f, 2.1f, 0.7f, 1.6f, 0.2f, 0.6f), Color(0xFFF2D1D8))
+        }
+        "galena" -> {
+            // Lead-grey cubes, very heavy for their size.
+            drawRect(Color(0xFF6E6C76), Offset(x - 1.2f * k, y - 1.4f * k), Size(1.4f * k, 1.4f * k))
+            drawRect(Color(0xFF8C8A95), Offset(x - 0.3f * k, y - 2f * k), Size(1.3f * k, 1.3f * k))
+            drawRect(Color(0xFFA9A7B2), Offset(x - 0.3f * k, y - 2f * k), Size(1.3f * k, 0.25f * k))
+            drawRect(Color(0xFF55535C), Offset(x + 0.2f * k, y - 0.8f * k), Size(0.9f * k, 0.8f * k))
+        }
+        "magnetite" -> {
+            drawPath(poly(x, y, k, -1f, 0f, -0.6f, 1.6f, 0.6f, 1.6f, 1f, 0f), Color(0xFF2B2830))
+            drawPath(poly(x, y, k, -0.6f, 1.6f, 0f, 2.2f, 0.6f, 1.6f), Color(0xFF3E3A45))
+            // A paperclip stuck to it.
+            drawRoundRect(Color(0xFFB9B2A6), Offset(x + 0.5f * k, y - 2.1f * k), Size(0.5f * k, 1.2f * k), CornerRadius(0.25f * k), style = Stroke(0.1f * k))
+        }
+        "malachite" -> {
+            drawOval(Color(0xFF2F6B4F), Offset(x - 1.2f * k, y - 1.6f * k), Size(2.4f * k, 1.6f * k))
+            for (i in 1..3) drawArc(Color(0xFF6FB08A), 200f, 140f, false, Offset(x - (1.2f - i * 0.25f) * k, y - (1.6f - i * 0.2f) * k), Size((2.4f - i * 0.5f) * k, (1.4f - i * 0.3f) * k), style = Stroke(0.12f * k))
+        }
+        "tigers_eye" -> {
+            drawOval(Color(0xFF7A4E22), Offset(x - 1.1f * k, y - 1.5f * k), Size(2.2f * k, 1.5f * k))
+            for (i in 0..3) drawLine(Color(0xFFD9A84E).copy(alpha = 0.7f), Offset(x - 0.9f * k, y - (0.4f + i * 0.28f) * k), Offset(x + 0.9f * k, y - (0.6f + i * 0.28f) * k), 0.14f * k)
+        }
+        "fluorite" -> {
+            // An octahedron, purple into green.
+            drawPath(poly(x, y, k, 0f, 0f, -1f, 1.2f, 0f, 2.5f), Color(0xFF7B5EA7))
+            drawPath(poly(x, y, k, 0f, 0f, 1f, 1.2f, 0f, 2.5f), Color(0xFF5E9C8A))
+            drawLine(Color(0xFFE6DED0).copy(alpha = 0.5f), Offset(x - 1f * k, y - 1.2f * k), Offset(x + 1f * k, y - 1.2f * k), 0.08f * k)
+        }
+        "desert_rose" -> {
+            for (i in 0..4) {
+                val a = Math.toRadians(-160.0 + i * 35.0)
+                val c = Offset(x + kotlin.math.cos(a).toFloat() * 0.6f * k, y - 0.9f * k + kotlin.math.sin(a).toFloat() * 0.5f * k)
+                drawOval(Color(0xFFC9A07A), Offset(c.x - 0.5f * k, c.y - 0.25f * k), Size(1f * k, 0.55f * k))
+                drawOval(Color(0xFF9E7653), Offset(c.x - 0.5f * k, c.y - 0.25f * k), Size(1f * k, 0.55f * k), style = Stroke(0.07f * k))
+            }
+            drawOval(Color(0xFFB88C64), Offset(x - 1.1f * k, y - 0.6f * k), Size(2.2f * k, 0.6f * k))
+        }
+        "labradorite" -> {
+            drawPath(poly(x, y, k, -1.2f, 0f, -0.9f, 1.4f, 0.4f, 1.7f, 1.2f, 0.6f, 1f, 0f), Color(0xFF3A3C48))
+            drawPath(poly(x, y, k, -0.6f, 0.4f, -0.4f, 1.2f, 0.4f, 1.3f, 0.8f, 0.5f), Color(0xFF4F8FB3).copy(alpha = 0.85f))
+            drawPath(poly(x, y, k, -0.1f, 0.5f, 0.1f, 1.1f, 0.6f, 0.6f), Color(0xFF7FC6A4).copy(alpha = 0.7f))
+        }
+        "bismuth" -> {
+            // Stepped hopper squares in rainbow oxide.
+            listOf(Color(0xFFC77DBA), Color(0xFF6FA8DC), Color(0xFFD9B45A), Color(0xFF7FC6A4)).forEachIndexed { i, c ->
+                val w = (2.4f - i * 0.55f) * k
+                drawRect(c, Offset(x - w / 2, y - (0.5f + i * 0.5f) * k), Size(w, 0.5f * k), style = Stroke(0.22f * k))
+            }
+        }
+        "petrified_wood" -> {
+            drawRoundRect(Color(0xFF8C5E3C), Offset(x - 1.2f * k, y - 1.3f * k), Size(2.4f * k, 1.3f * k), CornerRadius(0.2f * k))
+            drawOval(Color(0xFFC9A07A), Offset(x + 0.7f * k, y - 1.3f * k), Size(0.9f * k, 1.3f * k))
+            for (r in 1..3) drawOval(Color(0xFF8C5E3C), Offset(x + (0.7f + r * 0.1f) * k, y - (1.3f - r * 0.15f) * k), Size((0.9f - r * 0.2f) * k, (1.3f - r * 0.3f) * k), style = Stroke(0.06f * k))
+            drawLine(Color(0xFF6B4A36), Offset(x - 1f * k, y - 0.5f * k), Offset(x + 0.6f * k, y - 0.4f * k), 0.08f * k)
+        }
+        "amber" -> {
+            drawOval(Color(0xFFD08A2E).copy(alpha = 0.9f), Offset(x - 1.1f * k, y - 1.8f * k), Size(2.2f * k, 1.8f * k))
+            drawOval(Color(0xFFF0B85A).copy(alpha = 0.6f), Offset(x - 0.7f * k, y - 1.6f * k), Size(0.9f * k, 0.5f * k))
+            // A tiny trapped bug.
+            drawOval(ink, Offset(x - 0.2f * k, y - 1f * k), Size(0.45f * k, 0.25f * k))
+            drawLine(ink, Offset(x + 0f, y - 0.9f * k), Offset(x + 0.4f * k, y - 1.15f * k), 0.05f * k)
+            drawLine(ink, Offset(x + 0f, y - 0.9f * k), Offset(x - 0.4f * k, y - 1.15f * k), 0.05f * k)
+        }
+        "megalodon" -> {
+            drawPath(poly(x, y, k, -1.1f, 0.4f, 0f, 2.6f, 1.1f, 0.4f), Color(0xFF4A4550))
+            drawPath(Path().apply {
+                moveTo(x - 1.1f * k, y - 0.4f * k); quadraticTo(x, y + 0.3f * k, x + 1.1f * k, y - 0.4f * k); lineTo(x + 0.9f * k, y - 0.7f * k); lineTo(x - 0.9f * k, y - 0.7f * k); close()
+            }, Color(0xFF8C7A62))
+            for (i in 0..5) drawLine(Color(0xFF8C8794), Offset(x + (-0.95f + i * 0.17f) * k, y - (0.7f + i * 0.33f) * k), Offset(x + (-0.85f + i * 0.17f) * k, y - (0.85f + i * 0.33f) * k), 0.06f * k)
+        }
+        "moldavite" -> {
+            drawPath(poly(x, y, k, -1.1f, 0f, -0.8f, 1.2f, -0.3f, 0.9f, 0f, 2.2f, 0.5f, 1.1f, 1.1f, 1.4f, 0.9f, 0f), Color(0xFF4E7A3A).copy(alpha = 0.9f))
+            drawPath(poly(x, y, k, -0.3f, 0.3f, 0f, 1.6f, 0.4f, 0.4f), Color(0xFF8DBA6A).copy(alpha = 0.6f))
+        }
+        "fulgurite" -> {
+            // Glassy sand fused by lightning: a branching tube.
+            drawLine(Color(0xFFBFA98A), Offset(x - 0.2f * k, y), Offset(x + 0.1f * k, y - 2.5f * k), 0.45f * k, StrokeCap.Round)
+            drawLine(Color(0xFFBFA98A), Offset(x, y - 1.2f * k), Offset(x + 0.8f * k, y - 1.9f * k), 0.3f * k, StrokeCap.Round)
+            drawLine(Color(0xFFBFA98A), Offset(x - 0.1f * k, y - 0.6f * k), Offset(x - 0.8f * k, y - 1.3f * k), 0.25f * k, StrokeCap.Round)
+            drawLine(Color(0xFFEDE3C8), Offset(x - 0.05f * k, y - 0.3f * k), Offset(x + 0.1f * k, y - 2.2f * k), 0.1f * k)
+        }
+        "meteorite" -> {
+            drawPath(poly(x, y, k, -1.2f, 0.1f, -1f, 1.3f, -0.2f, 1.8f, 0.9f, 1.4f, 1.2f, 0.3f, 0.4f, 0f), Color(0xFF3E3A40))
+            // A cut face showing the crosshatch (Widmanstätten) pattern.
+            drawPath(poly(x, y, k, -0.6f, 0.4f, -0.4f, 1.3f, 0.6f, 1.2f, 0.7f, 0.4f), Color(0xFF9A98A2))
+            for (i in 0..2) {
+                drawLine(Color(0xFF6E6C76), Offset(x + (-0.5f + i * 0.4f) * k, y - 0.45f * k), Offset(x + (-0.2f + i * 0.4f) * k, y - 1.25f * k), 0.05f * k)
+                drawLine(Color(0xFF6E6C76), Offset(x - 0.5f * k, y - (0.6f + i * 0.25f) * k), Offset(x + 0.65f * k, y - (0.75f + i * 0.2f) * k), 0.05f * k)
+            }
+        }
+        "uraninite" -> {
+            // A small lead box, lid ajar, the stone inside. Safely boxed.
+            drawRect(Color(0xFF55535C), Offset(x - 1.2f * k, y - 1.2f * k), Size(2.4f * k, 1.2f * k))
+            drawRect(Color(0xFF6E6C76), Offset(x - 1.2f * k, y - 1.2f * k), Size(2.4f * k, 0.2f * k))
+            drawCircle(Color(0xFF9FD46A).copy(alpha = 0.18f), 0.9f * k, Offset(x - 0.1f * k, y - 1.3f * k))
+            drawOval(Color(0xFF26232A), Offset(x - 0.6f * k, y - 1.55f * k), Size(1f * k, 0.55f * k))
+            drawPath(poly(x, y, k, -1.2f, 1.2f, -1.3f, 2.1f, 1.1f, 2.4f, 1.2f, 1.5f), Color(0xFF6E6C76))
+            // The hazard trefoil on the front, small.
+            val c = Offset(x + 0.6f * k, y - 0.6f * k)
+            drawCircle(Color(0xFFD9B45A), 0.32f * k, c)
+            for (i in 0..2) drawArc(ink, -90f + i * 120f - 30f, 60f, true, Offset(c.x - 0.26f * k, c.y - 0.26f * k), Size(0.52f * k, 0.52f * k))
+            drawCircle(Color(0xFFD9B45A), 0.07f * k, c)
+            drawCircle(ink, 0.05f * k, c)
         }
         else -> drawCircle(Room.Bone, 0.6f * k, Offset(x, y - 0.6f * k))
     }

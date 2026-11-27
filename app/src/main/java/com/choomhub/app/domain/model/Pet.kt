@@ -89,6 +89,7 @@ data class PetState(
     val vetDone: Boolean = false,
     val muddy: Boolean = false,
     val nailsAt: Instant? = null,
+    /** What it's wearing: shop ids, comma-separated, one per slot (null: nothing). */
     val outfit: String? = null,
     val owned: Set<String> = emptySet(),
     val inventory: Map<String, Int> = emptyMap(),
@@ -111,6 +112,9 @@ data class PetState(
     val sick: Boolean get() = sickSince != null
     fun count(key: String) = counters[key] ?: 0
     fun has(item: String) = item in owned
+
+    /** The shop ids of everything it has on. */
+    fun wearing(): List<String> = outfit?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
 }
 
 /** A change to the cat, made by you. Fields left null aren't touched. */
@@ -192,7 +196,11 @@ sealed interface PetAction {
     data class StartTeamCare(val kind: TeamCare) : PetAction
     data object JoinTeamCare : PetAction
     data class Buy(val item: ShopItem) : PetAction
-    data class Wear(val outfit: String?) : PetAction
+    /**
+     * Dress it: [look] is everything it should be wearing now (one per slot; empty takes it all
+     * off), and [added] is what was just put on, if anything.
+     */
+    data class Wear(val look: List<String>, val added: String? = null) : PetAction
 }
 
 /** The cat's rules: how needs drift, what each action does, the shop, gifts, trophies and diary lines. */
@@ -455,7 +463,7 @@ object PetRules {
                     when {
                         gift != null -> "$name found something mid-chase and dropped it at your feet: ${gift.name.lowercase()}."
                         action.catches == 0 -> "$name watched the ${toyName(action.toy)} with total contempt."
-                        else -> "$name caught it ${action.catches} time${if (action.catches == 1) "" else "s"}."
+                        else -> "$name ${playResult(action.toy, action.catches)}."
                     },
                 )
             }
@@ -540,13 +548,21 @@ object PetRules {
                     if (item.pack > 0) "Bought ${item.name.lowercase()} (${item.pack})." else "Bought ${item.name.lowercase()}.",
                 )
             }
-            is PetAction.Wear -> PetOutcome(
-                PetPatch(
-                    outfit = action.outfit ?: "",
-                    diary = if (action.outfit != null && random.nextInt(2) == 0) listOf("$myName put me in ${outfitName(action.outfit).lowercase().let { if (it.endsWith("s")) it else "a $it" }}. I look incredible and I know it.") else emptyList(),
-                ),
-                if (action.outfit == null) "$name is au naturel." else "$name is wearing the ${outfitName(action.outfit).lowercase()}.",
-            )
+            is PetAction.Wear -> {
+                val look = action.look.filter { state.has(it) && item(it)?.category == ShopCategory.Outfits }.distinct()
+                val added = action.added?.takeIf { it in look }
+                PetOutcome(
+                    PetPatch(
+                        outfit = look.joinToString(","),
+                        diary = if (added != null && random.nextInt(2) == 0) listOf("$myName put me in ${outfitName(added).lowercase().let { if (it.endsWith("s")) it else "a $it" }}. I look incredible and I know it.") else emptyList(),
+                    ),
+                    when {
+                        look.isEmpty() -> "$name is au naturel."
+                        added != null -> "$name is wearing the ${outfitName(added).lowercase()}."
+                        else -> "Taken off."
+                    },
+                )
+            }
         }
     }
 
@@ -570,6 +586,8 @@ object PetRules {
         ShopItem("yarn", "Yarn ball", ShopCategory.Toys, 30, "Rolls, unravels, is destroyed."),
         ShopItem("mouse", "Toy mouse", ShopCategory.Toys, 25, "Squeaks. Lives under the fridge."),
         ShopItem("box", "Cardboard box", ShopCategory.Toys, 20, "Better than anything else you could buy."),
+        ShopItem("kicker", "Catnip kicker", ShopCategory.Toys, 35, "A long pillow for bunny-kicking into submission."),
+        ShopItem("bubble_wand", "Bubble wand", ShopCategory.Toys, 30, "Catnip bubbles. They never stay caught."),
         ShopItem("tree", "Tall cat tree", ShopCategory.Furniture, 150, "Three levels of judging you from above. Less boredom."),
         ShopItem("heated_bed", "Heated bed", ShopCategory.Furniture, 120, "Naps restore energy faster."),
         ShopItem("perch", "Window perch", ShopCategory.Furniture, 80, "Bird TV. Less boredom."),
@@ -590,6 +608,31 @@ object PetRules {
         ShopItem("bat_wings", "Bat wings", ShopCategory.Outfits, 80, "Cannot fly. Will try."),
         ShopItem("cape", "Velvet cape", ShopCategory.Outfits, 75, "Count Catula."),
         ShopItem("crown", "Crown", ShopCategory.Outfits, 120, "It already thought it was royalty."),
+        ShopItem("beanie", "Beanie", ShopCategory.Outfits, 35, "Pompom included. Dignity not."),
+        ShopItem("party_hat", "Party hat", ShopCategory.Outfits, 25, "Elastic under the chin. Furious about it."),
+        ShopItem("bunny_ears", "Bunny ears", ShopCategory.Outfits, 30, "Four ears now. Hears everything."),
+        ShopItem("frog_hat", "Frog hat", ShopCategory.Outfits, 45, "Frog on the outside, cat on the inside."),
+        ShopItem("mushroom_cap", "Mushroom cap", ShopCategory.Outfits, 40, "Forest floor chic."),
+        ShopItem("hard_hat", "Hard hat", ShopCategory.Outfits, 40, "With a headlamp, for field trips."),
+        ShopItem("round_glasses", "Round glasses", ShopCategory.Outfits, 35, "Reads. Pretends to, anyway."),
+        ShopItem("monocle", "Monocle", ShopCategory.Outfits, 50, "Disapproves in high resolution."),
+        ShopItem("heart_glasses", "Heart sunglasses", ShopCategory.Outfits, 40, "Pink and unbothered."),
+        ShopItem("pearls", "Pearls", ShopCategory.Outfits, 65, "Old money energy."),
+        ShopItem("lei", "Flower lei", ShopCategory.Outfits, 35, "On holiday. Indoors."),
+        ShopItem("tiny_camera", "Tiny camera", ShopCategory.Outfits, 55, "Takes no photos. Looks the part."),
+        ShopItem("jumper", "Striped jumper", ShopCategory.Outfits, 55, "Wine red, slightly itchy."),
+        ShopItem("hoodie", "Hoodie", ShopCategory.Outfits, 55, "Hood up, ignoring everyone."),
+        ShopItem("raincoat", "Raincoat", ShopCategory.Outfits, 60, "For puddles it will refuse to go near."),
+        ShopItem("tutu", "Tutu", ShopCategory.Outfits, 40, "Ballet career pending."),
+        ShopItem("field_vest", "Field vest", ShopCategory.Outfits, 70, "Pockets for samples. Comes with a rock hammer."),
+        ShopItem("striped_socks", "Striped socks", ShopCategory.Outfits, 25, "Slides on wooden floors."),
+        ShopItem("rain_boots", "Rain boots", ShopCategory.Outfits, 40, "Stomps. Loudly."),
+        ShopItem("bunny_slippers", "Bunny slippers", ShopCategory.Outfits, 35, "Slippers wearing slippers."),
+        ShopItem("sneakers", "Sneakers", ShopCategory.Outfits, 45, "Zoomies, now with grip."),
+        ShopItem("chunky_boots", "Chunky boots", ShopCategory.Outfits, 60, "Two centimetres taller. Insufferable."),
+        ShopItem("knit_booties", "Knit booties", ShopCategory.Outfits, 30, "Hand-knitted. Pompoms on top."),
+        ShopItem("leg_warmers", "Leg warmers", ShopCategory.Outfits, 30, "Ready for an aerobics video."),
+        ShopItem("garden_clogs", "Garden clogs", ShopCategory.Outfits, 35, "Holes for ventilation. Gardens never."),
         ShopItem("fairy_lights", "Fairy lights", ShopCategory.Decor, 40, "Warm little lights along the wall."),
         ShopItem("plants", "House plants", ShopCategory.Decor, 30, "For it to knock over."),
         ShopItem("rug", "Round rug", ShopCategory.Decor, 50, "Soft, for belly-up naps."),
@@ -606,7 +649,25 @@ object PetRules {
         "laser" -> "red dot"
         "yarn" -> "yarn ball"
         "mouse" -> "toy mouse"
+        "kicker" -> "catnip kicker"
+        "bubble_wand" -> "bubbles"
+        "box" -> "box"
         else -> "feather"
+    }
+
+    /** Toys you play with (the feather is free and always there), in the order they're offered. */
+    val TOYS = listOf("feather", "laser", "yarn", "mouse", "kicker", "bubble_wand", "box")
+
+    /** How a game's score reads: "caught it 4 times", "popped 4 bubbles"... */
+    fun playResult(toy: String, score: Int): String {
+        val s = if (score == 1) "" else "s"
+        return when (toy) {
+            "kicker" -> "kicked it $score time$s"
+            "bubble_wand" -> "popped $score bubble$s"
+            "box" -> "booped your mouse $score time$s"
+            "yarn" -> "kept the rally going $score time$s"
+            else -> "caught it $score time$s"
+        }
     }
 
     // --- Gifts ---
@@ -629,6 +690,25 @@ object PetRules {
         GiftKind("trilobite", "A trilobite", 1),
         GiftKind("ribbon", "A wine-red ribbon", 6),
         GiftKind("key", "An old key", 3),
+        GiftKind("pyrite", "Fool's gold (pyrite)", 3),
+        GiftKind("halite", "A salt cube (halite)", 3),
+        GiftKind("pumice", "Pumice (it floats)", 3),
+        GiftKind("rose_quartz", "Rose quartz", 3),
+        GiftKind("galena", "Galena, lead ore", 2),
+        GiftKind("magnetite", "Magnetite (a paperclip stuck on)", 2),
+        GiftKind("malachite", "Malachite", 2),
+        GiftKind("tigers_eye", "Tiger's eye", 2),
+        GiftKind("fluorite", "Fluorite", 2),
+        GiftKind("desert_rose", "A desert rose", 2),
+        GiftKind("labradorite", "Labradorite", 2),
+        GiftKind("bismuth", "A bismuth crystal", 1),
+        GiftKind("petrified_wood", "Petrified wood", 1),
+        GiftKind("amber", "Amber with a bug in it", 1),
+        GiftKind("megalodon", "A megalodon tooth", 1),
+        GiftKind("moldavite", "Moldavite", 1),
+        GiftKind("fulgurite", "A fulgurite (fossil lightning)", 1),
+        GiftKind("meteorite", "An iron meteorite", 1),
+        GiftKind("uraninite", "Uraninite, in a lead box", 1),
     )
 
     fun gift(id: String): GiftKind? = GIFTS.firstOrNull { it.id == id }

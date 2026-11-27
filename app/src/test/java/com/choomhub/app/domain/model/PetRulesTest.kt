@@ -179,11 +179,18 @@ class PetRulesTest {
     }
 
     @Test
-    fun `wearing and taking off`() {
-        val on = cat().applied(act(cat(), PetAction.Wear("crown")).patch, t0)
+    fun `wearing a look, one thing per slot, and taking it all off`() {
+        val dresser = cat { copy(owned = setOf("crown", "scarf", "striped_socks", "laser")) }
+        val on = dresser.applied(act(dresser, PetAction.Wear(listOf("crown"), "crown")).patch, t0)
         assertEquals("crown", on.outfit)
-        val off = on.applied(act(on, PetAction.Wear(null)).patch, t0)
+        val more = on.applied(act(on, PetAction.Wear(listOf("crown", "scarf", "striped_socks"), "striped_socks")).patch, t0)
+        assertEquals(listOf("crown", "scarf", "striped_socks"), more.wearing())
+        // Things it doesn't own, or that aren't clothes, are left out.
+        val odd = more.applied(act(more, PetAction.Wear(listOf("crown", "beanie", "laser"))).patch, t0)
+        assertEquals(listOf("crown"), odd.wearing())
+        val off = odd.applied(act(odd, PetAction.Wear(emptyList())).patch, t0)
         assertNull(off.outfit)
+        assertEquals(emptyList<String>(), off.wearing())
     }
 
     @Test

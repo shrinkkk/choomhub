@@ -45,7 +45,11 @@ import com.choomhub.app.domain.model.PetRules
 import com.choomhub.app.domain.model.ShopCategory
 import com.choomhub.app.feature.home.meetup.CatExpression
 import com.choomhub.app.feature.pet.art.PetCat
+import com.choomhub.app.feature.pet.art.OutfitSlot
 import com.choomhub.app.feature.pet.art.PetOutfit
+import com.choomhub.app.feature.pet.art.toyArt
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.choomhub.app.feature.pet.art.PetPose
 import java.time.Instant
 import java.time.ZoneId
@@ -73,12 +77,36 @@ private fun dateFormat(pattern: String): DateTimeFormatter {
 
 // --- Shop ---
 
+/** A shop tab, in the points shop's style. */
+@Composable
+private fun ShopTab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val colors = ChoomHubTheme.colors
+    Box(
+        modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(if (selected) colors.pink.copy(alpha = 0.14f) else colors.surface)
+            .border(1.dp, if (selected) colors.pink.copy(alpha = 0.6f) else colors.lavender.copy(alpha = 0.15f), MaterialTheme.shapes.medium)
+            .clickable(role = Role.Tab, onClick = onClick)
+            .padding(vertical = ChoomHubTheme.spacing.sm),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) colors.pink else colors.textSecondary, maxLines = 1, softWrap = false)
+    }
+}
+
+/** The short tab names, so all five fit on a phone. */
+private fun ShopCategory.tab(): String = if (this == ShopCategory.Furniture) "Home" else label
+
+/** Which slot an outfit goes in. */
+internal fun outfitSlot(id: String): OutfitSlot? = PetOutfit.fromId(id).slot
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ShopPage(ui: PetUi, onAct: (PetAction) -> PetOutcome) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
-    var category by remember { mutableStateOf(ShopCategory.Food) }
+    var category by rememberSaveable { mutableStateOf(ShopCategory.Food) }
+    var slot by rememberSaveable { mutableStateOf(OutfitSlot.Head) }
     var result by remember { mutableStateOf<String?>(null) }
     Text(
         "You have ${ui.pet.myCoins} coins · ${ui.partnerName} has ${ui.pet.partnerCoins}",
@@ -92,17 +120,25 @@ private fun ShopPage(ui: PetUi, onAct: (PetAction) -> PetOutcome) {
         color = colors.textFaint,
     )
     Spacer(Modifier.height(spacing.md))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         ShopCategory.entries.forEach { c ->
-            PillBadge(
-                c.label,
-                Modifier
-                    .clip(MaterialTheme.shapes.small)
-                    .clickable(role = Role.Tab) { category = c }
-                    .testTag("shop_tab_${c.name}"),
-                color = if (c == category) colors.pink else colors.textFaint,
-                showDot = c == category,
-            )
+            ShopTab(c.tab(), c == category, Modifier.weight(if (c == ShopCategory.Outfits) 1.25f else 1f).testTag("shop_tab_${c.name}")) { category = c }
+        }
+    }
+    if (category == ShopCategory.Outfits) {
+        Spacer(Modifier.height(spacing.sm))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            OutfitSlot.entries.forEach { s ->
+                PillBadge(
+                    s.label,
+                    Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(role = Role.Tab) { slot = s }
+                        .testTag("shop_slot_${s.name}"),
+                    color = if (s == slot) colors.pink else colors.textFaint,
+                    showDot = s == slot,
+                )
+            }
         }
     }
     if (result != null) {
@@ -111,14 +147,21 @@ private fun ShopPage(ui: PetUi, onAct: (PetAction) -> PetOutcome) {
     }
     Spacer(Modifier.height(spacing.md))
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        PetRules.SHOP.filter { it.category == category }.forEach { item ->
+        PetRules.SHOP.filter { it.category == category && (category != ShopCategory.Outfits || outfitSlot(it.id) == slot) }.forEach { item ->
             val owned = item.pack == 0 && ui.pet.has(item.id)
             val stock = ui.pet.inventory[item.id] ?: 0
             ChoomHubCard(Modifier.fillMaxWidth().testTag("shop_item_${item.id}"), tone = CardTone.Calm, contentPadding = androidx.compose.foundation.layout.PaddingValues(spacing.md)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (item.category == ShopCategory.Outfits) {
-                        PetCat(PetPose.Sit, Modifier.size(56.dp), outfit = PetOutfit.fromId(item.id), build = ui.build())
-                        Spacer(Modifier.width(spacing.sm))
+                    when (item.category) {
+                        ShopCategory.Outfits -> {
+                            PetCat(PetPose.Sit, Modifier.size(56.dp), outfit = PetOutfit.fromId(item.id), build = ui.build())
+                            Spacer(Modifier.width(spacing.sm))
+                        }
+                        ShopCategory.Toys -> {
+                            Canvas(Modifier.size(56.dp)) { toyArt(item.id, center, size.width / 46f) }
+                            Spacer(Modifier.width(spacing.sm))
+                        }
+                        else -> Unit
                     }
                     Column(Modifier.weight(1f)) {
                         Text(item.name, style = MaterialTheme.typography.titleSmall, color = colors.textMain)
@@ -148,6 +191,10 @@ private fun ShopPage(ui: PetUi, onAct: (PetAction) -> PetOutcome) {
             }
         }
     }
+    if (category == ShopCategory.Toys) {
+        Spacer(Modifier.height(spacing.sm))
+        Text("The feather wand is free and always there.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
+    }
 }
 
 // --- Wardrobe ---
@@ -157,36 +204,83 @@ private fun ShopPage(ui: PetUi, onAct: (PetAction) -> PetOutcome) {
 private fun WardrobePage(ui: PetUi, onAct: (PetAction) -> PetOutcome) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
-    val outfits = listOf<String?>(null) + PetRules.SHOP.filter { it.category == ShopCategory.Outfits && ui.pet.has(it.id) }.map { it.id }
-    if (outfits.size == 1) {
-        Text("Nothing to wear yet. Outfits are in the shop.", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
-        Spacer(Modifier.height(spacing.md))
+    val owned = PetRules.SHOP.filter { it.category == ShopCategory.Outfits && ui.pet.has(it.id) }.map { it.id }
+    val wearing = ui.pet.wearing()
+    val look = PetOutfit.lookOf(wearing)
+    fun wearIn(slot: OutfitSlot, id: String?) {
+        // Swap whatever's in that slot; everything else stays on.
+        val rest = wearing.filter { outfitSlot(it) != slot }
+        onAct(PetAction.Wear(if (id == null) rest else rest + id, added = id))
     }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        outfits.forEach { id ->
-            val wearing = ui.pet.outfit == id
-            Column(
-                Modifier
-                    .width(104.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(if (wearing) colors.pink.copy(alpha = 0.12f) else colors.surface)
-                    .border(1.dp, if (wearing) colors.pink.copy(alpha = 0.6f) else colors.lavender.copy(alpha = 0.15f), MaterialTheme.shapes.medium)
-                    .clickable(role = Role.Button) { if (!wearing) onAct(PetAction.Wear(id)) }
-                    .padding(spacing.sm)
-                    .testTag("wear_${id ?: "nothing"}"),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                PetCat(PetPose.Sit, Modifier.size(84.dp), expression = if (wearing) CatExpression.Happy else CatExpression.Hopeful, build = ui.build(), outfit = PetOutfit.fromId(id))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        PetCat(PetPose.Sit, Modifier.size(140.dp).testTag("wardrobe_preview"), expression = CatExpression.Happy, build = ui.build(), outfits = look)
+        Spacer(Modifier.width(spacing.md))
+        Column(Modifier.weight(1f)) {
+            Text("WEARING", style = ChoomHubTextStyles.Eyebrow, color = colors.textFaint)
+            OutfitSlot.entries.forEach { s ->
+                val on = look.firstOrNull { it.slot == s }
+                Row {
+                    Text(s.label.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary, modifier = Modifier.width(52.dp))
+                    Text(on?.let { PetRules.outfitName(it.id) } ?: "-", style = MaterialTheme.typography.bodySmall, color = if (on != null) colors.pink else colors.textFaint)
+                }
+            }
+            if (wearing.isNotEmpty()) {
+                Spacer(Modifier.height(spacing.xs))
                 Text(
-                    (if (id == null) "Nothing" else PetRules.outfitName(id)).uppercase(),
+                    "TAKE IT ALL OFF",
                     style = ChoomHubTextStyles.Eyebrow,
-                    color = if (wearing) colors.pink else colors.textSecondary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
+                    color = colors.lavender,
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(role = Role.Button) { onAct(PetAction.Wear(emptyList())) }
+                        .padding(vertical = 6.dp)
+                        .testTag("wear_nothing"),
                 )
             }
         }
     }
+    Spacer(Modifier.height(spacing.md))
+    if (owned.isEmpty()) {
+        Text("Nothing to wear yet. Outfits are in the shop.", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+        return
+    }
+    OutfitSlot.entries.forEach { slot ->
+        val items = owned.filter { outfitSlot(it) == slot }
+        if (items.isEmpty()) return@forEach
+        Text(slot.label.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.candle, modifier = Modifier.padding(top = spacing.sm, bottom = spacing.xs))
+        val current = wearing.firstOrNull { outfitSlot(it) == slot }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            (listOf<String?>(null) + items).forEach { id ->
+                val on = current == id
+                Column(
+                    Modifier
+                        .width(84.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(if (on) colors.pink.copy(alpha = 0.12f) else colors.surface)
+                        .border(1.dp, if (on) colors.pink.copy(alpha = 0.6f) else colors.lavender.copy(alpha = 0.15f), MaterialTheme.shapes.medium)
+                        .clickable(role = Role.Button) { if (!on) wearIn(slot, id) }
+                        .padding(4.dp)
+                        .testTag(if (id == null) "wear_none_${slot.name}" else "wear_$id"),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (id == null) {
+                        Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) { Text("-", color = colors.textFaint) }
+                    } else {
+                        PetCat(PetPose.Sit, Modifier.size(60.dp), expression = CatExpression.Hopeful, build = ui.build(), outfit = PetOutfit.fromId(id))
+                    }
+                    Text(
+                        (if (id == null) "None" else PetRules.outfitName(id)).uppercase(),
+                        style = ChoomHubTextStyles.Eyebrow,
+                        color = if (on) colors.pink else colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                    )
+                }
+            }
+        }
+    }
+    Spacer(Modifier.height(spacing.sm))
+    Text("Tapping something swaps it in for whatever's in that slot. Everything else stays on.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
 }
 
 // --- Diary ---

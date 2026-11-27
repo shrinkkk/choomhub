@@ -15,6 +15,7 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -253,6 +254,35 @@ class PetHouseScreenTest {
         rule.onNodeWithTag("pet_action_wardrobe").performScrollTo().performClick()
         rule.onNodeWithTag("wear_crown").performClick()
         assertEquals("crown", pet.outfit)
+    }
+
+    @Test
+    fun theWardrobeDressesOneThingPerSlot() {
+        show(cat { copy(owned = setOf("crown", "beanie", "scarf", "striped_socks")) })
+        open("wardrobe")
+        rule.onNodeWithTag("wear_crown").performScrollTo().performClick()
+        rule.onNodeWithTag("wear_scarf").performScrollTo().performClick()
+        rule.onNodeWithTag("wear_striped_socks").performScrollTo().performClick()
+        assertEquals(listOf("crown", "scarf", "striped_socks"), pet.wearing())
+        // A beanie swaps out the crown; the rest stays on.
+        rule.onNodeWithTag("wear_beanie").performScrollTo().performClick()
+        assertEquals(setOf("scarf", "striped_socks", "beanie"), pet.wearing().toSet())
+        rule.onNodeWithTag("wear_none_Neck").performScrollTo().performClick()
+        assertEquals(setOf("striped_socks", "beanie"), pet.wearing().toSet())
+        shot("pet_wardrobe_layers")
+        rule.onNodeWithTag("wear_nothing").performScrollTo().performClick()
+        assertEquals(emptyList<String>(), pet.wearing())
+    }
+
+    @Test
+    fun everyToyHasItsOwnGame() {
+        show(cat(60f) { copy(owned = setOf("kicker", "bubble_wand", "box", "mouse", "yarn")) })
+        open("play")
+        listOf("feather", "kicker", "bubble_wand", "box", "mouse", "yarn").forEach { rule.onNodeWithTag("play_$it").assertExists() }
+        rule.onNodeWithTag("play_bubble_wand").performClick()
+        repeat(2) { rule.onNodeWithTag("play_area").performClick() }
+        rule.onNodeWithTag("play_stop").performClick()
+        rule.onNodeWithText("popped 2 bubbles", substring = true).assertExists()
     }
 
     @Test

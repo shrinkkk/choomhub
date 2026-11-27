@@ -83,7 +83,7 @@ internal fun PetUi.build(): PetBuild = when {
     else -> PetBuild.Cat
 }
 
-internal fun PetUi.outfit(): PetOutfit = PetOutfit.fromId(pet.outfit)
+internal fun PetUi.look(): Set<PetOutfit> = PetOutfit.lookOf(pet.wearing())
 
 internal fun PetUi.catName(): String = pet.name ?: "The cat"
 
@@ -101,7 +101,7 @@ internal fun PetPanelHost(panel: PetPanel, ui: PetUi, onAct: (PetAction) -> PetO
 }
 
 @Composable
-private fun PanelTitle(title: String, whisper: String? = null) {
+internal fun PanelTitle(title: String, whisper: String? = null) {
     val colors = ChoomHubTheme.colors
     Text(title, style = MaterialTheme.typography.headlineMedium, color = colors.textMain, textAlign = TextAlign.Center)
     if (whisper != null) Text(whisper, style = ChoomHubTextStyles.Handwritten, color = colors.pink, textAlign = TextAlign.Center)
@@ -109,7 +109,7 @@ private fun PanelTitle(title: String, whisper: String? = null) {
 }
 
 @Composable
-private fun ResultLine(text: String?) {
+internal fun ResultLine(text: String?) {
     val colors = ChoomHubTheme.colors
     Text(
         text ?: " ",
@@ -122,14 +122,14 @@ private fun ResultLine(text: String?) {
 }
 
 @Composable
-private fun DoneButton(onDismiss: () -> Unit, text: String = "Done") {
+internal fun DoneButton(onDismiss: () -> Unit, text: String = "Done") {
     Spacer(Modifier.height(ChoomHubTheme.spacing.md))
     ChoomHubSecondaryButton(text, onDismiss, Modifier.fillMaxWidth().testTag("pet_panel_done"))
 }
 
 /** Runs [onFrame] every frame with the seconds since the last one, while [running]. Skipped in tests. */
 @Composable
-private fun FrameLoop(running: Boolean, onFrame: (Float) -> Unit) {
+internal fun FrameLoop(running: Boolean, onFrame: (Float) -> Unit) {
     LaunchedEffect(running) {
         if (!running) return@LaunchedEffect
         var last = -1L
@@ -167,7 +167,7 @@ private fun FeedPanel(ui: PetUi, onAct: (PetAction) -> PetOutcome, onDismiss: ()
             Modifier.size(140.dp),
             expression = petExpression(ui.pet, ui.now),
             build = ui.build(),
-            outfit = if (eating) PetOutfit.None else ui.outfit(),
+            outfits = if (eating) emptySet() else ui.look(),
             frame = frame,
         )
         ResultLine(result)
@@ -239,7 +239,7 @@ private fun WaterPanel(ui: PetUi, onAct: (PetAction) -> PetOutcome, onDismiss: (
                 Modifier.size(110.dp).align(Alignment.BottomStart),
                 expression = if (level >= 1f) CatExpression.Happy else CatExpression.Hopeful,
                 build = ui.build(),
-                outfit = ui.outfit(),
+                outfits = ui.look(),
             )
             Canvas(Modifier.size(width = 120.dp, height = 140.dp).align(Alignment.BottomEnd)) {
                 val w = size.width
@@ -395,7 +395,7 @@ private fun PettingPanel(ui: PetUi, onAct: (PetAction) -> PetOutcome, onDismiss:
                 Modifier.fillMaxSize(),
                 expression = if (bitten > 0) CatExpression.Excited else petExpression(ui.pet, ui.now),
                 build = ui.build(),
-                outfit = ui.outfit(),
+                outfits = ui.look(),
             )
             Canvas(Modifier.fillMaxSize()) {
                 hearts.forEach { h ->
@@ -478,7 +478,7 @@ private fun BrushPanel(ui: PetUi, onAct: (PetAction) -> PetOutcome, onDismiss: (
                 Modifier.fillMaxSize(),
                 expression = if (result != null) CatExpression.Ecstatic else petExpression(ui.pet, ui.now),
                 build = ui.build(),
-                outfit = ui.outfit(),
+                outfits = ui.look(),
             )
             Canvas(Modifier.fillMaxSize()) {
                 floating.forEach { t ->
@@ -516,184 +516,6 @@ private fun BrushPanel(ui: PetUi, onAct: (PetAction) -> PetOutcome, onDismiss: (
         }
         DoneButton(onDismiss)
     }
-}
-
-// --- Play: drag the toy, the cat chases it ---
-
-private const val PLAY_SECONDS = 15f
-
-@Composable
-private fun PlayPanel(ui: PetUi, onAct: (PetAction) -> PetOutcome, onDismiss: () -> Unit) {
-    val colors = ChoomHubTheme.colors
-    val spacing = ChoomHubTheme.spacing
-    val toys = buildList {
-        add("feather")
-        listOf("laser", "yarn", "mouse").filter { ui.pet.has(it) }.forEach { add(it) }
-    }
-    var toy by remember { mutableStateOf<String?>(null) }
-    var result by remember { mutableStateOf<String?>(null) }
-    val energy = PetRules.level(ui.pet, PetNeed.Energy, ui.now)
-    InkPanel(onDismiss, Modifier.testTag("pet_panel_play")) {
-        PanelTitle("Playtime", if (toy == null) "pick a toy" else "keep it moving")
-        val chosen = toy
-        when {
-            result != null -> {
-                PetCat(PetPose.BellyUp, Modifier.size(150.dp), build = ui.build())
-                ResultLine(result)
-            }
-            chosen == null -> {
-                if (energy < 12f) {
-                    Text("${ui.catName()} is too sleepy to play. Let it nap first.", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, textAlign = TextAlign.Center)
-                } else {
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        toys.forEach { t ->
-                            ChoomHubSecondaryButton(PetRules.toyName(t).replaceFirstChar { it.uppercase() }, { toy = t }, Modifier.fillMaxWidth().testTag("play_$t"))
-                        }
-                    }
-                    if (toys.size == 1) {
-                        Spacer(Modifier.height(spacing.sm))
-                        Text("The shop has a laser, yarn and a mouse.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
-                    }
-                }
-            }
-            else -> PlayGame(ui, chosen) { catches -> result = onAct(PetAction.Play(chosen, catches)).message }
-        }
-        DoneButton(onDismiss)
-    }
-}
-
-@Composable
-private fun PlayGame(ui: PetUi, toy: String, onFinish: (Int) -> Unit) {
-    val colors = ChoomHubTheme.colors
-    val animate = LocalAmbientMotionEnabled.current
-    var timeLeft by remember { mutableFloatStateOf(PLAY_SECONDS) }
-    var catches by remember { mutableIntStateOf(0) }
-    var toyAt by remember { mutableStateOf(Offset(0.75f, 0.35f)) }
-    var catAt by remember { mutableStateOf(Offset(0.25f, 0.7f)) }
-    var movedAgo by remember { mutableFloatStateOf(99f) }
-    var holding by remember { mutableFloatStateOf(0f) }
-    var armed by remember { mutableStateOf(true) }
-    var frame by remember { mutableIntStateOf(0) }
-    var finished by remember { mutableStateOf(false) }
-    val lazy = PetTrait.Lazy in ui.pet.traits
-    val playful = PetTrait.Playful in ui.pet.traits
-    val speed = (if (ui.build() == PetBuild.Kitten) 0.75f else 0.6f) * (if (lazy) 0.75f else 1f) * (if (playful) 1.2f else 1f)
-    fun finish() {
-        if (finished) return
-        finished = true
-        onFinish(catches)
-    }
-    FrameLoop(animate && !finished) { dt ->
-        timeLeft -= dt
-        movedAgo += dt
-        if (timeLeft <= 0f) {
-            finish()
-            return@FrameLoop
-        }
-        frame = ((PLAY_SECONDS - timeLeft) * 6).toInt()
-        if (holding > 0f) {
-            holding -= dt
-            return@FrameLoop
-        }
-        // Interested only while the toy moves (laser: always, it's a laser).
-        if (movedAgo < 0.8f || toy == "laser") {
-            val d = toyAt - catAt
-            val dist = hypot(d.x, d.y)
-            if (dist < 0.08f && armed) {
-                catches++
-                holding = 0.7f
-                armed = false
-            } else if (dist > 0.001f) {
-                val step = (speed * dt).coerceAtMost(dist)
-                catAt += Offset(d.x / dist * step, d.y / dist * step)
-            }
-        }
-        if (!armed && hypot(toyAt.x - catAt.x, toyAt.y - catAt.y) > 0.22f) armed = true
-    }
-    Text(
-        "${timeLeft.coerceAtLeast(0f).toInt()}s · caught $catches",
-        style = ChoomHubTextStyles.Eyebrow,
-        color = colors.textSecondary,
-        modifier = Modifier.testTag("play_score"),
-    )
-    Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
-    BoxWithConstraints(
-        Modifier
-            .fillMaxWidth()
-            .height(220.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .background(Brush.verticalGradient(listOf(Color(0xFF241D2C), Color(0xFF2A1F25))))
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown()
-                    toyAt = Offset(down.position.x / size.width, down.position.y / size.height)
-                    movedAgo = 0f
-                    do {
-                        val event = awaitPointerEvent()
-                        event.changes.forEach { c ->
-                            toyAt = Offset((c.position.x / size.width).coerceIn(0f, 1f), (c.position.y / size.height).coerceIn(0f, 1f))
-                            movedAgo = 0f
-                            c.consume()
-                        }
-                    } while (event.changes.any { it.pressed })
-                }
-            }
-            .testTag("play_area"),
-    ) {
-        val w = maxWidth
-        val h = maxHeight
-        val catSize = 86.dp
-        Canvas(Modifier.fillMaxSize()) {
-            val t = Offset(toyAt.x * size.width, toyAt.y * size.height)
-            when (toy) {
-                "laser" -> {
-                    drawCircle(Color(0xFFE0453A).copy(alpha = 0.25f), 16f, t)
-                    drawCircle(Color(0xFFFF6A5C), 6f, t)
-                }
-                "yarn" -> {
-                    drawCircle(Color(0xFFC4A3A8), 16f, t)
-                    drawArc(Color(0xFF9C7F84), 200f, 140f, false, t - Offset(12f, 12f), Size(24f, 24f), style = Stroke(2f))
-                    drawArc(Color(0xFF9C7F84), 20f, 120f, false, t - Offset(9f, 9f), Size(18f, 18f), style = Stroke(2f))
-                }
-                "mouse" -> {
-                    drawOval(Color(0xFF57505E), t - Offset(16f, 9f), Size(32f, 18f))
-                    drawCircle(Color(0xFFC4A3A8), 5f, t + Offset(12f, -8f))
-                    drawLine(Color(0xFF57505E), t - Offset(16f, -2f), t - Offset(32f, -8f), 2f, StrokeCap.Round)
-                }
-                else -> {
-                    // A feather on a string from a wand above.
-                    drawLine(Color(0xFF8C6F4E), Offset(size.width * 0.5f, 0f), Offset(size.width * 0.55f, 10f), 6f, StrokeCap.Round)
-                    drawLine(colors.textFaint, Offset(size.width * 0.55f, 10f), t, 1.5f)
-                    drawOval(Color(0xFF15111A), t - Offset(6f, 0f), Size(12f, 34f))
-                    drawLine(colors.lavender.copy(alpha = 0.5f), t + Offset(0f, 2f), t + Offset(0f, 32f), 1.2f)
-                }
-            }
-        }
-        val d = toyAt - catAt
-        val chasing = movedAgo < 0.8f || toy == "laser"
-        val near = hypot(d.x, d.y) < 0.2f
-        PetCat(
-            when {
-                holding > 0f -> PetPose.Pounce
-                chasing && near -> PetPose.Pounce
-                chasing -> PetPose.Walk
-                else -> PetPose.Sit
-            },
-            Modifier
-                .offset { IntOffset(((w * catAt.x - catSize / 2).toPx()).toInt(), ((h * catAt.y - catSize / 2).toPx()).toInt()) }
-                .size(catSize),
-            expression = if (holding > 0f) CatExpression.Ecstatic else CatExpression.Excited,
-            build = ui.build(),
-            frame = frame,
-            facingLeft = d.x < 0f,
-        )
-        if (!animate) {
-            // Without motion (and in tests) the cat can't run, so let a tap count as a catch.
-            Box(Modifier.fillMaxSize().clickable(role = Role.Button) { catches++ })
-        }
-    }
-    Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
-    ChoomHubSecondaryButton("That's enough", { finish() }, Modifier.fillMaxWidth().testTag("play_stop"))
 }
 
 // --- Care: nails, medicine, the vet, bath ---
