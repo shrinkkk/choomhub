@@ -94,8 +94,11 @@ const MAX_NAME = 24;
  */
 export function parseRequest(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
-  const { event, detail, kind } = /** @type {Record<string, unknown>} */ (body);
+  const { event, detail, kind, id } = /** @type {Record<string, unknown>} */ (body);
   if (typeof event !== 'string' || !Object.hasOwn(Events, event)) return null;
+  // The app's id for this send, the same on every retry of it (so a retry never notifies twice).
+  if (id !== undefined && id !== null && (typeof id !== 'string' || !/^[A-Za-z0-9-]{8,64}$/.test(id))) return null;
+  const cleanId = typeof id === 'string' ? id : null;
   if (detail !== undefined && detail !== null && typeof detail !== 'string') return null;
   const spec = Events[event];
   let cleanKind = null;
@@ -111,12 +114,12 @@ export function parseRequest(body) {
     cleanKind = typeof kind === 'string' ? clean(kind, MAX_MOOD_LABEL) : '';
     if (!cleanKind) return null;
   } else if (spec.kinds) {
-    if (spec.kindOptional && (kind === undefined || kind === null)) return { event, detail: spec.takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '', kind: null };
+    if (spec.kindOptional && (kind === undefined || kind === null)) return { event, detail: spec.takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '', kind: null, ...(cleanId ? { id: cleanId } : {}) };
     if (typeof kind !== 'string' || !spec.kinds.includes(kind)) return null;
     cleanKind = kind;
   }
   const cleanDetail = spec.takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '';
-  return { event, detail: cleanDetail, kind: cleanKind };
+  return { event, detail: cleanDetail, kind: cleanKind, ...(cleanId ? { id: cleanId } : {}) };
 }
 
 /** "a song", "an album", "a playlist" (or without the article). */

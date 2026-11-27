@@ -34,7 +34,7 @@ sealed interface PushResponse {
 /** Small HTTP client for push-worker/. No JSON library needed for one tiny body. */
 open class PushApi @Inject constructor(private val endpoint: PushEndpoint) {
 
-    open suspend fun notify(idToken: String, event: PushEvent, detail: String?, kind: String? = null): PushResponse = withContext(Dispatchers.IO) {
+    open suspend fun notify(idToken: String, event: PushEvent, detail: String?, kind: String? = null, id: String? = null): PushResponse = withContext(Dispatchers.IO) {
         val url = endpoint.url ?: return@withContext PushResponse.Rejected(0, "not-configured")
         val connection = try {
             URL(url).openConnection() as HttpURLConnection
@@ -48,7 +48,7 @@ open class PushApi @Inject constructor(private val endpoint: PushEndpoint) {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $idToken")
-            connection.outputStream.use { it.write(requestBody(event, detail, kind).toByteArray()) }
+            connection.outputStream.use { it.write(requestBody(event, detail, kind, id).toByteArray()) }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.use { s -> s.bufferedReader().readText().take(MAX_RESPONSE_CHARS) }
@@ -61,13 +61,17 @@ open class PushApi @Inject constructor(private val endpoint: PushEndpoint) {
     }
 
     companion object {
-        private const val TIMEOUT_MS = 15_000
+        // Generous: a slow answer that times out gets retried, and a retry used to mean a second
+        // notification (now the Worker recognises the id and skips it).
+        private const val TIMEOUT_MS = 30_000
         private const val MAX_RESPONSE_CHARS = 4_096
         const val MAX_DETAIL = 80
 
-        fun requestBody(event: PushEvent, detail: String?, kind: String? = null): String = buildString {
+        /** [id] is the same on every retry of one send, so the Worker can tell a retry from a new one. */
+        fun requestBody(event: PushEvent, detail: String?, kind: String? = null, id: String? = null): String = buildString {
             append("{\"event\":").append(quote(event.wire))
             if (!kind.isNullOrBlank()) append(",\"kind\":").append(quote(kind))
+            if (!id.isNullOrBlank()) append(",\"id\":").append(quote(id))
             if (!detail.isNullOrBlank()) append(",\"detail\":").append(quote(detail.take(MAX_DETAIL)))
             append('}')
         }

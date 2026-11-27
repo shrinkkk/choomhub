@@ -29,7 +29,9 @@ class WorkManagerNotifier @Inject constructor(
 
     override fun notifyPartner(event: PushEvent, detail: String?, kind: String?) {
         val request = OneTimeWorkRequestBuilder<PushWorker>()
-            .setInputData(workDataOf(PushWorker.KEY_EVENT to event.wire, PushWorker.KEY_DETAIL to detail, PushWorker.KEY_KIND to kind))
+            // One id per send, kept across WorkManager's retries: if a retry follows a send that did go
+            // out (its answer was just slow or lost), the Worker sees the id again and doesn't repeat it.
+            .setInputData(workDataOf(PushWorker.KEY_EVENT to event.wire, PushWorker.KEY_DETAIL to detail, PushWorker.KEY_KIND to kind, PushWorker.KEY_ID to java.util.UUID.randomUUID().toString()))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()

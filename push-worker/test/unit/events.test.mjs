@@ -147,3 +147,11 @@ test('focus rate, bounties, collection deletes and meetup logs', () => {
   assert.equal(compose('collection', { senderName: 'Jas', kind: 'delete_ask', detail: 'Goa' }).body, '"Goa". It\'s only deleted if you agree.');
   assert.equal(compose('meetup_log', { senderName: 'Jas', kind: 'started' }).title, 'Jas started logging your meetup');
 });
+
+test('a send can carry the app id that makes retries safe', () => {
+  assert.equal(parseRequest({ event: 'gesture', kind: 'hug', id: 'abc12345-def' }).id, 'abc12345-def');
+  assert.equal(parseRequest({ event: 'gesture', kind: 'hug' }).id, undefined);
+  assert.equal(parseRequest({ event: 'gesture', kind: 'hug', id: 'short' }), null);
+  assert.equal(parseRequest({ event: 'gesture', kind: 'hug', id: 12345678 }), null);
+  assert.equal(parseRequest({ event: 'song', id: 'abc12345-def' }).id, 'abc12345-def');
+});

@@ -89,6 +89,22 @@ export class Firestore {
     return (body.documents ?? []).map((d) => d.name.slice(d.name.lastIndexOf('/') + 1));
   }
 
+  /**
+   * Sets some entries of a map field and removes others, touching nothing else in the document
+   * (which is created if it's missing). Field-level, so two at once don't undo each other.
+   */
+  async setMapEntries(docPath, mapField, set, remove = []) {
+    const quote = (k) => `${mapField}.\`${k.replace(/[`\\]/g, '')}\``;
+    const mask = [...Object.keys(set), ...remove].map((k) => `updateMask.fieldPaths=${encodeURIComponent(quote(k))}`).join('&');
+    const fields = { [mapField]: { mapValue: { fields: Object.fromEntries(Object.entries(set).map(([k, v]) => [k, { integerValue: String(v) }])) } } };
+    const response = await this.request(`${this.documents}/${docPath}?${mask}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fields }),
+    });
+    return response.ok;
+  }
+
   async delete(docPath) {
     const response = await this.request(`${this.documents}/${docPath}`, { method: 'DELETE' });
     return response.ok;
@@ -100,6 +116,8 @@ export const field = {
   bool: (fields, name) => (fields && typeof fields[name]?.booleanValue === 'boolean' ? fields[name].booleanValue : null),
   strings: (fields, name) => (fields?.[name]?.arrayValue?.values ?? []).map((v) => v.stringValue).filter((v) => typeof v === 'string'),
   /** A map of strings, e.g. couples/{id}.ids. */
+  /** A map of whole numbers, e.g. users/{uid}/push/recent.sent (push id -> when, epoch ms). */
+  intMap: (fields, name) => Object.fromEntries(Object.entries(fields?.[name]?.mapValue?.fields ?? {}).filter(([, v]) => v?.integerValue !== undefined).map(([k, v]) => [k, Number(v.integerValue)])),
   stringMap: (fields, name) => Object.fromEntries(Object.entries(fields?.[name]?.mapValue?.fields ?? {}).filter(([, v]) => typeof v?.stringValue === 'string').map(([k, v]) => [k, v.stringValue])),
 };
 

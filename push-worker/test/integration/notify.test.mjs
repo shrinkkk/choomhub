@@ -192,3 +192,29 @@ test('someone who left and came back on another account is still found under the
   assert.equal(sent[0].notification.title.startsWith('Raven'), true);
   assert.equal(sent[0].notification.body, 'You\'re "Shri" to them now.');
 });
+
+test('a retry of a send that already went out does not notify again', async () => {
+  const id = '3f1c2b9e-7a4d-4e1a-9d2b-6c5e8f0a1b2c';
+  assert.deepEqual((await notify('alice', { event: 'gesture', kind: 'hug', id })).body, { sent: 1, failed: 0 });
+  assert.deepEqual((await notify('alice', { event: 'gesture', kind: 'hug', id })).body, { sent: 1, duplicate: true });
+  assert.equal(sent.length, 1);
+  // A different send (a new id) still goes out, and the first one is still remembered.
+  await notify('alice', { event: 'snap_reaction', kind: '🔥', id: 'aaaaaaaa-1111' });
+  assert.equal(sent.length, 2);
+  assert.equal((await notify('alice', { event: 'gesture', kind: 'hug', id })).body.duplicate, true);
+  // Without an id (older app versions) every request sends.
+  await notify('alice', { event: 'gesture', kind: 'hug' });
+  await notify('alice', { event: 'gesture', kind: 'hug' });
+  assert.equal(sent.length, 4);
+  // Bad ids are refused.
+  assert.equal((await notify('alice', { event: 'gesture', kind: 'hug', id: 'x' })).status, 400);
+  assert.equal((await notify('alice', { event: 'gesture', kind: 'hug', id: 'has spaces in it' })).status, 400);
+});
+
+test('remembered ids are dropped after a day', async () => {
+  const old = Date.now() - 25 * 60 * 60 * 1000;
+  await fetch(`${DOCS}/users/alice/push/recent`, { method: 'PATCH', headers: { authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { sent: { mapValue: { fields: { 'old-id-123': { integerValue: String(old) } } } } } }) });
+  await notify('alice', { event: 'gesture', kind: 'hug', id: 'new-id-456' });
+  const doc = await (await fetch(`${DOCS}/users/alice/push/recent`, { headers: { authorization: 'Bearer owner' } })).json();
+  assert.deepEqual(Object.keys(doc.fields.sent.mapValue.fields), ['new-id-456']);
+});

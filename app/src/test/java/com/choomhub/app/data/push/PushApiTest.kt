@@ -22,6 +22,7 @@ class PushApiTest {
         assertEquals(PushApi.MAX_DETAIL, PushApi.requestBody(PushEvent.MeetupSet, "x".repeat(500)).count { it == 'x' })
         assertEquals("\"\\u0001\"", PushApi.quote("\u0001"))
         assertEquals("""{"event":"gesture","kind":"hug"}""", PushApi.requestBody(PushEvent.Gesture, null, "hug"))
+        assertEquals("""{"event":"gesture","kind":"hug","id":"3f1c2b9e-7a4d"}""", PushApi.requestBody(PushEvent.Gesture, null, "hug", "3f1c2b9e-7a4d"))
     }
 
     @Test
@@ -77,6 +78,6 @@ class PushApiTest {
 
 /** Answers by token, so the test can see which token was used. */
 private class FakeApi(private val byToken: Map<String, PushResponse>) : PushApi(PushEndpoint("https://example.test/v1/notify")) {
-    override suspend fun notify(idToken: String, event: PushEvent, detail: String?, kind: String?): PushResponse =
+    override suspend fun notify(idToken: String, event: PushEvent, detail: String?, kind: String?, id: String?): PushResponse =
         byToken[idToken] ?: PushResponse.Rejected(0, "unexpected token")
 }

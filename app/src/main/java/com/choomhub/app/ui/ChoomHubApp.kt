@@ -81,6 +81,8 @@ fun ChoomHubApp(appViewModel: AppViewModel = hiltViewModel()) {
                 AppGate.Main -> {
                     MainScaffold()
                     NotificationPermissionOnce(appViewModel)
+                    // Over everything: their tomatoes land the first time you look.
+                    com.choomhub.app.feature.tomato.TomatoSplashHost()
                 }
             }
         }

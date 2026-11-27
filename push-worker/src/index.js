@@ -87,6 +87,15 @@ export async function handle(request, env, deps) {
   const devices = await db.listIds(`users/${recipient}/devices`);
   if (devices.length === 0) return json(200, { sent: 0, reason: 'no-devices' });
 
+  // A retry of a send that already went out (the app timed out waiting, or the answer got lost)
+  // is answered as sent, without notifying again. Ids are kept for a day.
+  const recentPath = `users/${uid}/push/recent`;
+  let recent = {};
+  if (parsed.id) {
+    recent = field.intMap(await db.get(recentPath), 'sent');
+    if (recent[parsed.id] !== undefined) return json(200, { sent: 1, duplicate: true });
+  }
+
   const ctx = { detail: parsed.detail, kind: parsed.kind };
   if (coupleId) {
     const them = memberId(recipient);
@@ -110,8 +119,16 @@ export async function handle(request, env, deps) {
     }),
   );
   const sent = results.filter((r) => r === 'sent').length;
+  if (parsed.id && sent > 0) {
+    const now = deps.now();
+    const stale = Object.entries(recent).filter(([, at]) => now - at > RECENT_MS).map(([k]) => k);
+    // Best effort: if this write fails the worst case is the old behaviour (a retry notifies again).
+    await db.setMapEntries(recentPath, 'sent', { [parsed.id]: now }, stale).catch(() => false);
+  }
   return json(200, { sent, failed: results.length - sent, ...(sent === 0 ? { reason: 'undeliverable' } : {}) });
 }
+
+const RECENT_MS = 24 * 60 * 60 * 1000;
 
 let shared = null;
 
