@@ -91,6 +91,7 @@ fun PetHouseScreen(contentPadding: PaddingValues, viewModel: PetViewModel = hilt
         onProposeName = viewModel::proposeName,
         onAdopt = viewModel::adopt,
         onDismissMessage = viewModel::dismissMessage,
+        onPageOpened = viewModel::seen,
     )
 }
 
@@ -104,10 +105,12 @@ internal fun PetHouseContent(
     onProposeName: (String) -> Unit,
     onAdopt: (String) -> Unit,
     onDismissMessage: () -> Unit,
+    onPageOpened: (PetPage) -> Unit = {},
 ) {
     val spacing = ChoomHubTheme.spacing
     var panel by rememberSaveable { mutableStateOf<PetPanel?>(null) }
     var page by rememberSaveable { mutableStateOf<PetPage?>(null) }
+    LaunchedEffect(page) { page?.let(onPageOpened) }
     LaunchedEffect(message?.id) {
         if (message != null) {
             delay(4_000)
@@ -263,14 +266,15 @@ private fun PetRoom(ui: PetUi, message: PetMessage?, onAct: (PetAction) -> PetOu
     Spacer(Modifier.height(spacing.md))
     GestureRow(listOf("Feed", "Water", "Litter", "Pet", "Brush", "Play", "Care", "Wardrobe") + PetPage.entries.map { it.title }, tiles = 4) { labelStyle ->
         listOf(
-            Triple(PetPage.Shop, PetIcons.Bag, null),
-            Triple(PetPage.Diary, PetIcons.Book, ui.diary.size.takeIf { it > 0 }),
-            Triple(PetPage.Gifts, PetIcons.Gem, pet.gifts.size.takeIf { it > 0 }),
-            Triple(PetPage.Trophies, PetIcons.Trophy, PetRules.TROPHIES.count { it.unlocked(pet, ui.now) }.takeIf { it > 0 }),
-        ).forEach { (p, icon, count) ->
+            PetPage.Shop to PetIcons.Bag,
+            PetPage.Diary to PetIcons.Book,
+            PetPage.Gifts to PetIcons.Gem,
+            PetPage.Trophies to PetIcons.Trophy,
+        ).forEach { (p, icon) ->
             GestureButton(
                 label = p.title,
-                count = count,
+                // A dot for something new since you last looked (not a count: it isn't a notification).
+                dot = p in ui.fresh,
                 labelStyle = labelStyle,
                 icon = icon,
                 tint = colors.pink,

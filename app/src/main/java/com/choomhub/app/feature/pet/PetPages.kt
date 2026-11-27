@@ -1,5 +1,28 @@
 package com.choomhub.app.feature.pet
 
+import com.choomhub.app.domain.model.PetDiaryEntry
+import java.util.Locale
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.activity.compose.BackHandler
+import java.time.YearMonth
 import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -57,7 +80,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** The Pet House's other pages, shown in place of the room. */
-internal enum class PetPage(val title: String) { Shop("Shop"), Wardrobe("Wardrobe"), Diary("Diary"), Gifts("Gifts"), Trophies("Trophies") }
+enum class PetPage(val title: String) { Shop("Shop"), Wardrobe("Wardrobe"), Diary("Diary"), Gifts("Gifts"), Trophies("Trophies") }
 
 @Composable
 internal fun PetPageContent(page: PetPage, ui: PetUi, onAct: (PetAction) -> PetOutcome) {
@@ -288,21 +311,164 @@ private fun WardrobePage(ui: PetUi, onAct: (PetAction) -> PetOutcome) {
 
 @Composable
 private fun DiaryPage(ui: PetUi) {
+    val zone = ZoneId.systemDefault()
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    val months = remember(ui.diary) { diaryMonths(ui.diary, zone) }
+    val shown = open?.let { YearMonth.parse(it) }?.takeIf { it in months }
+    if (shown != null) {
+        BackHandler { open = null }
+        DiaryMonth(ui, shown, months.getValue(shown), zone) { open = null }
+    } else {
+        DiaryShelf(ui, months) { open = it.toString() }
+    }
+}
+
+/** The diary by month, newest month first; each month's entries oldest first, as a diary reads. */
+internal fun diaryMonths(diary: List<PetDiaryEntry>, zone: ZoneId): Map<YearMonth, List<PetDiaryEntry>> =
+    diary.filter { it.at != null }
+        .groupBy { YearMonth.from(it.at!!.atZone(zone)) }
+        .mapValues { (_, list) -> list.sortedBy { it.at } }
+        .toSortedMap(compareByDescending { it })
+
+private val CoverColours = listOf(Color(0xFF5A2333), Color(0xFF263449), Color(0xFF34402F), Color(0xFF45284A), Color(0xFF5C3A22), Color(0xFF2E3B3F))
+private val DiaryPaper = Color(0xFFE9E1D2)
+private val DiaryInk = Color(0xFF2A2230)
+private val Gilt = Color(0xFFD9B45A)
+
+/** A small diary for every month, on a shelf. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DiaryShelf(ui: PetUi, months: Map<YearMonth, List<PetDiaryEntry>>, onOpen: (YearMonth) -> Unit) {
     val colors = ChoomHubTheme.colors
     val spacing = ChoomHubTheme.spacing
-    val zone = ZoneId.systemDefault()
-    val format = dateFormat("EEE d MMM · h:mm a")
-    Text("${ui.catName()}'s diary. Written by ${ui.catName()}. Not proofread.", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
+    Text("${ui.catName()}'s diaries. Written by ${ui.catName()}. Not proofread.", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
     Spacer(Modifier.height(spacing.md))
-    if (ui.diary.isEmpty()) {
+    if (months.isEmpty()) {
         Text("Nothing written yet.", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+        return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        ui.diary.forEach { entry ->
-            ChoomHubCard(Modifier.fillMaxWidth().testTag("diary_entry"), tone = CardTone.Calm) {
-                entry.at?.let { Text(format.format(it.atZone(zone)).uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.textFaint) }
-                Spacer(Modifier.height(spacing.xs))
-                Text(entry.text, style = ChoomHubTextStyles.Handwritten, color = colors.textMain)
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val bookWidth = (maxWidth - spacing.lg * 2) / 3
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.lg), verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
+            months.entries.forEach { (month, entries) ->
+                Column(
+                    Modifier.width(bookWidth).clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = "Open ${month.format(monthName)}") { onOpen(month) }
+                        .testTag("diary_month_$month"),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    DiaryBook(month, Modifier.fillMaxWidth().aspectRatio(0.74f))
+                    Spacer(Modifier.height(6.dp))
+                    Text("${entries.size} entr${if (entries.size == 1) "y" else "ies"}", style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 9.sp), color = colors.textFaint)
+                }
+            }
+        }
+    }
+}
+
+private val monthName = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+
+/** A little leather diary: a darker spine, stitching, the month on a gilt label, a paw, the strap. */
+@Composable
+private fun DiaryBook(month: YearMonth, modifier: Modifier = Modifier) {
+    val measurer = rememberTextMeasurer()
+    val cover = CoverColours[(month.year * 12 + month.monthValue) % CoverColours.size]
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val r = w * 0.06f
+        // Pages showing at the edge.
+        drawRoundRect(DiaryPaper, Offset(w * 0.06f, h * 0.03f), Size(w * 0.92f, h * 0.95f), CornerRadius(r))
+        repeat(4) { k -> drawLine(DiaryInk.copy(alpha = 0.18f), Offset(w * 0.98f - 1f, h * (0.1f + k * 0.22f)), Offset(w * 0.98f - 1f, h * (0.2f + k * 0.22f)), 1f) }
+        // The cover.
+        drawRoundRect(Brush.linearGradient(listOf(cover.copy(alpha = 1f), Color(cover.red * 0.7f, cover.green * 0.7f, cover.blue * 0.7f)), Offset.Zero, Offset(w, h)), Offset.Zero, Size(w * 0.94f, h), CornerRadius(r))
+        drawRect(Color.Black.copy(alpha = 0.25f), Offset(0f, 0f), Size(w * 0.12f, h))
+        drawLine(Color.White.copy(alpha = 0.08f), Offset(w * 0.12f, 0f), Offset(w * 0.12f, h), 1.5f)
+        // Stitching.
+        drawRoundRect(Gilt.copy(alpha = 0.45f), Offset(w * 0.17f, h * 0.035f), Size(w * 0.72f, h * 0.93f), CornerRadius(r * 0.6f), style = Stroke(1.2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))))
+        // The label: month and year.
+        val label = Offset(w * 0.24f, h * 0.18f)
+        val labelSize = Size(w * 0.58f, h * 0.28f)
+        drawRoundRect(DiaryPaper.copy(alpha = 0.92f), label, labelSize, CornerRadius(r * 0.5f))
+        drawRoundRect(Gilt, label, labelSize, CornerRadius(r * 0.5f), style = Stroke(1.2.dp.toPx()))
+        val m = measurer.measure(month.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.ENGLISH).uppercase(), TextStyle(fontSize = (w / density * 0.13f).sp, color = DiaryInk, fontFamily = ChoomHubTextStyles.Eyebrow.fontFamily, letterSpacing = (w / density * 0.012f).sp))
+        val y = measurer.measure("${month.year}", TextStyle(fontSize = (w / density * 0.1f).sp, color = DiaryInk.copy(alpha = 0.7f), fontFamily = ChoomHubTextStyles.Handwritten.fontFamily, fontStyle = FontStyle.Italic))
+        drawText(m, topLeft = Offset(label.x + (labelSize.width - m.size.width) / 2f, label.y + labelSize.height * 0.12f))
+        drawText(y, topLeft = Offset(label.x + (labelSize.width - y.size.width) / 2f, label.y + labelSize.height * 0.12f + m.size.height * 0.95f))
+        // A gilt paw.
+        paw(Offset(w * 0.53f, h * 0.66f), w * 0.12f, Gilt.copy(alpha = 0.85f))
+        // The strap.
+        drawRect(Color.Black.copy(alpha = 0.3f), Offset(w * 0.8f, 0f), Size(w * 0.07f, h))
+        drawRect(Gilt.copy(alpha = 0.6f), Offset(w * 0.79f, h * 0.46f), Size(w * 0.09f, h * 0.06f))
+    }
+}
+
+/** A paw print: a pad and four toes. */
+private fun DrawScope.paw(c: Offset, s: Float, color: Color) {
+    drawOval(color, c - Offset(s * 0.55f, s * 0.2f), Size(s * 1.1f, s * 0.85f))
+    listOf(-0.62f to -0.55f, -0.22f to -0.88f, 0.22f to -0.88f, 0.62f to -0.55f).forEach { (x, y) ->
+        drawOval(color, c + Offset(x * s - s * 0.2f, y * s - s * 0.24f), Size(s * 0.4f, s * 0.48f))
+    }
+}
+
+/** Writing on ruled paper: a faint blue rule under every line, wherever the words wrap. */
+@Composable
+private fun RuledText(text: String, style: TextStyle, modifier: Modifier = Modifier) {
+    var layout by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    Text(
+        text,
+        style = style,
+        onTextLayout = { layout = it },
+        modifier = modifier.drawBehind {
+            val l = layout ?: return@drawBehind
+            for (i in 0 until l.lineCount) {
+                val y = l.getLineBaseline(i) + 5.dp.toPx()
+                drawLine(Color(0xFF8FA3B8).copy(alpha = 0.4f), Offset(-12.dp.toPx(), y), Offset(size.width + 6.dp.toPx(), y), 1f)
+            }
+        },
+    )
+}
+
+/** One month, opened: a ruled paper page, each day's entries under its date, paws between days. */
+@Composable
+private fun DiaryMonth(ui: PetUi, month: YearMonth, entries: List<PetDiaryEntry>, zone: ZoneId, onClose: () -> Unit) {
+    val colors = ChoomHubTheme.colors
+    val days = entries.groupBy { it.at!!.atZone(zone).toLocalDate() }
+    val dayFormat = dateFormat("EEEE d")
+    val timeFormat = dateFormat("h:mm a")
+    val line = 30.sp
+    Row(
+        Modifier.clip(MaterialTheme.shapes.small).clickable(role = Role.Button, onClickLabel = "All diaries", onClick = onClose).padding(vertical = 6.dp).testTag("diary_back"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) { Text("‹  ALL DIARIES", style = ChoomHubTextStyles.Eyebrow, color = colors.lavender) }
+    Spacer(Modifier.height(10.dp))
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .shadow(10.dp, RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .background(DiaryPaper)
+            .drawBehind {
+                // A red margin, like a school diary; the rules sit under each line of writing.
+                drawLine(Color(0xFFC0504A).copy(alpha = 0.5f), Offset(30.dp.toPx(), 0f), Offset(30.dp.toPx(), size.height), 1.5f)
+            }
+            .padding(start = 42.dp, end = 18.dp, top = 18.dp, bottom = 28.dp)
+            .testTag("diary_month_page"),
+    ) {
+        Column {
+            Text(month.format(monthName), style = ChoomHubTextStyles.Handwritten.copy(fontSize = 30.sp, lineHeight = 36.sp), color = DiaryInk)
+            Text("${ui.catName()}'s diary · private (we both read it anyway)", style = ChoomHubTextStyles.Handwritten.copy(fontSize = 14.sp, lineHeight = line), color = DiaryInk.copy(alpha = 0.55f))
+            days.entries.forEachIndexed { i, (day, list) ->
+                if (i > 0) {
+                    Canvas(Modifier.fillMaxWidth().height(28.dp)) {
+                        listOf(0.38f, 0.5f, 0.62f).forEachIndexed { k, x -> paw(Offset(size.width * x, size.height * (if (k == 1) 0.45f else 0.6f)), 5.dp.toPx(), DiaryInk.copy(alpha = 0.25f)) }
+                    }
+                }
+                Text(day.format(dayFormat), style = ChoomHubTextStyles.Handwritten.copy(fontSize = 20.sp, lineHeight = line, fontWeight = FontWeight.Bold), color = Color(0xFF7A2E45), modifier = Modifier.testTag("diary_day"))
+                list.forEach { entry ->
+                    RuledText(entry.text, ChoomHubTextStyles.Handwritten.copy(fontSize = 19.sp, lineHeight = line, color = DiaryInk), Modifier.testTag("diary_entry"))
+                    entry.at?.let { Text("— ${timeFormat.format(it.atZone(zone)).lowercase()}", style = ChoomHubTextStyles.Handwritten.copy(fontSize = 13.sp, lineHeight = 20.sp), color = DiaryInk.copy(alpha = 0.45f)) }
+                    Spacer(Modifier.height(4.dp))
+                }
             }
         }
     }

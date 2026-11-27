@@ -100,7 +100,6 @@ private val Overlap = 16.dp
 private val CardGap = 12.dp
 private val Twine = Color(0xFF6B5D4F)
 private val Peg = Color(0xFF3A3731)
-private val StampOrange = Color(0xFFFF8A3D)
 private val FrameInk = Color(0xFF2B2622)
 private val FrameDate = Color(0xFF6B625A)
 
@@ -473,11 +472,11 @@ private fun Polaroid(snap: SnapInfo, full: ByteArray?) {
                 modifier = Modifier.fillMaxWidth().polaroidFinish(),
             )
             snap.sentAt?.let { at ->
-                Text(
+                // The same printed-on time as the archive's film photos.
+                com.choomhub.app.feature.world.cabinet.FilmStamp(
                     stampTime(at, zone, locale),
-                    style = TextStyle(fontFamily = ChoomHubTextStyles.Eyebrow.fontFamily, fontSize = 12.sp, letterSpacing = 0.05.sp),
-                    color = StampOrange,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 6.dp).testTag("polaroid_stamp"),
+                    12.sp,
+                    Modifier.align(Alignment.BottomEnd).padding(end = 9.dp, bottom = 8.dp).testTag("polaroid_stamp"),
                 )
             }
         }
@@ -522,9 +521,10 @@ private fun StringEnd(empty: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-/** "9:47 PM": the orange stamp on the photo. */
+/** "21:47": the time printed on the photo, film-camera style. */
+@Suppress("UNUSED_PARAMETER")
 internal fun stampTime(at: Instant, zone: ZoneId, locale: Locale): String =
-    DateTimeFormatter.ofPattern("h:mm a", locale).format(at.atZone(zone)).uppercase(locale)
+    DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT).format(at.atZone(zone))
 
 /** "24 nov 2026": typed on the frame. */
 internal fun frameDate(at: Instant, zone: ZoneId, locale: Locale): String =

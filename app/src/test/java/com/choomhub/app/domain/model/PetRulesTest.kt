@@ -240,4 +240,20 @@ class PetRulesTest {
         assertTrue(PetRules.isChonky(cat { copy(weight = 5.8f) }))
         assertTrue(PetRules.TROPHIES.first { it.id == "grown" }.unlocked(cat(), t0))
     }
+
+    @Test
+    fun theDiaryIsWrittenInNowAndThenNotEveryTime() {
+        val r = Random(1)
+        // Never more than three a day, whatever happens.
+        assertTrue(DiaryRules.keep(listOf("a gift"), 3, important = true, r).isEmpty())
+        // The big things go in while there's room.
+        assertEquals(listOf("a gift"), DiaryRules.keep(listOf("a gift"), 2, important = true, r))
+        // Everyday things: about half the time for the first of the day, rarely after, never past two.
+        val first = (0 until 1000).count { DiaryRules.keep(listOf("fed"), 0, false, Random(it)).isNotEmpty() }
+        val second = (0 until 1000).count { DiaryRules.keep(listOf("fed"), 1, false, Random(it)).isNotEmpty() }
+        assertTrue(first in 400..600)
+        assertTrue(second in 120..280)
+        assertTrue(DiaryRules.keep(listOf("fed"), 2, false, r).isEmpty())
+        assertEquals(1, DiaryRules.keep(listOf("one", "two"), 0, false, Random(0)).let { if (it.isEmpty()) 1 else it.size })
+    }
 }

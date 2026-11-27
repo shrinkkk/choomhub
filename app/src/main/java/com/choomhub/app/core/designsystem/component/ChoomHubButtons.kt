@@ -1,5 +1,7 @@
 package com.choomhub.app.core.designsystem.component
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -119,6 +121,8 @@ fun GestureButton(
     modifier: Modifier = Modifier,
     /** A small number on the icon's corner (how many gifts, trophies...), kept out of the label. */
     count: Int? = null,
+    /** A small dot on the icon's corner: something new to see. */
+    dot: Boolean = false,
     /** From [GestureRow], so every tile in a row has the same size label. */
     labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
 ) {
@@ -147,6 +151,13 @@ fun GestureButton(
         Box {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
             if (count != null) CountBadge(count, Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-6).dp))
+            if (dot) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).offset(x = 5.dp, y = (-3).dp).size(9.dp)
+                        .clip(CircleShape).background(ChoomHubTheme.colors.candle)
+                        .semantics { contentDescription = "Something new" },
+                )
+            }
         }
         OneLineText(
             text = label.uppercase(),

@@ -1,5 +1,7 @@
 package com.choomhub.app.feature.pet
 
+import com.choomhub.app.data.pet.PetSeenState
+import com.choomhub.app.data.pet.PetSeen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.choomhub.app.core.common.SecondTicker
@@ -36,7 +38,19 @@ data class PetUi(
     val myName: String = "You",
     val partnerName: String = "them",
     val diary: List<PetDiaryEntry> = emptyList(),
+    /** Pages with something this phone hasn't seen yet (a dot on their buttons). */
+    val fresh: Set<PetPage> = emptySet(),
 )
+
+/** Which pages have something new since this phone last looked. */
+internal fun freshPages(pet: PetState, diary: List<PetDiaryEntry>, seen: PetSeenState, now: Instant): Set<PetPage> = buildSet {
+    val newestDiary = diary.mapNotNull { it.at }.maxOrNull()
+    if (seen.diaryAt != null && newestDiary != null && newestDiary > seen.diaryAt) add(PetPage.Diary)
+    if (seen.gifts != null && pet.gifts.size > seen.gifts) add(PetPage.Gifts)
+    if (seen.trophies != null && unlockedTrophies(pet, now).any { it !in seen.trophies }) add(PetPage.Trophies)
+}
+
+internal fun unlockedTrophies(pet: PetState, now: Instant): Set<String> = PetRules.TROPHIES.filter { it.unlocked(pet, now) }.map { it.id }.toSet()
 
 /** A line to show after doing something; [id] makes repeats show again. */
 data class PetMessage(val text: String, val id: Long)
@@ -48,6 +62,7 @@ class PetViewModel @Inject constructor(
     ticker: SecondTicker,
     private val notifier: Notifier,
     private val clock: Clock,
+    private val seen: PetSeen,
 ) : ViewModel() {
 
     /** Rolls the dice for bites and finds; replaced in tests. */
@@ -60,7 +75,8 @@ class PetViewModel @Inject constructor(
         repository.observeDiary(),
         profileRepository.observeNames(),
         ticker.ticks().onStart { emit(clock.instant()) },
-    ) { pet, diary, names, now ->
+        seen.observe(),
+    ) { pet, diary, names, now, seenState ->
         PetUi(
             loaded = pet.loaded,
             pet = pet,
@@ -68,6 +84,7 @@ class PetViewModel @Inject constructor(
             myName = names.myName ?: "someone",
             partnerName = names.partnerName ?: "them",
             diary = diary,
+            fresh = freshPages(pet, diary, seenState, now),
         ).also { latest = it }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PetUi())
 
@@ -80,8 +97,26 @@ class PetViewModel @Inject constructor(
         // The once-a-day things (a gift, a sniffle, coming home muddy) and your daily coins.
         viewModelScope.launch {
             val pet = repository.observePet().first { it.loaded }
+            // First time on this phone: whatever's there now isn't news.
+            val already = seen.observe().first()
+            if (already.diaryAt == null) seen.diary(clock.instant())
+            if (already.gifts == null) seen.gifts(pet.gifts.size)
+            if (already.trophies == null) seen.trophies(unlockedTrophies(pet, clock.instant()))
             if (!pet.adopted) return@launch
             runDaily(pet)
+        }
+    }
+
+    /** A page was opened: what's on it now counts as seen on this phone. */
+    fun seen(page: PetPage) {
+        val ui = latest
+        viewModelScope.launch {
+            when (page) {
+                PetPage.Diary -> ui.diary.mapNotNull { it.at }.maxOrNull()?.let { seen.diary(it) }
+                PetPage.Gifts -> seen.gifts(ui.pet.gifts.size)
+                PetPage.Trophies -> seen.trophies(unlockedTrophies(ui.pet, clock.instant()))
+                else -> Unit
+            }
         }
     }
 
@@ -109,7 +144,9 @@ class PetViewModel @Inject constructor(
     /** Does [action] and returns what happened (the panels show it too). */
     fun act(action: PetAction): PetOutcome {
         val ui = latest
-        val outcome = PetRules.act(ui.pet, action, clock.instant(), clock.zone, random, ui.myName, ui.partnerName)
+        val today = clock.instant().atZone(clock.zone).toLocalDate()
+        val diaryToday = ui.diary.count { it.at?.atZone(clock.zone)?.toLocalDate() == today }
+        val outcome = PetRules.act(ui.pet, action, clock.instant(), clock.zone, random, ui.myName, ui.partnerName, diaryToday)
         if (!outcome.patch.isEmpty()) {
             viewModelScope.launch { repository.apply(outcome.patch) }
             if (action is PetAction.StartTeamCare) {

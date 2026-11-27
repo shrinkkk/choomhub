@@ -203,6 +203,29 @@ sealed interface PetAction {
     data class Wear(val look: List<String>, val added: String? = null) : PetAction
 }
 
+/** How often the cat writes: a few lines a day at most, mostly about the big things. */
+object DiaryRules {
+    /** Entries a day, at most, however much happens. */
+    const val PER_DAY = 3
+
+    /**
+     * Which of [lines] get written, with [writtenToday] already in the diary today. The big things
+     * (a gift, getting ill or better, the vet, a bath) always do while there's room; the everyday
+     * ones only sometimes, and less as the day fills up.
+     */
+    fun keep(lines: List<String>, writtenToday: Int, important: Boolean, random: Random): List<String> {
+        if (lines.isEmpty() || writtenToday >= PER_DAY) return emptyList()
+        val room = PER_DAY - writtenToday
+        if (important) return lines.take(room)
+        val chance = when (writtenToday) {
+            0 -> 0.5
+            1 -> 0.2
+            else -> 0.0
+        }
+        return if (random.nextDouble() < chance) lines.take(1) else emptyList()
+    }
+}
+
 /** The cat's rules: how needs drift, what each action does, the shop, gifts, trophies and diary lines. */
 object PetRules {
     const val BASE_WEIGHT = 4.0f
@@ -323,8 +346,18 @@ object PetRules {
 
     // --- Actions ---
 
-    /** What [action] does, or null with a reason it can't happen right now. */
-    fun act(state: PetState, action: PetAction, now: Instant, zone: ZoneId, random: Random, myName: String, partnerName: String): PetOutcome {
+    /**
+     * What [action] does, or null with a reason it can't happen right now. The cat writes in its
+     * diary only now and then: [diaryToday] is how many entries it's already written today.
+     */
+    fun act(state: PetState, action: PetAction, now: Instant, zone: ZoneId, random: Random, myName: String, partnerName: String, diaryToday: Int = 0): PetOutcome {
+        val raw = actRaw(state, action, now, zone, random, myName, partnerName)
+        val p = raw.patch
+        val important = p.gift != null || p.sickSince != null || p.clearSick || p.vetDone == true || p.muddy == false
+        return raw.copy(patch = p.copy(diary = DiaryRules.keep(p.diary, diaryToday, important, random)))
+    }
+
+    private fun actRaw(state: PetState, action: PetAction, now: Instant, zone: ZoneId, random: Random, myName: String, partnerName: String): PetOutcome {
         val l = levels(state, now)
         val today = now.atZone(zone).toLocalDate()
         val name = state.name ?: "The cat"
@@ -757,6 +790,23 @@ object PetRules {
         Trophy("grown", "All grown up", "It's not a kitten any more.") { s, now -> s.adopted && ageDays(s, now) >= KITTEN_DAYS },
         Trophy("chonk", "Absolute unit", "It got chonky. Oops.") { s, _ -> isChonky(s) },
         Trophy("best_friends", "Best friends", "Both of you have a bond of 100.") { s, _ -> s.myBond >= 100 && s.partnerBond >= 100 },
+        Trophy("well_fed", "Well fed", "Fed it 50 times.") { s, _ -> s.count("feeds") >= 50 },
+        Trophy("hydrated", "Hydration station", "Topped up its water 30 times.") { s, _ -> s.count("waters") >= 30 },
+        Trophy("groomer", "Personal groomer", "Brushed it 15 times.") { s, _ -> s.count("brushes") >= 15 },
+        Trophy("pedicure", "Pedicure", "Trimmed its claws 5 times.") { s, _ -> s.count("nails") >= 5 },
+        Trophy("nurse", "Nurse on call", "Gave it medicine 5 times.") { s, _ -> s.count("medicines") >= 5 },
+        Trophy("play_hundred", "Play pro", "Played with it 100 times.") { s, _ -> s.count("plays") >= 100 },
+        Trophy("purr_machine", "Purr machine", "Petted it 100 times.") { s, _ -> s.count("pets") >= 100 },
+        Trophy("trap_again", "Never learns", "Fell for the belly 10 times.") { s, _ -> s.count("bites") >= 10 },
+        Trophy("shopper", "Big spender", "Bought 10 things from the shop.") { s, _ -> s.count("purchases") >= 10 },
+        Trophy("fully_dressed", "Dressed to the nines", "Owns ten outfits.") { s, _ -> s.owned.count { id -> item(id)?.category == ShopCategory.Outfits } >= 10 },
+        Trophy("toy_box", "Toy box", "Owns every toy.") { s, _ -> TOYS.all { t -> t == "feather" || t in s.owned } },
+        Trophy("hoarder", "Hoarder", "25 gifts on the shelf.") { s, _ -> s.gifts.size >= 25 },
+        Trophy("full_set", "Full set", "Found every kind of gift.") { s, _ -> GIFTS.all { g -> s.gifts.any { it.id == g.id } } },
+        Trophy("hundred_days", "Hundred days", "It's been home for 100 days.") { s, now -> s.adopted && ageDays(s, now) >= 100 },
+        Trophy("anniversary", "One year", "It's been home for a year.") { s, now -> s.adopted && ageDays(s, now) >= 365 },
+        Trophy("soulmates", "Soulmates", "Both of you have a bond of 300.") { s, _ -> s.myBond >= 300 && s.partnerBond >= 300 },
+        Trophy("rich_cat", "Rolling in it", "Saved up 500 coins between you.") { s, _ -> s.myCoins + s.partnerCoins >= 500 },
     )
 
     /** Bond levels, by bond points. */

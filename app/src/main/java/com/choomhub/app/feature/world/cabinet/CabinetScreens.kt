@@ -1,5 +1,10 @@
 package com.choomhub.app.feature.world.cabinet
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.foundation.Canvas
 import com.choomhub.app.domain.model.MeetupPhoto
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -143,28 +148,65 @@ internal fun MeetupPolaroid(bytes: ByteArray?, width: Dp, angle: Float = 0f, mod
     }
 }
 
-internal val FilmOrange = Color(0xFFFF8A1F)
+internal val FilmOrange = Color(0xFFF4AE6A)
 
 /**
- * The orange time an old film camera burns into the corner of a picture: "21:43", glowing a
- * little, for photos taken while the date was live.
+ * The digits an old film camera prints in the corner, in its own blocky dot-matrix font (each
+ * figure five dots wide, seven tall), pale orange, no glow. For photos taken while the date was
+ * live: "21:43".
  */
 @Composable
 internal fun FilmStamp(text: String, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        style = ChoomHubTextStyles.Eyebrow.copy(
-            fontSize = size,
-            letterSpacing = size * 0.08f,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-            shadow = androidx.compose.ui.graphics.Shadow(FilmOrange.copy(alpha = 0.75f), blurRadius = size.value * 0.9f),
-        ),
-        color = FilmOrange.copy(alpha = 0.92f),
-        maxLines = 1,
-        softWrap = false,
-        modifier = modifier.testTag("film_stamp"),
-    )
+    // A little smaller than [size], and squat: each dot is wider than it is tall.
+    val height = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() } * 0.62f
+    val cellH = height / 7f
+    val cellW = cellH * 1.45f
+    val width = cellW * text.sumOf { (FilmGlyphs[it]?.first()?.length ?: 3) + 1 }.minus(1).coerceAtLeast(1)
+    Canvas(
+        modifier.size(width, height)
+            .semantics { contentDescription = "Taken at $text" }
+            .testTag("film_stamp"),
+    ) {
+        val ch = this.size.height / 7f
+        val cw = ch * 1.45f
+        var x = 0f
+        text.forEach { glyph ->
+            val rows = FilmGlyphs[glyph] ?: List(7) { "   " }
+            rows.forEachIndexed { r, row ->
+                row.forEachIndexed { k, bit ->
+                    if (bit == '1') {
+                        // Round-cornered dots just touching, so they run together into chunky
+                        // strokes with small notches, like the light through the camera's mask.
+                        drawRoundRect(
+                            FilmOrange.copy(alpha = 0.88f + ((r * 7 + k) % 3) * 0.04f),
+                            Offset(x + k * cw - cw * 0.03f, r * ch - ch * 0.04f),
+                            Size(cw * 1.06f, ch * 1.08f),
+                            CornerRadius(ch * 0.42f),
+                        )
+                    }
+                }
+            }
+            x += (rows.first().length + 1) * cw
+        }
+    }
 }
+
+/** The film stamp's figures, five by seven ('1' is a dot). */
+private val FilmGlyphs: Map<Char, List<String>> = mapOf(
+    '0' to listOf("01110", "10001", "10011", "10101", "11001", "10001", "01110"),
+    '1' to listOf("00100", "01100", "00100", "00100", "00100", "00100", "01110"),
+    '2' to listOf("01110", "10001", "00001", "00010", "00100", "01000", "11111"),
+    '3' to listOf("11111", "00010", "00100", "00010", "00001", "10001", "01110"),
+    '4' to listOf("00010", "00110", "01010", "10010", "11111", "00010", "00010"),
+    '5' to listOf("11111", "10000", "11110", "00001", "00001", "10001", "01110"),
+    '6' to listOf("00110", "01000", "10000", "11110", "10001", "10001", "01110"),
+    '7' to listOf("11111", "00001", "00010", "00100", "01000", "01000", "01000"),
+    '8' to listOf("01110", "10001", "10001", "01110", "10001", "10001", "01110"),
+    '9' to listOf("01110", "10001", "10001", "01111", "00001", "00010", "01100"),
+    ':' to listOf("0", "0", "1", "0", "1", "0", "0"),
+    ' ' to listOf("00", "00", "00", "00", "00", "00", "00"),
+    '\'' to listOf("1", "1", "0", "0", "0", "0", "0"),
+)
 
 @Composable
 private fun BackRow(onBack: () -> Unit, eyebrow: String) {

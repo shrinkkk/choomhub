@@ -47,7 +47,9 @@ class PetViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel(repo: LocalPetRepository) = PetViewModel(repo, names, noTicks, notifier, clock).also { it.random = Random(3) }
+    private val seen = com.choomhub.app.testing.FakePetSeen()
+
+    private fun viewModel(repo: LocalPetRepository) = PetViewModel(repo, names, noTicks, notifier, clock, seen).also { it.random = Random(3) }
 
     @Test
     fun `suggesting a name stores it and tells your partner`() = runTest {
@@ -102,5 +104,26 @@ class PetViewModelTest {
         assertTrue(o.patch.isEmpty())
         assertEquals(before.needs, repo.pet.value.needs)
         assertTrue(notifier.sent.isEmpty())
+    }
+
+    @Test
+    fun `something new shows a dot until you look, on your phone only`() = runTest {
+        val repo = LocalPetRepository()
+        val today = now.atZone(zone).toLocalDate()
+        // Today's daily things already done, so no gift turns up of its own.
+        repo.pet.value = com.choomhub.app.domain.model.PetState(loaded = true, name = "Mochi", adoptedAt = now.minusSeconds(86_400 * 3), lastDailyCheck = today, mySeenDay = today)
+        repo.diary.value = listOf(com.choomhub.app.domain.model.PetDiaryEntry("d1", "old", now.minusSeconds(7_200)))
+        val vm = viewModel(repo)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
+        // First look on this phone: what was already there isn't news.
+        assertTrue(vm.state.value.fresh.isEmpty())
+        repo.diary.value = listOf(com.choomhub.app.domain.model.PetDiaryEntry("d2", "new", now.plusSeconds(60))) + repo.diary.value
+        repo.pet.value = repo.pet.value.copy(gifts = listOf(com.choomhub.app.domain.model.PetGift("quartz", now, true)))
+        assertEquals(setOf(PetPage.Diary, PetPage.Gifts, PetPage.Trophies), vm.state.value.fresh)
+        vm.seen(PetPage.Diary)
+        vm.seen(PetPage.Gifts)
+        assertEquals(setOf(PetPage.Trophies), vm.state.value.fresh)
+        vm.seen(PetPage.Trophies)
+        assertTrue(vm.state.value.fresh.isEmpty())
     }
 }
