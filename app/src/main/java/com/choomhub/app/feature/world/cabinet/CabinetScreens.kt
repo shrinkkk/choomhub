@@ -148,7 +148,7 @@ internal fun MeetupPolaroid(bytes: ByteArray?, width: Dp, angle: Float = 0f, mod
     }
 }
 
-internal val FilmOrange = Color(0xFFF4AE6A)
+internal val FilmOrange = Color(0xFFFF9838)
 
 /**
  * The digits an old film camera prints in the corner, in its own blocky dot-matrix font (each
@@ -175,6 +175,15 @@ internal fun FilmStamp(text: String, size: androidx.compose.ui.unit.TextUnit, mo
             rows.forEachIndexed { r, row ->
                 row.forEachIndexed { k, bit ->
                     if (bit == '1') {
+                        // A faint glow round each dot first, like light bleeding into the film.
+                        listOf(0.8f to 0.07f, 0.45f to 0.11f).forEach { (grow, alpha) ->
+                            drawRoundRect(
+                                FilmOrange.copy(alpha = alpha),
+                                Offset(x + k * cw - ch * grow, r * ch - ch * grow),
+                                Size(cw + ch * grow * 2f, ch + ch * grow * 2f),
+                                CornerRadius(ch * (0.42f + grow)),
+                            )
+                        }
                         // Round-cornered dots just touching, so they run together into chunky
                         // strokes with small notches, like the light through the camera's mask.
                         drawRoundRect(
