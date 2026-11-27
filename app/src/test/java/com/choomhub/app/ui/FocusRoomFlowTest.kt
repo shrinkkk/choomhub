@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -109,7 +110,9 @@ class FocusRoomFlowTest {
     }
 
     private fun enterRoom() {
-        composeRule.onNodeWithTag("focus_enter").performScrollTo().performClick()
+        composeRule.onNodeWithTag("focus_enter").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        // "Go in?" first.
+        composeRule.onNodeWithTag("focus_go_in").performClick()
         composeRule.waitForIdle()
         // First time in: the Do Not Disturb question.
         composeRule.onNodeWithTag("focus_dnd_ask").assertIsDisplayed()

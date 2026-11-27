@@ -26,6 +26,15 @@ class LocalFocusRepository @Inject constructor() : FocusRepository {
         room.update { it.copy(cat = outing) }
     }
 
+    // On one phone there's no one to agree with, so a suggestion simply applies.
+    override suspend fun proposeRate(rate: Int) {
+        room.update { it.copy(rate = com.choomhub.app.domain.model.FocusRate(rate.coerceIn(0, com.choomhub.app.domain.model.FocusRules.MAX_RATE))) }
+    }
+
+    override suspend fun answerRate(agree: Boolean) = Unit
+
+    override suspend fun takeBackRate() = Unit
+
     override suspend fun setJam(url: String?) {
         room.update { it.copy(jam = url?.let { u -> JamLink(u, fromMe = true, at = Instant.now()) }) }
     }

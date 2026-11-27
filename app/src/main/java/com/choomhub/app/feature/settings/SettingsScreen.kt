@@ -102,6 +102,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}, 
         onShareCode = { code -> context.shareInviteCode(code) },
         onNewCode = viewModel::newInviteCode,
         onSignOut = viewModel::signOut,
+        focusPoints = { FocusPointsGroup() },
         notifications = notifications,
         canPostNotifications = canPost,
         onNotificationPermission = {
@@ -143,6 +144,7 @@ fun SettingsContent(
     onCategoryToggle: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onSendTest: () -> Unit = {},
     onEditMoods: () -> Unit = {},
+    focusPoints: @Composable () -> Unit = {},
     leave: LeaveState = LeaveState.Idle,
     onLeave: () -> Unit = {},
     onLeaveDialogClosed: () -> Unit = {},
@@ -211,6 +213,8 @@ fun SettingsContent(
                     modifier = Modifier.testTag("settings_mood_list"),
                 )
             }
+
+            focusPoints()
 
             SettingsGroup("Notifications") {
                 NotificationSettings(
@@ -441,7 +445,7 @@ private fun InlineRename(
 }
 
 @Composable
-private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
+internal fun SettingsGroup(title: String, content: @Composable () -> Unit) {
     Column {
         SectionHeader(title = title)
         Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
@@ -456,7 +460,7 @@ private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SettingsRow(
+internal fun SettingsRow(
     title: String,
     value: String,
     modifier: Modifier = Modifier,

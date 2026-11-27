@@ -25,6 +25,18 @@ class FakeFocusRepository : FocusRepository {
         room.update { it.copy(cat = outing) }
     }
 
+    override suspend fun proposeRate(rate: Int) {
+        room.update { it.copy(rate = it.rate.copy(proposed = rate, proposedByMe = true)) }
+    }
+
+    override suspend fun answerRate(agree: Boolean) {
+        room.update { r -> r.copy(rate = com.choomhub.app.domain.model.FocusRate(if (agree) r.rate.proposed ?: r.rate.rate else r.rate.rate)) }
+    }
+
+    override suspend fun takeBackRate() {
+        room.update { it.copy(rate = com.choomhub.app.domain.model.FocusRate(it.rate.rate)) }
+    }
+
     override suspend fun setJam(url: String?) {
         room.update { it.copy(jam = url?.let { u -> JamLink(u, fromMe = true, at = Instant.now()) }) }
     }

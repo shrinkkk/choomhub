@@ -119,6 +119,17 @@ object ShopModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object BountyModule {
+    @Provides
+    @Singleton
+    fun provideBountyRepository(
+        firestore: Provider<com.choomhub.app.data.bounty.FirestoreBountyRepository>,
+        local: Provider<com.choomhub.app.data.bounty.LocalBountyRepository>,
+    ): com.choomhub.app.domain.repository.BountyRepository = if (FirebaseConfig.isConfigured) firestore.get() else local.get()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object FocusModule {
     @Provides
     @Singleton

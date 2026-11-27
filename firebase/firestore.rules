@@ -22,7 +22,9 @@ rules_version = '2';
 //   couples/{coupleId}/collections/{id} -> { name, createdBy, createdAt, cover? }  Memory Lane; cover is a snap id
 //   couples/{coupleId}/points/{id}     -> { from, to, amount (±1..10), reason, at }  append-only points ledger
 //   couples/{coupleId}/focus/{uid}     -> { state, bankedMs, focusSince, breakEndsAt, updatedAt }  focus room session
-//   couples/{coupleId}/focusTotals/{uid} -> { totalMs, weekMs, weekStart, pointHours }  focus hours so far
+//   couples/{coupleId}/focusTotals/{uid} -> { totalMs, weekMs, weekStart, pointHours, togetherMs?, togetherHours? }  focus hours so far
+//   couples/{coupleId}/shared/focusRate -> { rate, proposed?, proposedBy?, at }  points per focus hour, agreed by both
+//   couples/{coupleId}/bounties/{id}   -> { task, reward 1-20, due, by, status: open|claimed|paid, at, claimedAt?, paidAt? }
 //   couples/{coupleId}/shared/jam      -> { url, by, at }  a music jam link left in the record player
 //   couples/{coupleId}/shared/cat      -> { activity, since, by }  where the cat went when last tapped
 //   couples/{coupleId}/pet/cat         -> the Pet House cat (needs, coins {uid}, bond {uid}, things, gifts...)
@@ -293,7 +295,11 @@ service cloud.firestore {
             || focusPoints(coupleId)
           )
           && request.resource.data.amount is int
-          && request.resource.data.amount >= -10 && request.resource.data.amount <= 10
+          && request.resource.data.amount >= -10
+          && (request.resource.data.amount <= 10
+              || (request.resource.data.to == self() && request.resource.data.amount <= 200)
+              || (request.resource.data.to != self() && request.resource.data.amount <= 20
+                  && request.resource.data.reason is string && request.resource.data.reason.matches('^Bounty: .+')))
           && request.resource.data.amount != 0
           && (request.resource.data.reason == null
               || (request.resource.data.reason is string && request.resource.data.reason.size() <= 140))
@@ -322,20 +328,84 @@ service cloud.firestore {
       // The mood list both people pick from; either can edit it.
       // Points to yourself only for focus hours: as many as your focus totals count up in
       // the same write.
+      // Focus points: the agreed rate (shared/focusRate, 1 until changed) for each newly
+      // completed hour, and the same again for each completed hour of together time.
       function focusPoints(coupleId) {
         let totals = /databases/$(database)/documents/couples/$(coupleId)/focusTotals/$(self());
-        let before = exists(totals) ? get(totals).data.pointHours : 0;
+        let ratePath = /databases/$(database)/documents/couples/$(coupleId)/shared/focusRate;
+        let rate = exists(ratePath) ? get(ratePath).data.rate : 1;
+        let before = exists(totals) ? get(totals).data : { 'pointHours': 0 };
+        let after = getAfter(totals).data;
+        let hours = (after.pointHours - before.pointHours) + (after.get('togetherHours', 0) - before.get('togetherHours', 0));
         return request.resource.data.to == self()
           && request.resource.data.reason == 'focus hours'
           && request.resource.data.amount > 0
-          && getAfter(totals).data.pointHours == before + request.resource.data.amount;
+          && request.resource.data.amount == rate * hours;
+      }
+
+      // Bounty board: jobs one of you pins up for the other. The other says they did it; the
+      // poster either sends it back ("not yet") or pays (the points go in the same batch).
+      // Only the poster takes one down, and not while it's waiting to be paid.
+      match /bounties/{bid} {
+        allow read: if isMember(coupleId);
+        allow create: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['task', 'reward', 'due', 'by', 'status', 'at'])
+          && request.resource.data.task is string
+          && request.resource.data.task.size() > 0 && request.resource.data.task.size() <= 80
+          && request.resource.data.reward is int && request.resource.data.reward >= 1 && request.resource.data.reward <= 20
+          && request.resource.data.due in ['tonight', 'week', 'whenever']
+          && request.resource.data.by == self()
+          && request.resource.data.status == 'open'
+          && request.resource.data.at == request.time;
+        allow update: if isMember(coupleId) && (
+          (resource.data.by != self() && resource.data.status == 'open'
+            && request.resource.data.status == 'claimed'
+            && onlyChanged(['status', 'claimedAt']) && request.resource.data.claimedAt == request.time)
+          || (resource.data.by == self() && resource.data.status == 'claimed'
+            && request.resource.data.status == 'open' && onlyChanged(['status', 'claimedAt']))
+          || (resource.data.by == self() && resource.data.status == 'claimed'
+            && request.resource.data.status == 'paid'
+            && onlyChanged(['status', 'paidAt']) && request.resource.data.paidAt == request.time)
+        );
+        allow delete: if isMember(coupleId) && resource.data.by == self() && resource.data.status != 'claimed';
+      }
+
+      // Points per focus hour (0-10). One of you suggests a rate; it only changes when the
+      // other agrees (the agreed rate must be the suggestion, and not by the one who made it).
+      match /shared/focusRate {
+        allow read: if isMember(coupleId);
+        allow create, update: if isMember(coupleId)
+          && request.resource.data.keys().hasOnly(['rate', 'proposed', 'proposedBy', 'at'])
+          && request.resource.data.rate is int && request.resource.data.rate >= 0 && request.resource.data.rate <= 10
+          && request.resource.data.at == request.time
+          && (rateUnchanged() || rateAgreed());
+      }
+
+      function rateBefore() { return resource == null ? 1 : resource.data.rate; }
+
+      // Suggesting, taking back or turning down: the rate stays as it was.
+      function rateUnchanged() {
+        let d = request.resource.data;
+        return d.rate == rateBefore()
+          && ((d.get('proposed', null) == null && d.get('proposedBy', null) == null)
+              || (d.proposed is int && d.proposed >= 0 && d.proposed <= 10 && d.proposedBy == self()));
+      }
+
+      // Agreeing: the rate becomes their suggestion.
+      function rateAgreed() {
+        let d = request.resource.data;
+        return resource != null && resource.data.get('proposed', null) != null
+          && resource.data.proposedBy != self()
+          && d.rate == resource.data.proposed
+          && d.get('proposed', null) == null && d.get('proposedBy', null) == null;
       }
 
       // Focus room: your own session only.
       match /focus/{uid} {
         allow read: if isMember(coupleId);
         allow create, update: if isMember(coupleId) && self() == uid
-          && request.resource.data.keys().hasOnly(['state', 'bankedMs', 'focusSince', 'breakEndsAt', 'breakMs', 'breakSince', 'startTotalMs', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['state', 'bankedMs', 'focusSince', 'breakEndsAt', 'breakMs', 'breakSince', 'startTotalMs', 'recent', 'updatedAt'])
+          && (request.resource.data.get('recent', []) is list && request.resource.data.get('recent', []).size() <= 6)
           && request.resource.data.state in ['away', 'focus', 'break']
           && request.resource.data.bankedMs is int
           && request.resource.data.bankedMs >= 0 && request.resource.data.bankedMs <= 172800000
@@ -352,7 +422,11 @@ service cloud.firestore {
       match /focusTotals/{uid} {
         allow read: if isMember(coupleId);
         allow create, update: if isMember(coupleId) && self() == uid
-          && request.resource.data.keys().hasOnly(['totalMs', 'weekMs', 'weekStart', 'pointHours'])
+          && request.resource.data.keys().hasOnly(['totalMs', 'weekMs', 'weekStart', 'pointHours', 'togetherMs', 'togetherHours'])
+          && request.resource.data.get('togetherMs', 0) is int && request.resource.data.get('togetherMs', 0) >= 0
+          && request.resource.data.get('togetherMs', 0) <= request.resource.data.totalMs
+          && request.resource.data.get('togetherHours', 0) is int
+          && request.resource.data.get('togetherHours', 0) * 3600000 <= request.resource.data.get('togetherMs', 0)
           && request.resource.data.totalMs is int && request.resource.data.weekMs is int
           && request.resource.data.pointHours is int
           && request.resource.data.weekMs >= 0 && request.resource.data.weekMs <= request.resource.data.totalMs
@@ -366,7 +440,8 @@ service cloud.firestore {
         let before = resource == null ? { 'totalMs': 0, 'pointHours': 0 } : resource.data;
         return request.resource.data.totalMs >= before.totalMs
           && request.resource.data.totalMs <= before.totalMs + 43200000
-          && request.resource.data.pointHours >= before.pointHours;
+          && request.resource.data.pointHours >= before.pointHours
+          && request.resource.data.get('togetherHours', 0) >= before.get('togetherHours', 0);
       }
 
       // The jam link: either of you can leave one or take it out.

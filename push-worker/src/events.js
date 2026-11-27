@@ -73,6 +73,10 @@ export const Events = Object.freeze({
   song: { category: 'songs', channel: Channels.songs, tag: 'song', toSelf: false, takesDetail: true },
   song_rated: { category: 'songs', channel: Channels.songs, tag: 'song_rated', toSelf: false, takesDetail: true, kinds: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] },
   shop: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: ShopKinds },
+  focus_rate: { category: 'points', channel: Channels.points, tag: 'focus_rate', toSelf: false, takesDetail: true, kinds: ['suggest', 'agreed', 'declined'] },
+  bounty: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: ['posted', 'claimed', 'paid', 'not_yet'] },
+  collection: { category: 'snaps', channel: Channels.snaps, tag: 'collection', toSelf: false, takesDetail: true, kinds: ['delete_ask', 'delete_agreed', 'delete_declined'] },
+  meetup_log: { category: 'meetup', channel: Channels.meetup, tag: 'meetup_log', toSelf: false, takesDetail: true, kinds: ['started', 'logged'] },
 });
 
 export const MAX_DETAIL = 80;
@@ -185,6 +189,33 @@ export function compose(event, ctx) {
     }
     case 'pet_named':
       return { title: `${who} has a name for the cat`, body: ctx.detail ? `"${ctx.detail}". Open the Pet House to agree (or suggest another).` : 'Open the Pet House.' };
+    case 'focus_rate': {
+      const n = /^\d{1,2}$/.test(ctx.detail || '') ? Number(ctx.detail) : null;
+      const per = n === null ? 'a new number of points' : n === 0 ? 'no points' : `${n} point${n === 1 ? '' : 's'}`;
+      if (ctx.kind === 'suggest') return { title: `${who} suggested ${per} per focus hour`, body: 'Open Settings to agree or keep it as it is.' };
+      if (ctx.kind === 'agreed') return { title: `${who} agreed: ${per} per focus hour`, body: 'Together time counts double.' };
+      return { title: `${who} kept the focus points as they are`, body: 'Your suggestion was turned down.' };
+    }
+    case 'bounty': {
+      const task = ctx.detail || 'a bounty';
+      const titles = {
+        posted: `${who} posted a bounty for you`,
+        claimed: `${who} says they did it`,
+        paid: `${who} paid your bounty`,
+        not_yet: `${who} says it's not done yet`,
+      };
+      return { title: titles[ctx.kind] || `${who} changed a bounty`, body: task };
+    }
+    case 'collection': {
+      const name = ctx.detail || 'a collection';
+      if (ctx.kind === 'delete_ask') return { title: `${who} wants to delete a collection`, body: `"${name}". It's only deleted if you agree.` };
+      if (ctx.kind === 'delete_agreed') return { title: `${who} agreed to delete a collection`, body: `"${name}" is gone.` };
+      return { title: `${who} wants to keep a collection`, body: `"${name}" stays.` };
+    }
+    case 'meetup_log':
+      return ctx.kind === 'started'
+        ? { title: `${who} started logging your meetup`, body: 'Add your photos to it in the cabinet.' }
+        : { title: `${who} pinned a meetup in the cabinet`, body: ctx.detail || 'Open Our World to see it.' };
     case 'jam':
       return { title: `${who} left a jam in the record player`, body: 'Open the focus room to join it.' };
     default:

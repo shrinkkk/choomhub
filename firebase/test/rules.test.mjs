@@ -395,6 +395,60 @@ describe('focus room', () => {
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/points/f2'), { ...point, reason: 'being great' }));
   });
 
+  test('the points rate changes only when both agree, and focus points follow it (double together)', async () => {
+    const rate = (uid) => doc(db(uid), 'couples/c1/shared/focusRate');
+    // Alice suggests 3; the rate itself can't jump without Bob.
+    await assertFails(setDoc(rate('alice'), { rate: 3, proposed: null, proposedBy: null, at: serverTimestamp() }));
+    await assertSucceeds(setDoc(rate('alice'), { rate: 1, proposed: 3, proposedBy: 'alice', at: serverTimestamp() }));
+    // She can't agree to her own suggestion, or claim it was Bob's.
+    await assertFails(setDoc(rate('alice'), { rate: 3, proposed: null, proposedBy: null, at: serverTimestamp() }));
+    await assertFails(setDoc(rate('alice'), { rate: 1, proposed: 3, proposedBy: 'bob', at: serverTimestamp() }));
+    // Bob agrees to exactly what she suggested.
+    await assertFails(setDoc(rate('bob'), { rate: 5, proposed: null, proposedBy: null, at: serverTimestamp() }));
+    await assertSucceeds(setDoc(rate('bob'), { rate: 3, proposed: null, proposedBy: null, at: serverTimestamp() }));
+    await assertFails(setDoc(rate('bob'), { rate: 1, proposed: 11, proposedBy: 'bob', at: serverTimestamp() }));
+
+    // At 3 a point: one hour, half of it together and an earlier together hour finishing = 3 + 3.
+    const fa = db('alice');
+    const first = writeBatch(fa);
+    first.set(doc(fa, 'couples/c1/focusTotals/alice'), { totalMs: 3700000, weekMs: 3700000, weekStart: '2026-11-23', pointHours: 1, togetherMs: 3650000, togetherHours: 1 });
+    first.set(doc(fa, 'couples/c1/points/r1'), { from: 'alice', to: 'alice', amount: 6, reason: 'focus hours', at: serverTimestamp() });
+    await assertSucceeds(first.commit());
+    // The old rate of one point an hour is refused now.
+    const wrong = writeBatch(fa);
+    wrong.set(doc(fa, 'couples/c1/focusTotals/alice'), { totalMs: 7300000, weekMs: 7300000, weekStart: '2026-11-23', pointHours: 2, togetherMs: 3650000, togetherHours: 1 });
+    wrong.set(doc(fa, 'couples/c1/points/r2'), { from: 'alice', to: 'alice', amount: 1, reason: 'focus hours', at: serverTimestamp() });
+    await assertFails(wrong.commit());
+    // Together hours can't outrun together time.
+    await assertFails(setDoc(doc(fa, 'couples/c1/focusTotals/alice'), { totalMs: 7300000, weekMs: 7300000, weekStart: '2026-11-23', pointHours: 2, togetherMs: 3650000, togetherHours: 2 }));
+  });
+
+  test('bounties: posted for the other, claimed by them, paid (in points) by the poster', async () => {
+    const ref = (uid) => doc(db(uid), 'couples/c1/bounties/b1');
+    const post = { task: 'Dishes', reward: 15, due: 'tonight', by: 'alice', status: 'open', at: serverTimestamp() };
+    await assertFails(setDoc(ref('alice'), { ...post, reward: 21 }));
+    await assertFails(setDoc(ref('alice'), { ...post, by: 'bob' }));
+    await assertSucceeds(setDoc(ref('alice'), post));
+    // Alice can't claim her own; Bob can.
+    await assertFails(updateDoc(ref('alice'), { status: 'claimed', claimedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref('bob'), { status: 'claimed', claimedAt: serverTimestamp() }));
+    // Bob can't pay himself, or take it down while it waits.
+    await assertFails(updateDoc(ref('bob'), { status: 'paid', paidAt: serverTimestamp() }));
+    await assertFails(deleteDoc(ref('alice')));
+    // "Not yet", then claimed again, then paid with the points in the same batch.
+    await assertSucceeds(updateDoc(ref('alice'), { status: 'open', claimedAt: deleteField() }));
+    await assertSucceeds(updateDoc(ref('bob'), { status: 'claimed', claimedAt: serverTimestamp() }));
+    const fa = db('alice');
+    const pay = writeBatch(fa);
+    pay.update(doc(fa, 'couples/c1/bounties/b1'), { status: 'paid', paidAt: serverTimestamp() });
+    pay.set(doc(fa, 'couples/c1/points/bp1'), { from: 'alice', to: 'bob', amount: 15, reason: 'Bounty: Dishes', at: serverTimestamp() });
+    await assertSucceeds(pay.commit());
+    // More than 10 points only for a bounty.
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/points/bp2'), { from: 'alice', to: 'bob', amount: 15, reason: 'because', at: serverTimestamp() }));
+    await assertSucceeds(deleteDoc(ref('alice')));
+    await assertFails(getDoc(doc(db('mallory'), 'couples/c1/bounties/b1')));
+  });
+
   test('the pet: shared, but coins and bond are your own and coins never go negative', async () => {
     const cat = (uid) => doc(db(uid), 'couples/c1/pet/cat');
     await assertSucceeds(setDoc(cat('alice'), { name: 'Mochi', coins: { alice: 10 }, bond: { alice: 2 }, needs: { hunger: { v: 80, at: Timestamp.now() } } }));

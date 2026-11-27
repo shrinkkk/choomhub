@@ -23,6 +23,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import com.choomhub.app.core.designsystem.component.InkPanel
+import com.choomhub.app.domain.model.FocusRoomData
+import com.choomhub.app.feature.bounty.BountyBoardUi
+import com.choomhub.app.feature.bounty.BountyViewModel
+import com.choomhub.app.feature.focus.RoomPerson
+import com.choomhub.app.feature.focus.RoomScene
+import com.choomhub.app.feature.focus.Spot
+import com.choomhub.app.feature.focus.roomScene
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,8 +76,13 @@ import javax.inject.Inject
 @Serializable
 data object ActivitiesRoute
 
-fun NavGraphBuilder.activitiesScreen(contentPadding: PaddingValues, onOpenFocusRoom: () -> Unit = {}, onOpenShop: () -> Unit = {}) {
-    composable<ActivitiesRoute> { ActivitiesScreen(contentPadding, onOpenFocusRoom, onOpenShop) }
+fun NavGraphBuilder.activitiesScreen(
+    contentPadding: PaddingValues,
+    onOpenFocusRoom: () -> Unit = {},
+    onOpenShop: () -> Unit = {},
+    onOpenBounties: () -> Unit = {},
+) {
+    composable<ActivitiesRoute> { ActivitiesScreen(contentPadding, onOpenFocusRoom, onOpenShop, onOpenBounties) }
 }
 
 /** The focus room card: who's in, and this week's hours. */
@@ -70,6 +92,16 @@ data class FocusCardUi(
     val partnerLine: String = "",
     val weekLine: String = "",
     val partnerIn: Boolean = false,
+    /** The room as it is, seen through the doors. */
+    val scene: RoomScene = RoomScene(
+        RoomPerson("You", Spot.Away, "--:--", weekHours = "0.0", totalHours = "0.0"),
+        RoomPerson("Them", Spot.Away, "--:--", weekHours = "0.0", totalHours = "0.0"),
+        together = false,
+    ),
+    val title: String = "Nobody's in",
+    /** For the "Go in?" pop-up: what's going on inside. */
+    val inside: String = "",
+    val rateLine: String = "",
 )
 
 @HiltViewModel
@@ -83,9 +115,10 @@ class ActivitiesViewModel @Inject constructor(
         focusRepository.observeRoom(),
         profileRepository.observeNames(),
         ticker.ticks().onStart { emit(clock.instant()) },
-    ) { room, names, now ->
+    ) { room: FocusRoomData, names, now ->
         val them = names.partnerName ?: "They"
         val today = LocalDate.now(clock)
+        val rate = room.rate.rate
         FocusCardUi(
             loaded = true,
             imIn = room.me.state != FocusState.Away,
@@ -96,23 +129,42 @@ class ActivitiesViewModel @Inject constructor(
                 FocusState.Away -> "$them isn't in right now"
             },
             weekLine = "This week: you ${FocusRules.hours(room.myTotals.weekMsAt(today))} h · $them ${FocusRules.hours(room.partnerTotals.weekMsAt(today))} h",
+            scene = roomScene(room, names, now, today),
+            title = when {
+                room.me.state != FocusState.Away -> "You're inside"
+                room.partner.state == FocusState.Focusing -> "$them is inside"
+                room.partner.state == FocusState.OnBreak -> "$them is by the fire"
+                else -> "Nobody's in"
+            },
+            inside = when (room.partner.state) {
+                FocusState.Focusing -> "$them has been at their desk for ${FocusRules.duration(FocusRules.sessionMs(room.partner, now))}."
+                FocusState.OnBreak -> "$them is taking a break by the fire."
+                FocusState.Away -> "Nobody's in yet. The desks are waiting."
+            },
+            rateLine = if (rate == 0) "Focus points are off" else "$rate point${if (rate == 1) "" else "s"} an hour · ${rate * 2} when you're both in",
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FocusCardUi())
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ActivitiesScreen(
     contentPadding: PaddingValues,
     onOpenFocusRoom: () -> Unit,
     onOpenShop: () -> Unit = {},
+    onOpenBounties: () -> Unit = {},
     viewModel: ActivitiesViewModel = hiltViewModel(),
     shopViewModel: ShopViewModel = hiltViewModel(),
+    bountyViewModel: BountyViewModel = hiltViewModel(),
 ) {
     val card by viewModel.focus.collectAsStateWithLifecycle()
     val shop by shopViewModel.state.collectAsStateWithLifecycle()
+    val bounties by bountyViewModel.state.collectAsStateWithLifecycle()
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
+    var askingToEnter by rememberSaveable { mutableStateOf(false) }
+    if (askingToEnter) {
+        GoInDialog(card, onGoIn = { askingToEnter = false; onOpenFocusRoom() }, onDismiss = { askingToEnter = false })
+    }
     Box(Modifier.fillMaxSize().testTag("screen_activities"), contentAlignment = Alignment.TopCenter) {
         GothicMotifArt(
             GothicMotif.SkeletonKey,
@@ -130,63 +182,115 @@ fun ActivitiesScreen(
             Text("Activities", style = MaterialTheme.typography.displaySmall, color = colors.textMain)
             Text("a few minutes a day", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
             Spacer(Modifier.height(spacing.xl))
-            ChoomHubCard(
-                modifier = Modifier.fillMaxWidth().testTag("focus_card"),
-                tone = if (card.partnerIn) CardTone.Glowing else CardTone.Raised,
-                glowColor = colors.candle,
-            ) {
-                Text("FOCUS ROOM", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
-                Text("A quiet room for the two of you", style = MaterialTheme.typography.titleLarge, color = colors.textMain)
-                Spacer(Modifier.height(spacing.sm))
-                if (card.loaded) {
-                    Text(card.partnerLine, style = MaterialTheme.typography.bodyMedium, color = if (card.partnerIn) colors.candle else colors.textSecondary, modifier = Modifier.testTag("focus_card_partner"))
-                    Text(card.weekLine, style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
-                }
-                Spacer(Modifier.height(spacing.md))
-                Text(
-                    "Notifications go quiet while you're in. Take breaks by the fire; every hour you focus earns you a point.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.textSecondary,
-                )
-                Spacer(Modifier.height(spacing.md))
-                ChoomHubPrimaryButton(
-                    text = if (card.imIn) "Back to the room" else "Enter the focus room",
-                    onClick = onOpenFocusRoom,
-                    modifier = Modifier.fillMaxWidth().testTag("focus_enter"),
-                )
-            }
+            // The doors are the button. Already inside: straight back in, no question.
+            ArtCard(
+                eyebrow = "FOCUS ROOM",
+                title = card.title,
+                lines = listOfNotNull(if (card.loaded) card.partnerLine else null, if (card.loaded) card.weekLine else null),
+                highlight = card.partnerIn,
+                onClick = { if (card.imIn) onOpenFocusRoom() else askingToEnter = true },
+                tag = "focus_enter",
+            ) { FocusDoors(card.scene, inside = card.partnerIn || card.imIn, Modifier.fillMaxWidth()) }
             Spacer(Modifier.height(spacing.xl))
             ShopCard(shop, onOpenShop)
+            Spacer(Modifier.height(spacing.xl))
+            BountyCard(bounties, onOpenBounties)
             Spacer(Modifier.height(spacing.xxl))
         }
     }
 }
 
-/** The points shop card: your points, and anything waiting on you. */
+/** A card whose top half is a picture you tap. */
+@Composable
+private fun ArtCard(
+    eyebrow: String,
+    title: String,
+    lines: List<String>,
+    highlight: Boolean,
+    onClick: () -> Unit,
+    tag: String,
+    art: @Composable () -> Unit,
+) {
+    val colors = ChoomHubTheme.colors
+    ChoomHubCard(
+        modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).clickable(role = Role.Button, onClickLabel = title, onClick = onClick).testTag(tag),
+        tone = if (highlight) CardTone.Glowing else CardTone.Raised,
+        glowColor = colors.candle,
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Box(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large)) { art() }
+        Column(Modifier.padding(16.dp)) {
+            Text(eyebrow, style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+            Text(title, style = MaterialTheme.typography.titleLarge, color = colors.textMain)
+            lines.forEachIndexed { i, line ->
+                Text(line, style = MaterialTheme.typography.bodySmall, color = if (i == 0) colors.candle else colors.textFaint)
+            }
+        }
+    }
+}
+
+/** "Go in?": what's going on inside, and what going in does. */
+@Composable
+private fun GoInDialog(card: FocusCardUi, onGoIn: () -> Unit, onDismiss: () -> Unit) {
+    val colors = ChoomHubTheme.colors
+    InkPanel(onDismiss, Modifier.testTag("focus_go_in_dialog")) {
+        Box(Modifier.fillMaxWidth(0.6f).clip(MaterialTheme.shapes.medium)) { FocusDoors(card.scene, inside = card.partnerIn, Modifier.fillMaxWidth()) }
+        Spacer(Modifier.height(14.dp))
+        Text("Go in?", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
+        Text(card.inside, style = ChoomHubTextStyles.Handwritten, color = colors.pink, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Do Not Disturb comes on until you leave (alarms still ring). ${card.rateLine}.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.textSecondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(16.dp))
+        ChoomHubPrimaryButton("Go in", onGoIn, Modifier.fillMaxWidth().testTag("focus_go_in"))
+        TextButton(onDismiss, Modifier.fillMaxWidth()) { Text("NOT NOW", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+    }
+}
+
+/** The points shop: a tent with the cat behind the counter. Straight in, no questions. */
 @Composable
 private fun ShopCard(shop: ShopUi, onOpen: () -> Unit) {
-    val colors = ChoomHubTheme.colors
-    val spacing = ChoomHubTheme.spacing
     val theirTurn = shop.purchases.count { !it.byMe && it.state == PurchaseState.Used }
     val ready = shop.purchases.count { it.byMe && it.state == PurchaseState.Owned }
     val toAgree = shop.proposals.count { !it.byMe }
     val waiting = theirTurn > 0 || toAgree > 0
-    ChoomHubCard(
-        modifier = Modifier.fillMaxWidth().testTag("shop_card"),
-        tone = if (waiting) CardTone.Glowing else CardTone.Raised,
-        glowColor = colors.pink,
-    ) {
-        Text("POINTS SHOP", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
-        Text("Spend what you've earned", style = MaterialTheme.typography.titleLarge, color = colors.textMain)
-        Spacer(Modifier.height(spacing.sm))
-        Text("You have ${shop.myPoints} ${shop.myPointsLabel}", style = MaterialTheme.typography.bodyMedium, color = colors.candle, modifier = Modifier.testTag("shop_card_points"))
-        val notes = buildList {
-            if (theirTurn > 0) add("${shop.partnerName} cashed in $theirTurn")
-            if (toAgree > 0) add("$toAgree change${if (toAgree == 1) "" else "s"} to agree to")
-            if (ready > 0) add("$ready ready to use")
-        }
-        if (notes.isNotEmpty()) Text(notes.joinToString(" \u00B7 "), style = MaterialTheme.typography.bodySmall, color = if (waiting) colors.pink else colors.textFaint)
-        Spacer(Modifier.height(spacing.md))
-        ChoomHubPrimaryButton(text = "Open the shop", onClick = onOpen, modifier = Modifier.fillMaxWidth().testTag("shop_open"))
+    val notes = buildList {
+        if (theirTurn > 0) add("${shop.partnerName} cashed in $theirTurn")
+        if (toAgree > 0) add("$toAgree change${if (toAgree == 1) "" else "s"} to agree to")
+        if (ready > 0) add("$ready ready to use")
     }
+    ArtCard(
+        eyebrow = "POINTS SHOP",
+        title = "Spend what you've earned",
+        lines = listOf((listOf("You have ${shop.myPoints} ${shop.myPointsLabel}") + notes).joinToString(" \u00B7 ")),
+        highlight = waiting,
+        onClick = onOpen,
+        tag = "shop_open",
+    ) { ShopTent(Modifier.fillMaxWidth()) }
+}
+
+/** The bounty board: jobs for each other, paid in points. */
+@Composable
+private fun BountyCard(ui: BountyBoardUi, onOpen: () -> Unit) {
+    val open = ui.bounties.count { it.status != com.choomhub.app.domain.model.BountyStatus.Paid }
+    val toPay = ui.forThem.count { it.status == com.choomhub.app.domain.model.BountyStatus.Claimed }
+    val toDo = ui.forMe.count { it.status == com.choomhub.app.domain.model.BountyStatus.Open }
+    ArtCard(
+        eyebrow = "BOUNTY BOARD",
+        title = "Jobs, for points",
+        lines = listOf(
+            buildList {
+                add(if (open == 0) "Nothing pinned up yet" else "$open up")
+                if (toDo > 0) add("$toDo for you")
+                if (toPay > 0) add("$toPay waiting for you to pay")
+            }.joinToString(" \u00B7 "),
+        ),
+        highlight = ui.waitingOnMe > 0,
+        onClick = onOpen,
+        tag = "bounty_card",
+    ) { BountyBoardArt(open = open, Modifier.fillMaxWidth()) }
 }

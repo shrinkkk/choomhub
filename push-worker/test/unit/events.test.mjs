@@ -125,3 +125,13 @@ test('songs: sending one, and the rating it got', () => {
   assert.equal(parseRequest({ event: 'song_rated', kind: '0' }), null);
   assert.equal(fcmMessage('f', 'song', compose('song', {})).message.android.notification.channel_id, 'songs');
 });
+
+test('focus rate, bounties, collection deletes and meetup logs', () => {
+  assert.deepEqual(parseRequest({ event: 'focus_rate', kind: 'suggest', detail: '3' }), { event: 'focus_rate', detail: '3', kind: 'suggest' });
+  assert.equal(parseRequest({ event: 'focus_rate', kind: 'maybe', detail: '3' }), null);
+  assert.equal(compose('focus_rate', { senderName: 'Jas', kind: 'suggest', detail: '3' }).title, 'Jas suggested 3 points per focus hour');
+  assert.equal(compose('focus_rate', { senderName: 'Jas', kind: 'agreed', detail: '0' }).title, 'Jas agreed: no points per focus hour');
+  assert.equal(compose('bounty', { senderName: 'Jas', kind: 'paid', detail: 'Dishes' }).title, 'Jas paid your bounty');
+  assert.equal(compose('collection', { senderName: 'Jas', kind: 'delete_ask', detail: 'Goa' }).body, '"Goa". It\'s only deleted if you agree.');
+  assert.equal(compose('meetup_log', { senderName: 'Jas', kind: 'started' }).title, 'Jas started logging your meetup');
+});

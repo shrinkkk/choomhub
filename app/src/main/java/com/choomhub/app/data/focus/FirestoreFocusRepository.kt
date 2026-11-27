@@ -5,6 +5,7 @@ import com.choomhub.app.data.firebase.observe
 import com.choomhub.app.domain.model.CatActivity
 import com.choomhub.app.domain.model.CatOuting
 import com.choomhub.app.domain.model.FocusChange
+import com.choomhub.app.domain.model.FocusRate
 import com.choomhub.app.domain.model.FocusRoomData
 import com.choomhub.app.domain.model.FocusRules
 import com.choomhub.app.domain.model.FocusSession
@@ -33,7 +34,8 @@ import javax.inject.Inject
 
 /**
  * couples/{id}/focus/{uid}        { state, bankedMs, focusSince, breakEndsAt, updatedAt }
- * couples/{id}/focusTotals/{uid}  { totalMs, weekMs, weekStart ("2026-11-23"), pointHours }
+ * couples/{id}/focusTotals/{uid}  { totalMs, weekMs, weekStart ("2026-11-23"), pointHours, togetherMs, togetherHours }
+ * couples/{id}/shared/focusRate   { rate, proposed?, proposedBy?, at }  points per focus hour, agreed by both
  * couples/{id}/shared/jam         { url, by, at }
  * couples/{id}/shared/cat         { activity, since, by }  where the cat went when last tapped
  *
@@ -62,6 +64,7 @@ class FirestoreFocusRepository @Inject constructor(
             partner?.let { c.collection("focusTotals").document(it).observe() } ?: flowOf(null),
             c.collection("shared").document("jam").observe(),
             c.collection("shared").document("cat").observe(),
+            c.collection("shared").document("focusRate").observe(),
         ) { values ->
             val mine = values[0]
             val theirs = values[1]
@@ -69,7 +72,9 @@ class FirestoreFocusRepository @Inject constructor(
             val theirTotals = values[3]
             val jam = values[4]
             val cat = values[5]
+            val rate = values[6]
             FocusRoomData(
+                rate = rateFrom(rate, me),
                 me = sessionFrom(mine),
                 partner = sessionFrom(theirs),
                 myTotals = totalsFrom(myTotals),
@@ -101,6 +106,7 @@ class FirestoreFocusRepository @Inject constructor(
                 "breakMs" to s.breakMs,
                 "breakSince" to s.breakSince?.let { Timestamp(Date.from(it)) },
                 "startTotalMs" to s.startTotalMs,
+                "recent" to s.recent.map { mapOf("from" to it.first, "to" to it.last) },
                 "updatedAt" to FieldValue.serverTimestamp(),
             ),
         )
@@ -112,6 +118,8 @@ class FirestoreFocusRepository @Inject constructor(
                 "weekMs" to t.weekMs,
                 "weekStart" to t.weekStart?.toString(),
                 "pointHours" to t.pointHours,
+                "togetherMs" to t.togetherMs,
+                "togetherHours" to t.togetherHours,
             ),
         )
         if (change.points > 0) {
@@ -128,6 +136,34 @@ class FirestoreFocusRepository @Inject constructor(
         }
         // Not awaited: it applies at once and syncs when there's a connection.
         batch.commit()
+    }
+
+    private suspend fun rateDoc(): Pair<com.google.firebase.firestore.DocumentReference, String>? {
+        val space = spaceRepository.observeSpace().first()
+        val coupleId = space.coupleIdOrNull ?: return null
+        val me = space.memberIdOrNull ?: return null
+        return couple(coupleId).collection("shared").document("focusRate") to me
+    }
+
+    override suspend fun proposeRate(rate: Int) {
+        val (ref, me) = rateDoc() ?: return
+        val current = observeRoom().first().rate.rate
+        ref.set(mapOf("rate" to current, "proposed" to rate.coerceIn(0, FocusRules.MAX_RATE), "proposedBy" to me, "at" to FieldValue.serverTimestamp()))
+    }
+
+    override suspend fun answerRate(agree: Boolean) {
+        val (ref, _) = rateDoc() ?: return
+        val r = observeRoom().first().rate
+        val proposed = r.proposed ?: return
+        if (r.proposedByMe) return
+        ref.set(mapOf("rate" to if (agree) proposed else r.rate, "proposed" to null, "proposedBy" to null, "at" to FieldValue.serverTimestamp()))
+    }
+
+    override suspend fun takeBackRate() {
+        val (ref, _) = rateDoc() ?: return
+        val r = observeRoom().first().rate
+        if (!r.proposedByMe) return
+        ref.set(mapOf("rate" to r.rate, "proposed" to null, "proposedBy" to null, "at" to FieldValue.serverTimestamp()))
     }
 
     override suspend fun sendCat(outing: CatOuting) {
@@ -162,7 +198,20 @@ class FirestoreFocusRepository @Inject constructor(
                 breakMs = doc.getLong("breakMs") ?: 0,
                 breakSince = doc.getTimestamp("breakSince")?.toDate()?.toInstant(),
                 startTotalMs = doc.getLong("startTotalMs") ?: 0,
+                recent = (doc.get("recent") as? List<*>).orEmpty().mapNotNull { item ->
+                    val m = item as? Map<*, *> ?: return@mapNotNull null
+                    val from = (m["from"] as? Number)?.toLong() ?: return@mapNotNull null
+                    val to = (m["to"] as? Number)?.toLong() ?: return@mapNotNull null
+                    if (to > from) from..to else null
+                },
             )
+        }
+
+        fun rateFrom(doc: DocumentSnapshot?, me: String): FocusRate {
+            if (doc == null || !doc.exists()) return FocusRate()
+            val rate = doc.getLong("rate")?.toInt()?.coerceIn(0, FocusRules.MAX_RATE) ?: FocusRules.DEFAULT_RATE
+            val proposed = doc.getLong("proposed")?.toInt()?.coerceIn(0, FocusRules.MAX_RATE)
+            return FocusRate(rate, proposed, proposed != null && doc.getString("proposedBy") == me)
         }
 
         fun totalsFrom(doc: DocumentSnapshot?): FocusTotals {
@@ -172,6 +221,8 @@ class FirestoreFocusRepository @Inject constructor(
                 weekMs = doc.getLong("weekMs") ?: 0,
                 weekStart = doc.getString("weekStart")?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
                 pointHours = doc.getLong("pointHours")?.toInt() ?: 0,
+                togetherMs = doc.getLong("togetherMs") ?: 0,
+                togetherHours = doc.getLong("togetherHours")?.toInt() ?: 0,
             )
         }
     }

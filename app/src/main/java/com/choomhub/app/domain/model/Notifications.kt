@@ -44,6 +44,10 @@ enum class PushEvent(val wire: String, val collapseKey: String) {
     Shop("shop", "shop"),
     SongSent("song", "song"),
     SongRated("song_rated", "song_rated"),
+    FocusRate("focus_rate", "focus_rate"),
+    Bounty("bounty", "bounty"),
+    Collection("collection", "collection"),
+    MeetupLog("meetup_log", "meetup_log"),
     Test("test", "test"),
     ;
 

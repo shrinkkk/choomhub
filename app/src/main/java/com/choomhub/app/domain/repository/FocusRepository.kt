@@ -20,4 +20,13 @@ interface FocusRepository {
 
     /** Sends the cat off somewhere (both phones see it go). */
     suspend fun sendCat(outing: com.choomhub.app.domain.model.CatOuting)
+
+    /** Suggests [rate] points per focus hour; it changes once they agree. */
+    suspend fun proposeRate(rate: Int)
+
+    /** Agrees to their suggested rate (it takes effect for both), or turns it down. */
+    suspend fun answerRate(agree: Boolean)
+
+    /** Takes back your own suggestion. */
+    suspend fun takeBackRate()
 }

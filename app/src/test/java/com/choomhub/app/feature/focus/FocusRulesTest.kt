@@ -4,6 +4,7 @@ import com.choomhub.app.domain.model.CatActivity
 import com.choomhub.app.domain.model.CatOuting
 import com.choomhub.app.domain.model.CatRules
 import com.choomhub.app.domain.model.CoupleNames
+import com.choomhub.app.domain.model.FocusContext
 import com.choomhub.app.domain.model.FocusRoomData
 import com.choomhub.app.domain.model.FocusRules
 import com.choomhub.app.domain.model.FocusSession
@@ -60,6 +61,45 @@ class FocusRulesTest {
         assertEquals(1, again.totals.pointHours)
         val long = FocusRules.leave(FocusSession(FocusState.Focusing, 0, t0), again.totals, t0.plusSeconds(3 * 3600), wed)
         assertEquals(3, long.points)
+    }
+
+    @Test
+    fun theAgreedRateSetsThePointsAndZeroTurnsThemOff() {
+        val s = FocusSession(FocusState.Focusing, 0, t0)
+        val three = FocusRules.leave(s, FocusTotals(), t0.plusSeconds(2 * 3600), wed, FocusContext(rate = 3))
+        assertEquals(6, three.points)
+        assertEquals(2, three.hours)
+        val off = FocusRules.leave(s, FocusTotals(), t0.plusSeconds(2 * 3600), wed, FocusContext(rate = 0))
+        assertEquals(0, off.points)
+        assertEquals(2, off.hours) // the cat's coins still come
+        assertEquals(2, off.totals.pointHours) // and the hours don't pile up for later
+    }
+
+    @Test
+    fun togetherTimeCountsDouble() {
+        // You focus 10:00-12:00; they were at their desk 9:30-10:45 (finished) and again from 11:30.
+        val them = FocusSession(
+            FocusState.Focusing,
+            focusSince = t0.plusSeconds(90 * 60),
+            recent = listOf(t0.minusSeconds(30 * 60).toEpochMilli()..t0.plusSeconds(45 * 60).toEpochMilli()),
+        )
+        val me = FocusSession(FocusState.Focusing, 0, t0)
+        val end = t0.plusSeconds(2 * 3600)
+        assertEquals(mins(75), FocusRules.togetherMs(t0.toEpochMilli(), end.toEpochMilli(), them, end))
+        val left = FocusRules.leave(me, FocusTotals(togetherMs = mins(20)), end, wed, FocusContext(rate = 2, partner = them))
+        // Two hours at 2, plus one completed together hour (20 + 75 min) at 2 more.
+        assertEquals(mins(95), left.totals.togetherMs)
+        assertEquals(1, left.totals.togetherHours)
+        assertEquals(2 * 2 + 2, left.points)
+        // Your finished stretch is kept for their phone to see.
+        assertEquals(listOf(t0.toEpochMilli()..end.toEpochMilli()), left.session.recent)
+        assertEquals(FocusState.Away, left.session.state)
+    }
+
+    @Test
+    fun overlappingStretchesNeverCountTwice() {
+        val them = FocusSession(recent = listOf(0L..100L, 50L..150L, 140L..160L))
+        assertEquals(160L, FocusRules.togetherMs(0, 1000, them, Instant.ofEpochMilli(1000)))
     }
 
     @Test

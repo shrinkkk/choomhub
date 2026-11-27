@@ -255,7 +255,8 @@ class ScreenshotCaptureTest {
     fun focusRoom() {
         composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag("home_list").fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithTag(TopLevelDestination.Activities.testTag).performClick()
-        composeRule.onNodeWithTag("focus_enter").performScrollTo().performClick()
+        composeRule.onNodeWithTag("focus_enter").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("focus_go_in").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("dialog_dismissive").performClick()
         capture("phone_focus_room")

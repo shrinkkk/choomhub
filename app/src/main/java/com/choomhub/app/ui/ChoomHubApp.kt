@@ -48,6 +48,8 @@ import com.choomhub.app.feature.world.ourWorldScreen
 import com.choomhub.app.feature.focus.FocusRoomRoute
 import com.choomhub.app.feature.focus.focusRoomScreen
 import com.choomhub.app.feature.shop.PointsShopRoute
+import com.choomhub.app.feature.bounty.BountyBoardRoute
+import com.choomhub.app.feature.bounty.bountyBoardScreen
 import com.choomhub.app.feature.shop.pointsShopScreen
 import com.choomhub.app.core.navigation.PendingOpen
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -112,7 +114,7 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
         contentColor = colors.textMain,
         bottomBar = {
             // The focus room and the shop take the whole screen: no tab bar.
-            val fullScreen = backStackEntry?.destination?.let { it.hasRoute<FocusRoomRoute>() || it.hasRoute<PointsShopRoute>() } == true
+            val fullScreen = backStackEntry?.destination?.let { it.hasRoute<FocusRoomRoute>() || it.hasRoute<PointsShopRoute>() || it.hasRoute<BountyBoardRoute>() } == true
             if (!fullScreen) {
                 ChoomHubBottomBar(
                     currentDestination = backStackEntry?.destination,
@@ -148,7 +150,9 @@ private fun MainScaffold(navController: NavHostController = rememberNavControlle
                 contentPadding = padding,
                 onOpenFocusRoom = { navController.navigate(FocusRoomRoute) { launchSingleTop = true } },
                 onOpenShop = { navController.navigate(PointsShopRoute) { launchSingleTop = true } },
+                onOpenBounties = { navController.navigate(BountyBoardRoute) { launchSingleTop = true } },
             )
+            bountyBoardScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             pointsShopScreen(contentPadding = padding, onBack = { navController.popBackStack() })
             focusRoomScreen(contentPadding = padding, onLeft = { navController.popBackStack() })
             ourWorldScreen(

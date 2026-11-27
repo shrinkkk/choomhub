@@ -116,7 +116,7 @@ class FocusRoomViewModel @Inject constructor(
             partnerName = names.partnerName ?: "them",
             myBreakLeftMs = FocusRules.breakLeftMs(room.me, now),
             jam = room.jam,
-            summary = FocusRules.summary(room.me, room.myTotals, now),
+            summary = FocusRules.summary(room.me, room.myTotals, now, room.rate.rate),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FocusRoomUi())
 

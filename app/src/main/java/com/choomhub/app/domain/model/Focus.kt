@@ -36,6 +36,11 @@ data class FocusSession(
     val breakSince: Instant? = null,
     /** Your all-time focus when this session started (to count the points it earned). */
     val startTotalMs: Long = 0,
+    /**
+     * Your last few finished focus stretches (epoch ms, start to end), so the other phone can
+     * work out how much of its own focus overlapped with yours (together time).
+     */
+    val recent: List<LongRange> = emptyList(),
 )
 
 /** What a session came to, shown before you leave. */
@@ -55,6 +60,10 @@ data class FocusTotals(
     val weekStart: LocalDate? = null,
     /** Whole hours already turned into points. */
     val pointHours: Int = 0,
+    /** Focus time while the other one was focusing too. Counted as well as [totalMs], for the bonus. */
+    val togetherMs: Long = 0,
+    /** Whole together-hours already turned into bonus points. */
+    val togetherHours: Int = 0,
 ) {
     fun weekMsAt(today: LocalDate): Long = if (weekStart == FocusRules.weekStart(today)) weekMs else 0
 }
@@ -71,6 +80,8 @@ data class FocusRoomData(
     val jam: JamLink? = null,
     /** Where the cat went when last tapped (null: asleep in its bed). */
     val cat: CatOuting? = null,
+    /** Points per focus hour, and any change waiting to be agreed. */
+    val rate: FocusRate = FocusRate(),
 )
 
 /** The result of a change to your session: what to store, and what it adds up to. */
@@ -80,7 +91,18 @@ data class FocusChange(
     val totals: FocusTotals,
     /** Points to award yourself for newly completed hours (0 for none). */
     val points: Int,
+    /** Newly completed focus hours (what the cat's coins go by, whatever the points rate). */
+    val hours: Int = points,
 )
+
+/**
+ * Points per focus hour, agreed by both of you (0 turns them off), and a change one of you
+ * has suggested, waiting for the other.
+ */
+data class FocusRate(val rate: Int = FocusRules.DEFAULT_RATE, val proposed: Int? = null, val proposedByMe: Boolean = false)
+
+/** What banking focus needs besides your own session: the rate, and their session for together time. */
+data class FocusContext(val rate: Int = FocusRules.DEFAULT_RATE, val partner: FocusSession = FocusSession())
 
 /** The focus room's arithmetic, kept free of storage so it can be tested. */
 object FocusRules {
@@ -96,6 +118,24 @@ object FocusRules {
 
     /** Reason on the points you get for focusing (the rules only allow this one for yourself). */
     const val POINTS_REASON = "focus hours"
+
+    const val DEFAULT_RATE = 1
+    const val MAX_RATE = 10
+
+    /** Finished stretches kept for together time. */
+    const val RECENT_STRETCHES = 6
+
+    /** How together time pays, in words for Settings. */
+    fun rateRules(rate: Int): List<String> = if (rate == 0) {
+        listOf("Focus hours don't earn points right now.", "Hours still count on the scoreboard, and for the cat's coins.")
+    } else {
+        listOf(
+            "Every full hour in the focus room earns $rate point${if (rate == 1) "" else "s"}.",
+            "Hours add up across sessions and breaks; only time at the desk counts.",
+            "Together time: while you're both at your desks, it counts double, ${rate * 2} points an hour.",
+            "Points land when you take a break or leave the room.",
+        )
+    }
 
     fun weekStart(day: LocalDate): LocalDate = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
@@ -117,7 +157,7 @@ object FocusRules {
     }
 
     fun enter(s: FocusSession, totals: FocusTotals, now: Instant): FocusChange = when (s.state) {
-        FocusState.Away -> FocusChange(FocusSession(FocusState.Focusing, 0, now, startTotalMs = totals.totalMs), totals, 0)
+        FocusState.Away -> FocusChange(FocusSession(FocusState.Focusing, 0, now, startTotalMs = totals.totalMs, recent = s.recent), totals, 0)
         else -> FocusChange(s, totals, 0)
     }
 
@@ -131,27 +171,28 @@ object FocusRules {
         return s.breakMs + current
     }
 
-    /** The session so far, as if you left now. */
-    fun summary(s: FocusSession, totals: FocusTotals, now: Instant): SessionSummary {
+    /** The session so far, as if you left now (points at [rate], not counting the together bonus). */
+    fun summary(s: FocusSession, totals: FocusTotals, now: Instant, rate: Int = DEFAULT_RATE): SessionSummary {
         val total = totals.totalMs + stretchMs(s, now)
         val start = s.startTotalMs.coerceAtMost(total)
         return SessionSummary(
             focusMs = sessionMs(s, now),
             breakMs = breakTotalMs(s, now),
-            points = (total / HOUR - start / HOUR).toInt(),
+            points = (total / HOUR - start / HOUR).toInt() * rate,
             toNextPointMs = HOUR - total % HOUR,
         )
     }
 
-    fun startBreak(s: FocusSession, totals: FocusTotals, minutes: Int, now: Instant, today: LocalDate): FocusChange {
+    fun startBreak(s: FocusSession, totals: FocusTotals, minutes: Int, now: Instant, today: LocalDate, ctx: FocusContext = FocusContext()): FocusChange {
         val m = minutes.coerceIn(1, MAX_BREAK_MINUTES)
         if (s.state != FocusState.Focusing) return FocusChange(s, totals, 0)
         val stretch = stretchMs(s, now)
-        val banked = bank(totals, stretch, today)
-        return FocusChange(
-            s.copy(state = FocusState.OnBreak, bankedMs = s.bankedMs + stretch, focusSince = null, breakEndsAt = now.plusSeconds(m * 60L), breakSince = now),
-            banked.first,
-            banked.second,
+        val banked = bank(totals, s, stretch, now, today, ctx)
+        return banked.copy(
+            session = s.copy(
+                state = FocusState.OnBreak, bankedMs = s.bankedMs + stretch, focusSince = null,
+                breakEndsAt = now.plusSeconds(m * 60L), breakSince = now, recent = remember(s, stretch, now),
+            ),
         )
     }
 
@@ -172,19 +213,55 @@ object FocusRules {
         else -> FocusChange(s, totals, 0)
     }
 
-    fun leave(s: FocusSession, totals: FocusTotals, now: Instant, today: LocalDate): FocusChange {
-        val banked = bank(totals, stretchMs(s, now), today)
-        return FocusChange(FocusSession(), banked.first, banked.second)
+    fun leave(s: FocusSession, totals: FocusTotals, now: Instant, today: LocalDate, ctx: FocusContext = FocusContext()): FocusChange {
+        val stretch = stretchMs(s, now)
+        val banked = bank(totals, s, stretch, now, today, ctx)
+        return banked.copy(session = FocusSession(recent = remember(s, stretch, now)))
     }
 
-    /** Adds a finished stretch to the totals and works out the points for newly completed hours. */
-    private fun bank(totals: FocusTotals, ms: Long, today: LocalDate): Pair<FocusTotals, Int> {
-        if (ms <= 0) return totals to 0
+    /** The stretch that just ended, added to the ones the other phone looks at. */
+    private fun remember(s: FocusSession, stretch: Long, now: Instant): List<LongRange> {
+        if (stretch <= 0) return s.recent
+        val end = now.toEpochMilli()
+        return (s.recent + listOf((end - stretch)..end)).takeLast(RECENT_STRETCHES)
+    }
+
+    /** How much of [from]..[to] (epoch ms) they were focusing too: their finished stretches plus the current one. */
+    fun togetherMs(from: Long, to: Long, partner: FocusSession, now: Instant): Long {
+        if (to <= from) return 0
+        val theirs = partner.recent.toMutableList()
+        if (partner.state == FocusState.Focusing && partner.focusSince != null) {
+            theirs += partner.focusSince.toEpochMilli()..now.toEpochMilli()
+        }
+        // Merge first, so overlapping entries never count twice.
+        val merged = mutableListOf<LongRange>()
+        theirs.sortedBy { it.first }.forEach { r ->
+            val last = merged.lastOrNull()
+            if (last != null && r.first <= last.last) merged[merged.lastIndex] = last.first..maxOf(last.last, r.last) else merged += r
+        }
+        return merged.sumOf { r -> (minOf(to, r.last) - maxOf(from, r.first)).coerceAtLeast(0) }
+    }
+
+    /**
+     * Adds a finished stretch (ending [now]) to the totals and works out the points: [FocusContext.rate]
+     * per newly completed hour, and the same again per completed hour of together time.
+     */
+    private fun bank(totals: FocusTotals, s: FocusSession, ms: Long, now: Instant, today: LocalDate, ctx: FocusContext): FocusChange {
+        if (ms <= 0) return FocusChange(s, totals, 0, 0)
         val week = weekStart(today)
         val weekMs = (if (totals.weekStart == week) totals.weekMs else 0) + ms
-        val next = totals.copy(totalMs = totals.totalMs + ms, weekMs = weekMs, weekStart = week)
+        val end = now.toEpochMilli()
+        val together = togetherMs(end - ms, end, ctx.partner, now).coerceIn(0, ms)
+        val next = totals.copy(totalMs = totals.totalMs + ms, weekMs = weekMs, weekStart = week, togetherMs = totals.togetherMs + together)
         val due = ((next.totalMs / HOUR).toInt() - next.pointHours).coerceIn(0, 10)
-        return next.copy(pointHours = next.pointHours + due) to due
+        val dueTogether = ((next.togetherMs / HOUR).toInt() - next.togetherHours).coerceIn(0, 10)
+        val rate = ctx.rate.coerceIn(0, MAX_RATE)
+        return FocusChange(
+            s,
+            next.copy(pointHours = next.pointHours + due, togetherHours = next.togetherHours + dueTogether),
+            points = rate * (due + dueTogether),
+            hours = due,
+        )
     }
 
     /** "1:02:33" */

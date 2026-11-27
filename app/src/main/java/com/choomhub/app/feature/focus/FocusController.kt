@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.choomhub.app.domain.model.FocusChange
+import com.choomhub.app.domain.model.FocusContext
 import com.choomhub.app.domain.model.FocusRules
 import com.choomhub.app.domain.model.FocusSession
 import com.choomhub.app.domain.model.FocusState
@@ -40,13 +41,13 @@ class FocusController @Inject constructor(
 ) {
     private val lock = Mutex()
 
-    private suspend fun change(block: (FocusSession, com.choomhub.app.domain.model.FocusTotals) -> FocusChange): FocusChange =
+    private suspend fun change(block: (FocusSession, com.choomhub.app.domain.model.FocusTotals, FocusContext) -> FocusChange): FocusChange =
         lock.withLock {
             val room = repository.observeRoom().first()
-            val change = block(room.me, room.myTotals)
+            val change = block(room.me, room.myTotals, FocusContext(room.rate.rate, room.partner))
             if (change.session != room.me || change.totals != room.myTotals) repository.apply(change)
-            // The same hours that earn points earn the cat's coins.
-            if (change.points > 0) petLinks.focusHours(change.points)
+            // The same hours earn the cat's coins, whatever the points rate.
+            if (change.hours > 0) petLinks.focusHours(change.hours)
             change
         }
 
@@ -54,27 +55,27 @@ class FocusController @Inject constructor(
 
     suspend fun enter() {
         // Quiet: going in doesn't notify them (only a nudge does).
-        val change = change { s, t -> FocusRules.enter(s, t, clock.instant()) }
+        val change = change { s, t, _ -> FocusRules.enter(s, t, clock.instant()) }
         sync(change.session)
     }
 
     suspend fun startBreak(minutes: Int) {
-        val change = change { s, t -> FocusRules.startBreak(s, t, minutes, clock.instant(), today()) }
+        val change = change { s, t, ctx -> FocusRules.startBreak(s, t, minutes, clock.instant(), today(), ctx) }
         sync(change.session)
     }
 
     suspend fun extendBreak(minutes: Int = FocusRules.EXTEND_MINUTES) {
-        val change = change { s, t -> FocusRules.extendBreak(s, t, minutes, clock.instant()) }
+        val change = change { s, t, _ -> FocusRules.extendBreak(s, t, minutes, clock.instant()) }
         sync(change.session)
     }
 
     suspend fun resume() {
-        val change = change { s, t -> FocusRules.resume(s, t, clock.instant()) }
+        val change = change { s, t, _ -> FocusRules.resume(s, t, clock.instant()) }
         sync(change.session)
     }
 
     suspend fun leave() {
-        val change = change { s, t -> FocusRules.leave(s, t, clock.instant(), today()) }
+        val change = change { s, t, ctx -> FocusRules.leave(s, t, clock.instant(), today(), ctx) }
         sync(change.session)
     }
 
