@@ -5,6 +5,11 @@ import androidx.compose.ui.graphics.Color
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.MoodOption
+import com.choomhub.app.feature.mood.MoodColours
+import com.choomhub.app.feature.mood.moodTextStyle
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 
 /**
  * Colour for a mood. The defaults have fixed colours; custom moods get one of
@@ -13,6 +18,7 @@ import com.choomhub.app.domain.model.MoodOption
 @Composable
 fun moodColor(mood: MoodOption): Color {
     val c = ChoomHubTheme.colors
+    MoodColours.colourOf(mood.colour)?.let { return it }
     return when (Mood.fromKey(mood.key)) {
         Mood.Cozy, Mood.Content -> c.pink
         Mood.Sleepy, Mood.Calm -> c.lavender
@@ -24,3 +30,12 @@ fun moodColor(mood: MoodOption): Color {
         null -> listOf(c.pink, c.lavender, c.candle, c.purple, c.tomato, Color(0xFF7F93B8), Color(0xFF9C8FB0))[Math.floorMod(mood.key.hashCode(), 7)]
     }
 }
+
+/** [base] in the mood's colour; the rainbow mood gets the rainbow. */
+@Composable
+fun moodStyle(mood: MoodOption, base: TextStyle): TextStyle = moodTextStyle(base, mood.colour, moodColor(mood))
+
+/** The same, for part of a line. */
+@Composable
+fun moodSpan(mood: MoodOption): SpanStyle =
+    if (mood.colour == MoodColours.RAINBOW) SpanStyle(brush = Brush.linearGradient(MoodColours.RAINBOW_COLOURS)) else SpanStyle(color = moodColor(mood))

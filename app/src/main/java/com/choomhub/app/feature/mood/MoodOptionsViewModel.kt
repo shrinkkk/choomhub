@@ -65,6 +65,13 @@ class MoodOptionsViewModel @Inject constructor(
 
     fun restoreDefaults() = save(Mood.defaults)
 
+    /** Sets (or, with null, clears) the colour a mood is shown in. */
+    fun setColour(key: String, colour: String?) {
+        val options = _state.value.options
+        if (options.none { it.key == key }) return
+        save(options.map { if (it.key == key) it.copy(colour = colour) else it })
+    }
+
     private fun save(options: List<MoodOption>) {
         _state.update { it.copy(options = options, error = null) }
         viewModelScope.launch { moodRepository.setOptions(options) }

@@ -146,10 +146,19 @@ internal fun PartnerMoodCard(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("YOU", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+                val line = myMood?.let { m ->
+                    val span = moodSpan(m.mood)
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        pushStyle(span)
+                        append(m.mood.label)
+                        pop()
+                        m.note?.let { pushStyle(androidx.compose.ui.text.SpanStyle(color = moodColor(m.mood))); append(" \u00B7 $it"); pop() }
+                    }
+                } ?: androidx.compose.ui.text.AnnotatedString("Not set")
                 Text(
-                    text = myMood?.let { m -> m.mood.label + (m.note?.let { " \u00B7 $it" } ?: "") } ?: "Not set",
+                    text = line,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = myMood?.let { moodColor(it.mood) } ?: colors.textFaint,
+                    color = if (myMood == null) colors.textFaint else androidx.compose.ui.graphics.Color.Unspecified,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -175,7 +184,7 @@ private fun PartnerMoodBody(partner: PartnerMoodUi) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(partner.mood.label, style = MaterialTheme.typography.headlineMedium, color = moodColor(partner.mood))
+                Text(partner.mood.label, style = moodStyle(partner.mood, MaterialTheme.typography.headlineMedium))
             }
         }
         if (partner.note != null) {

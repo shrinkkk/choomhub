@@ -41,6 +41,9 @@ import com.choomhub.app.core.designsystem.theme.ChoomHubRadii
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 
 private val PillPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)
+
+// For buttons sharing a row three or more abreast, so short labels stay on one line.
+private val CompactPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
 private val ButtonShape = RoundedCornerShape(ChoomHubRadii.Small)
 
 /** Main call-to-action: a filled lavender-purple pill. */
@@ -75,17 +78,18 @@ fun ChoomHubSecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    compact: Boolean = false,
 ) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
         shape = ButtonShape,
-        contentPadding = PillPadding,
+        contentPadding = if (compact) CompactPadding else PillPadding,
         border = BorderStroke(1.dp, ChoomHubTheme.colors.outline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = ChoomHubTheme.colors.lavender),
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge)
+        Text(text, style = MaterialTheme.typography.labelLarge, maxLines = if (compact) 1 else Int.MAX_VALUE, softWrap = !compact)
     }
 }
 

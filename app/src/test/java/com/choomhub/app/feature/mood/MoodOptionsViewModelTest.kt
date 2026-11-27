@@ -1,6 +1,7 @@
 package com.choomhub.app.feature.mood
 
 import com.choomhub.app.domain.model.Mood
+import com.choomhub.app.domain.model.coloured
 import com.choomhub.app.domain.model.MoodRules
 import com.choomhub.app.testing.FakeMoodRepository
 import kotlinx.coroutines.Dispatchers
@@ -57,5 +58,20 @@ class MoodOptionsViewModelTest {
         vm.remove(Mood.Calm.key)
         assertEquals("Keep at least one.", vm.state.value.error)
         assertEquals(listOf(Mood.Calm.option), repo.options.value)
+    }
+
+    @Test
+    fun `a mood's colour is set for both of you, and shows on the moods`() {
+        val vm = MoodOptionsViewModel(repo)
+        vm.setColour(Mood.MissingYou.key, "rainbow")
+        vm.setColour(Mood.Low.key, "blue.0")
+        assertEquals("rainbow", repo.options.value.first { it.key == Mood.MissingYou.key }.colour)
+        vm.setColour(Mood.Low.key, null)
+        assertEquals(null, repo.options.value.first { it.key == Mood.Low.key }.colour)
+        val moods = com.choomhub.app.domain.model.CoupleMoods(
+            null,
+            com.choomhub.app.domain.model.MoodUpdate(Mood.MissingYou.option, null, null),
+        ).coloured(repo.options.value)
+        assertEquals("rainbow", moods.partner?.mood?.colour)
     }
 }

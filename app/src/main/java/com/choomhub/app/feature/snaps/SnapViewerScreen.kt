@@ -98,6 +98,33 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
             modifier = Modifier.testTag("snap_unkeep_confirm"),
         ) { CatFace(if (forGood) CatExpression.Crying else CatExpression.Sad, Modifier.size(96.dp)) }
     }
+    val quick by viewModel.quick.collectAsStateWithLifecycle()
+    val tipSeen by viewModel.tipSeen.collectAsStateWithLifecycle()
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    var replacing by rememberSaveable { mutableStateOf<String?>(null) }
+    if (menuOpen) {
+        EmojiMenu(
+            quick = quick,
+            selected = state.snap?.myReaction,
+            showTip = !tipSeen,
+            onDismissTip = viewModel::dismissTip,
+            replacing = replacing,
+            onPick = {
+                viewModel.react(it)
+                menuOpen = false
+            },
+            onLongPress = { replacing = it },
+            onReplace = { i ->
+                replacing?.let { viewModel.replaceQuick(i, it) }
+                replacing = null
+            },
+            onCancelReplace = { replacing = null },
+            onDismiss = {
+                menuOpen = false
+                replacing = null
+            },
+        )
+    }
     val pickingSnap = state.snap
     if (picking && pickingSnap != null && confirmUnkeep == null) {
         KeepPicker(
@@ -157,20 +184,7 @@ fun SnapViewerScreen(contentPadding: PaddingValues, viewModel: SnapViewerViewMod
                     modifier = Modifier.testTag("snap_their_reaction"),
                 )
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    SnapRules.REACTIONS.forEach { r ->
-                        val selected = snap.myReaction == r
-                        Box(
-                            Modifier
-                                .clip(MaterialTheme.shapes.small)
-                                .background(if (selected) colors.pink.copy(alpha = 0.18f) else colors.surface)
-                                .border(1.dp, if (selected) colors.pink else colors.outline, MaterialTheme.shapes.small)
-                                .toggleable(value = selected, role = Role.Checkbox, onValueChange = { viewModel.react(r) })
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                                .testTag("react_$r"),
-                        ) { Text(r, style = MaterialTheme.typography.titleLarge) }
-                    }
-                }
+                QuickReactionRow(quick, snap.myReaction, onReact = viewModel::react, onMore = { menuOpen = true })
             }
             Spacer(Modifier.height(spacing.xl))
             val keptNames = state.collections.filter { it.id in snap.collections }.map { it.name }

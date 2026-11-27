@@ -5,6 +5,7 @@ import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.MoodUpdate
 import com.choomhub.app.domain.model.SpaceState
+import com.choomhub.app.domain.model.coloured
 import com.choomhub.app.domain.model.coupleIdOrNull
 import com.choomhub.app.domain.model.memberIdOrNull
 import com.choomhub.app.domain.repository.MoodRepository
@@ -36,7 +37,8 @@ class FirestoreMoodRepository @Inject constructor(
         if (coupleId == null || me == null) return@flatMapLatest flowOf(CoupleMoods(null, null))
         val partner = (space as? SpaceState.Paired)?.partnerUid
         val partnerFlow = if (partner == null) flowOf(null) else moodDoc(coupleId, partner).observe().map(::moodFrom)
-        combine(moodDoc(coupleId, me).observe().map(::moodFrom), partnerFlow, ::CoupleMoods)
+        val moods = combine(moodDoc(coupleId, me).observe().map(::moodFrom), partnerFlow, ::CoupleMoods)
+        combine(moods, optionsDoc(coupleId).observe().map(::optionsFrom)) { m, options -> m.coloured(options) }
     }.distinctUntilChanged()
 
     override suspend fun setMood(mood: MoodOption, note: String?) {
@@ -62,7 +64,7 @@ class FirestoreMoodRepository @Inject constructor(
         val me = space.memberIdOrNull ?: return
         optionsDoc(coupleId).set(
             mapOf(
-                "options" to options.map { mapOf("key" to it.key, "label" to it.label) },
+                "options" to options.map { o -> listOfNotNull("key" to o.key, "label" to o.label, o.colour?.let { "colour" to it }).toMap() },
                 "updatedBy" to me,
                 "updatedAt" to FieldValue.serverTimestamp(),
             ),
@@ -90,7 +92,7 @@ class FirestoreMoodRepository @Inject constructor(
                 val map = item as? Map<*, *> ?: return@mapNotNull null
                 val key = map["key"] as? String ?: return@mapNotNull null
                 val label = map["label"] as? String ?: return@mapNotNull null
-                MoodOption(key, label)
+                MoodOption(key, label, (map["colour"] as? String)?.takeIf { it.length <= 16 })
             }
             return options.ifEmpty { Mood.defaults }
         }

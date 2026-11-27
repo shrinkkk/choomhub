@@ -7,7 +7,18 @@ import java.time.Instant
  * edited (Settings → Moods); [key] identifies the choice and never changes,
  * [label] is what people see.
  */
-data class MoodOption(val key: String, val label: String)
+data class MoodOption(
+    val key: String,
+    val label: String,
+    /** The colour it's shown in (Settings → Moods): "blue.1", "rainbow", or null for its default. */
+    val colour: String? = null,
+)
+
+/** The same moods, with each one's colour taken from the space's list (matched by key). */
+fun CoupleMoods.coloured(options: List<MoodOption>): CoupleMoods {
+    fun MoodUpdate.fill() = copy(mood = mood.copy(colour = options.firstOrNull { it.key == mood.key }?.colour))
+    return CoupleMoods(mine?.fill(), partner?.fill())
+}
 
 /**
  * The default mood list, used until the space edits it. Kept free of UI

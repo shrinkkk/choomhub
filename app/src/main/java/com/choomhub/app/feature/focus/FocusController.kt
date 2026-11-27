@@ -53,9 +53,8 @@ class FocusController @Inject constructor(
     private fun today(): LocalDate = LocalDate.now(clock)
 
     suspend fun enter() {
-        val wasAway = repository.observeRoom().first().me.state == FocusState.Away
+        // Quiet: going in doesn't notify them (only a nudge does).
         val change = change { s, t -> FocusRules.enter(s, t, clock.instant()) }
-        if (wasAway && change.session.state == FocusState.Focusing) notifier.notifyPartner(PushEvent.FocusEntered)
         sync(change.session)
     }
 

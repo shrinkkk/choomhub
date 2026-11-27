@@ -249,12 +249,14 @@ class AppNavigationTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("mood_option_input").performTextInput("very sad")
         composeRule.onNodeWithTag("mood_option_add").performClick()
-        composeRule.onNodeWithTag("mood_options_defaults").performScrollTo().performClick()
+        // Through semantics: scrolled to the bottom, its centre can sit under the bottom bar.
+        composeRule.onNodeWithTag("mood_options_defaults").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithText("Restore the defaults?").assertIsDisplayed()
         composeRule.onNodeWithTag("dialog_confirm").performClick()
         composeRule.waitForIdle()
         assertTrue(fakeMoods.options.value.any { it.label == "very sad" })
-        composeRule.onNodeWithTag("mood_options_defaults").performScrollTo().performClick()
+        // Through semantics: scrolled to the bottom, its centre can sit under the bottom bar.
+        composeRule.onNodeWithTag("mood_options_defaults").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithTag("dialog_dismissive").performClick()
         composeRule.waitForIdle()
         assertTrue(fakeMoods.options.value.none { it.label == "very sad" })

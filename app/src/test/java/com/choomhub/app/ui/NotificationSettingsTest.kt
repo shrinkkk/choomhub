@@ -132,6 +132,14 @@ class NotificationSettingsTest {
         openSettings()
         composeRule.onNodeWithText("Signed in").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitForIdle()
+        // It asks first; staying changes nothing.
+        composeRule.onNodeWithTag("sign_out_dialog").assertExists()
+        composeRule.onNodeWithTag("dialog_dismissive").performClick()
+        composeRule.waitForIdle()
+        assertEquals(0, fakeNotifier.forgotten)
+        composeRule.onNodeWithText("Signed in").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("dialog_confirm").performClick()
+        composeRule.waitForIdle()
         assertEquals(1, fakeNotifier.forgotten)
     }
 

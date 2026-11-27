@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -43,7 +44,8 @@ import com.choomhub.app.core.designsystem.component.PillBadge
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
 import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.MoodOption
-import com.choomhub.app.feature.home.component.moodColor
+import com.choomhub.app.feature.home.component.moodStyle
+import com.choomhub.app.core.designsystem.component.InkPanel
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -63,6 +65,7 @@ fun MoodOptionsScreen(contentPadding: PaddingValues, viewModel: MoodOptionsViewM
         onAdd = viewModel::add,
         onRemove = viewModel::remove,
         onRestoreDefaults = viewModel::restoreDefaults,
+        onColour = viewModel::setColour,
     )
 }
 
@@ -74,9 +77,16 @@ fun MoodOptionsContent(
     onAdd: () -> Unit,
     onRemove: (String) -> Unit,
     onRestoreDefaults: () -> Unit,
+    onColour: (key: String, colour: String?) -> Unit = { _, _ -> },
 ) {
     val spacing = ChoomHubTheme.spacing
     val colors = ChoomHubTheme.colors
+    var colouring by rememberSaveable { mutableStateOf<String?>(null) }
+    state.options.firstOrNull { it.key == colouring }?.let { option ->
+        InkPanel({ colouring = null }, Modifier.testTag("mood_colour_picker")) {
+            MoodColourPickerContent(option.label, option.colour, { onColour(option.key, it) }, { colouring = null })
+        }
+    }
     // Restoring throws away every custom mood, so it asks first (as everything that undoes manual work does).
     var confirmRestore by rememberSaveable { mutableStateOf(false) }
     if (confirmRestore) {
@@ -127,7 +137,7 @@ fun MoodOptionsContent(
                 contentPadding = PaddingValues(horizontal = spacing.lg, vertical = spacing.xs),
             ) {
                 state.options.forEachIndexed { i, option ->
-                    OptionRow(option, onRemove = { onRemove(option.key) })
+                    OptionRow(option, onRemove = { onRemove(option.key) }, onColour = { colouring = option.key })
                     if (i < state.options.lastIndex) HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
                 }
             }
@@ -147,12 +157,15 @@ fun MoodOptionsContent(
 }
 
 @Composable
-private fun OptionRow(option: MoodOption, onRemove: () -> Unit) {
+private fun OptionRow(option: MoodOption, onRemove: () -> Unit, onColour: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = ChoomHubTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(option.label, style = MaterialTheme.typography.titleSmall, color = moodColor(option), modifier = Modifier.weight(1f))
+        // In a box, so the rainbow spreads over the word and not the whole row.
+        Box(Modifier.weight(1f)) { Text(option.label, style = moodStyle(option, MaterialTheme.typography.titleSmall)) }
+        ColourWheelButton(option.colour, onColour, Modifier.testTag("mood_option_colour_${option.label}"))
+        Spacer(Modifier.width(ChoomHubTheme.spacing.sm))
         PillBadge(
             text = "remove",
             color = ChoomHubTheme.colors.textSecondary,

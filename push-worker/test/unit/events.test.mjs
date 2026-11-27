@@ -60,6 +60,11 @@ test('points and reactions', () => {
   assert.equal(compose('points', { senderName: 'Shri', kind: '1', detail: '' }).title, 'Shri awarded you 1 point');
   assert.deepEqual(compose('points', { senderName: 'Shri', kind: '-3', detail: '', recipientRole: 'Good Girl' }), { title: 'Shri took away 3 of your Good Girl points', body: 'No reason given.' });
   assert.equal(parseRequest({ event: 'snap_reaction', kind: 'lol' }), null);
+  assert.equal(parseRequest({ event: 'snap_reaction', kind: '1' }), null);
+  assert.equal(parseRequest({ event: 'snap_reaction', kind: '\u{1F5A4}x' }), null);
+  for (const e of ['\u{1F5A4}', '\u{1F622}', '\u{1F62D}', '\u{1F525}', '\u2764\uFE0F', '\u{1F469}\u200D\u{1F4BB}', '\u{1F1EE}\u{1F1F3}', '\u{1F44D}\u{1F3FD}', '1\uFE0F\u20E3']) {
+    assert.equal(parseRequest({ event: 'snap_reaction', kind: e })?.kind, e, e);
+  }
   assert.equal(compose('snap_reaction', { senderName: 'Wren', kind: '\u{1F5A4}' }).title, 'Wren reacted \u{1F5A4} to your snap');
   const a = fcmMessage('f', 'points', { title: 't', body: 'b' }, '5').message.android.notification;
   assert.equal(a.channel_id, 'points');
@@ -84,8 +89,8 @@ test('fcmMessage targets the installation and the right channel', () => {
 });
 
 test('focus room events go on the focus channel and read plainly', () => {
-  assert.deepEqual(parseRequest({ event: 'focus_enter' }), { event: 'focus_enter', detail: '', kind: null });
-  assert.equal(compose('focus_enter', { senderName: 'Rook' }).title, 'Rook has entered the focus room');
+  // Entering is quiet now; only nudges notify.
+  assert.equal(parseRequest({ event: 'focus_enter' }), null);
   assert.equal(compose('focus_nudge', { senderName: 'Wren' }).title, 'Wren wants you in the focus room');
   assert.equal(compose('jam', { senderName: 'Wren' }).title, 'Wren left a jam in the record player');
   const msg = fcmMessage('fid1', 'focus_nudge', compose('focus_nudge', {}));

@@ -15,8 +15,26 @@ export const Channels = Object.freeze({
   general: 'general',
 });
 
-/** Snap reactions; must match SnapRules.REACTIONS in the app and the Firestore rules. */
-export const Reactions = Object.freeze(['\u{1F5A4}', '\u{1F97A}', '\u{1F62D}', '\u{1F602}', '\u{1F525}', '\u{1F345}']);
+/**
+ * True for one emoji (a single picture, with any joiners, variation selectors, skin tones,
+ * flags or keycaps that make it up). Snap reactions can be any emoji; the Firestore rules
+ * apply the same length cap.
+ */
+const PICTURES = [[0xA9, 0xA9], [0xAE, 0xAE], [0x203C, 0x203C], [0x2049, 0x2049], [0x2122, 0x2122], [0x2139, 0x2139], [0x2194, 0x2199], [0x21A9, 0x21AA], [0x231A, 0x231B], [0x2328, 0x2328], [0x23CF, 0x23CF], [0x23E9, 0x23F3], [0x23F8, 0x23FA], [0x24C2, 0x24C2], [0x25AA, 0x25AB], [0x25B6, 0x25B6], [0x25C0, 0x25C0], [0x25FB, 0x25FE], [0x2600, 0x27BF], [0x2934, 0x2935], [0x2B05, 0x2B07], [0x2B1B, 0x2B1C], [0x2B50, 0x2B50], [0x2B55, 0x2B55], [0x3030, 0x3030], [0x303D, 0x303D], [0x3297, 0x3297], [0x3299, 0x3299], [0x1F000, 0x1FAFF]];
+const isPicture = (cp) => PICTURES.some(([a, b]) => cp >= a && cp <= b);
+const isPart = (cp) => cp === 0x200d || cp === 0xfe0e || cp === 0xfe0f || cp === 0x20e3 || (cp >= 0xe0020 && cp <= 0xe007f)
+  || (cp >= 0x30 && cp <= 0x39) || cp === 0x23 || cp === 0x2a;
+
+export function isEmoji(text) {
+  if (typeof text !== 'string' || text.length === 0 || text.length > 16) return false;
+  let picture = false;
+  for (const ch of text) {
+    const cp = ch.codePointAt(0);
+    if (isPicture(cp) || cp === 0x20e3) picture = true;
+    else if (!isPart(cp)) return false;
+  }
+  return picture;
+}
 
 /** Gesture kinds the app may name; must match AffectionKind in the app. */
 export const Gestures = Object.freeze(['hug', 'forehead_kiss', 'head_pats', 'tomato']);
@@ -45,10 +63,9 @@ export const Events = Object.freeze({
   gesture: { category: 'gestures', channel: Channels.gestures, tag: null, toSelf: false, takesDetail: false, kinds: Gestures },
   // Data-only, so the app wakes up for it (to refresh the home-screen widget) and shows it itself.
   snap: { category: 'snaps', channel: Channels.snaps, tag: 'snap', toSelf: false, takesDetail: true, dataOnly: true },
-  snap_reaction: { category: 'snaps', channel: Channels.snaps, tag: 'snap_reaction', toSelf: false, takesDetail: false, kinds: Reactions },
+  snap_reaction: { category: 'snaps', channel: Channels.snaps, tag: 'snap_reaction', toSelf: false, takesDetail: false, kinds: 'emoji' },
   points: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: 'amount' },
   mood: { category: 'moods', channel: Channels.moods, tag: 'mood', toSelf: false, takesDetail: true, kinds: 'label' },
-  focus_enter: { category: 'focus', channel: Channels.focus, tag: 'focus_enter', toSelf: false, takesDetail: false },
   focus_nudge: { category: 'focus', channel: Channels.focus, tag: 'focus_nudge', toSelf: false, takesDetail: false },
   jam: { category: 'focus', channel: Channels.focus, tag: 'jam', toSelf: false, takesDetail: false },
   pet_help: { category: 'pet', channel: Channels.pet, tag: 'pet_help', toSelf: false, takesDetail: true, kinds: ['vet', 'bath'] },
@@ -77,6 +94,9 @@ export function parseRequest(body) {
     const n = Number(kind);
     if (n === 0 || n < -10 || n > 10) return null;
     cleanKind = String(Number(kind));
+  } else if (spec.kinds === 'emoji') {
+    if (!isEmoji(kind)) return null;
+    cleanKind = kind;
   } else if (spec.kinds === 'label') {
     cleanKind = typeof kind === 'string' ? clean(kind, MAX_MOOD_LABEL) : '';
     if (!cleanKind) return null;
@@ -137,8 +157,6 @@ export function compose(event, ctx) {
       const label = clean(ctx.kind || '', MAX_MOOD_LABEL) || 'Something new';
       return { title: `${who} updated their mood`, body: ctx.detail ? `${label} \u00b7 ${ctx.detail}` : label };
     }
-    case 'focus_enter':
-      return { title: `${who} has entered the focus room`, body: 'Their stopwatch is running.' };
     case 'focus_nudge':
       return { title: `${who} wants you in the focus room`, body: "There's a desk waiting for you." };
     case 'song':
@@ -206,7 +224,7 @@ export function fcmMessage(fid, event, text, kind = null) {
   const spec = Events[event];
   // Points stack (each award is its own notification); gestures collapse per kind.
   const tag = spec.tag ?? (event === 'points' ? `points_${Date.now()}` : `${event}_${kind}`);
-  const kindData = kind && Array.isArray(spec.kinds) ? { kind } : {};
+  const kindData = kind && (Array.isArray(spec.kinds) || spec.kinds === 'emoji') ? { kind } : {};
   return {
     message: {
       fid,

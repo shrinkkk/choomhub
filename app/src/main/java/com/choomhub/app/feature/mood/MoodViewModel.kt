@@ -43,7 +43,8 @@ class MoodViewModel @Inject constructor(
             val mine = moodRepository.observeMoods().first().mine
             if (mine != null) {
                 current = mine.mood to mine.note
-                _state.update { s -> if (s.selected == null && s.note.isEmpty()) s.copy(selected = mine.mood, note = mine.note.orEmpty()) else s }
+                // The line about it always starts empty: a new mood gets a new line.
+                _state.update { s -> if (s.selected == null) s.copy(selected = mine.mood) else s }
             }
             moodRepository.observeOptions().collect { options ->
                 _state.update { s ->
@@ -66,14 +67,16 @@ class MoodViewModel @Inject constructor(
             return
         }
         val note = MoodRules.cleanNote(s.note)
-        if (current == mood to note) {
+        if (current?.first?.key == mood.key && current?.second == note) {
             _state.update { it.copy(done = true) }
             return
         }
+        val changedMood = current?.first?.key != mood.key
         current = mood to note
         viewModelScope.launch {
             moodRepository.setMood(mood, note)
-            notifier.notifyPartner(PushEvent.MoodChanged, detail = note, kind = mood.label)
+            // Only clearing the line on the same mood isn't worth a notification.
+            if (changedMood || note != null) notifier.notifyPartner(PushEvent.MoodChanged, detail = note, kind = mood.label)
             _state.update { it.copy(done = true) }
         }
     }

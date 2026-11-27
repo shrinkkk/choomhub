@@ -118,13 +118,13 @@ class FocusRoomFlowTest {
     }
 
     @Test
-    fun enteringStartsTheStopwatchAndTellsThem() {
+    fun enteringStartsTheStopwatchQuietly() {
         capture("activities_focus_card")
         enterRoom()
         composeRule.onNodeWithTag("screen_focus_room").assertIsDisplayed()
         composeRule.onNodeWithTag(TopLevelDestination.Home.testTag).assertDoesNotExist()
         assertEquals(FocusState.Focusing, focus.room.value.me.state)
-        assertEquals(listOf(PushEvent.FocusEntered), notifier.sent.map { it.first })
+        assertTrue(notifier.sent.isEmpty())
         capture("focus_room_in")
     }
 

@@ -49,15 +49,28 @@ class MoodViewModelTest {
     }
 
     @Test
-    fun `opens on your current mood, and saving it unchanged notifies no one`() {
-        val repo = FakeMoodRepository(CoupleMoods(MoodUpdate(Mood.Calm.option, "tea", null), null))
+    fun `opens on your current mood with an empty line, and saving it unchanged notifies no one`() {
+        val repo = FakeMoodRepository(CoupleMoods(MoodUpdate(Mood.Calm.option, null, null), null))
         val vm = MoodViewModel(repo, notifier)
         assertEquals(Mood.Calm.option, vm.state.value.selected)
-        assertEquals("tea", vm.state.value.note)
+        assertEquals("", vm.state.value.note)
         vm.save()
         assertTrue(vm.state.value.done)
         assertEquals(0, repo.saves)
         assertTrue(notifier.sent.isEmpty())
+    }
+
+    @Test
+    fun `the old line isn't brought back, and nothing changes until Save`() {
+        val repo = FakeMoodRepository(CoupleMoods(MoodUpdate(Mood.Calm.option, "tea", null), null))
+        val vm = MoodViewModel(repo, notifier)
+        assertEquals("", vm.state.value.note)
+        vm.select(Mood.Wired.option)
+        vm.onNoteChange("too much coffee")
+        assertEquals(Mood.Calm.option, repo.moods.value.mine?.mood)
+        vm.save()
+        assertEquals(Mood.Wired.option, repo.moods.value.mine?.mood)
+        assertEquals("too much coffee", repo.moods.value.mine?.note)
     }
 
     @Test

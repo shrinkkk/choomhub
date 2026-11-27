@@ -151,6 +151,7 @@ fun SettingsContent(
     val colors = ChoomHubTheme.colors
     var renaming by rememberSaveable { mutableStateOf(false) }
     var confirmingLeave by rememberSaveable { mutableStateOf(false) }
+    var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
     // Once you've left, the space is gone from here; close the confirmation.
     if (confirmingLeave && space !is SpaceState.Waiting && space !is SpaceState.Paired) confirmingLeave = false
 
@@ -253,7 +254,7 @@ fun SettingsContent(
                         value = account.email ?: "Google account",
                         badge = "sign out",
                         badgeColor = colors.textSecondary,
-                        onClick = onSignOut,
+                        onClick = { confirmingSignOut = true },
                         divider = space !is SpaceState.Waiting && space !is SpaceState.Paired,
                     )
                 }
@@ -286,6 +287,9 @@ fun SettingsContent(
             }
             Spacer(Modifier.height(spacing.lg))
         }
+    }
+    if (confirmingSignOut) {
+        com.choomhub.app.feature.account.SignOutDialog(onSignOut = onSignOut, onDismiss = { confirmingSignOut = false })
     }
     if (confirmingLeave) {
         val partner = names.partnerName ?: "them"

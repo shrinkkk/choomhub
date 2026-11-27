@@ -41,6 +41,7 @@ import com.choomhub.app.core.designsystem.theme.ChoomHubTheme
 import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.MoodRules
 import com.choomhub.app.feature.home.component.moodColor
+import com.choomhub.app.feature.home.component.moodStyle
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -130,11 +131,12 @@ private fun MoodChip(mood: MoodOption, selected: Boolean, onClick: () -> Unit) {
         Modifier
             .clip(shape)
             .background(if (selected) accent.copy(alpha = 0.16f) else colors.surface)
-            .border(1.dp, if (selected) accent else colors.outline, shape)
+            .border(1.dp, if (selected) colors.bone.copy(alpha = 0.7f) else accent.copy(alpha = 0.35f), shape)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .testTag("mood_${mood.key}"),
     ) {
-        Text(mood.label, style = MaterialTheme.typography.titleSmall, color = if (selected) accent else colors.textSecondary)
+        // Every mood shows in its own colour, so the list previews how it'll look on their Home.
+        Text(mood.label, style = moodStyle(mood, MaterialTheme.typography.titleSmall))
     }
 }

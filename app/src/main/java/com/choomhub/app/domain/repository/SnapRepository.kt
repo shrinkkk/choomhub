@@ -29,7 +29,7 @@ interface SnapRepository {
     /** Creates a collection and returns its id, or null if there's no space. */
     suspend fun createCollection(name: String): String?
 
-    /** Your reaction to a snap (one of [com.choomhub.app.domain.model.SnapRules.REACTIONS]); null removes it. */
+    /** Your reaction to a snap (any one emoji, see [com.choomhub.app.domain.model.SnapRules.isReaction]); null removes it. */
     suspend fun react(snapId: String, reaction: String?)
 
     /** Which collections a snap is kept in. To take it out of one, use [removeFromCollection]. */

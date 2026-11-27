@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.choomhub.app.data.snap.QuickReactions
 import com.choomhub.app.data.snap.SeenSnaps
 import com.choomhub.app.domain.model.SnapCollection
 import com.choomhub.app.domain.model.SnapInfo
@@ -40,7 +41,24 @@ class SnapViewerViewModel @Inject constructor(
     profileRepository: ProfileRepository,
     private val seenSnaps: SeenSnaps,
     private val notifier: Notifier,
+    private val quickReactions: QuickReactions,
 ) : ViewModel() {
+
+    /** Your four quick reactions. */
+    val quick: StateFlow<List<String>> = quickReactions.observe()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SnapRules.QUICK_DEFAULT)
+
+    /** Whether you've dismissed the long-press tip in the emoji menu. */
+    val tipSeen: StateFlow<Boolean> = quickReactions.observeTipSeen()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun replaceQuick(index: Int, emoji: String) {
+        viewModelScope.launch { quickReactions.replace(index, emoji) }
+    }
+
+    fun dismissTip() {
+        viewModelScope.launch { quickReactions.markTipSeen() }
+    }
 
     val snapId: String = savedStateHandle.toRoute<SnapViewerRoute>().id
 
@@ -71,7 +89,7 @@ class SnapViewerViewModel @Inject constructor(
     /** React to their snap; tapping your current reaction again removes it. */
     fun react(reaction: String) {
         val snap = state.value.snap ?: return
-        if (snap.fromMe || reaction !in SnapRules.REACTIONS) return
+        if (snap.fromMe || !SnapRules.isReaction(reaction)) return
         val next = if (snap.myReaction == reaction) null else reaction
         viewModelScope.launch {
             snapRepository.react(snap.id, next)

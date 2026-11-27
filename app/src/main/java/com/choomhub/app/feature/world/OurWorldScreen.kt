@@ -187,7 +187,6 @@ fun OurWorldScreen(contentPadding: PaddingValues, onOpenSnap: (String) -> Unit, 
                     )
                 }
             }
-            item(key = "soon") { StillToCome() }
         }
     }
 }
@@ -234,22 +233,6 @@ private fun EmptyLane() {
             style = MaterialTheme.typography.bodySmall,
             color = colors.textSecondary,
         )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun StillToCome() {
-    val colors = ChoomHubTheme.colors
-    val spacing = ChoomHubTheme.spacing
-    ChoomHubCard(modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.screenGutter).padding(top = spacing.xl), tone = CardTone.Calm) {
-        Text("STILL TO COME", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
-        Spacer(Modifier.height(spacing.md))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            listOf("Shared room", "Photo wall", "The cat", "Milestones", "Tomato garden", "Soundtrack").forEach {
-                PillBadge(text = it, color = colors.lavender)
-            }
-        }
     }
 }
 

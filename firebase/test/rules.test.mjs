@@ -297,13 +297,20 @@ describe('snaps and Memory Lane', () => {
     await assertSucceeds(cleanup.commit());
   });
 
-  test('you react to a snap with one of the reactions, only as yourself', async () => {
+  test('you react to a snap with any one emoji, only as yourself', async () => {
     await send('alice', 's1');
     const ref = (uid) => doc(db(uid), 'couples/c1/snaps/s1');
     await assertSucceeds(updateDoc(ref('bob'), { reactions: { bob: '\u{1F5A4}' } }));
     await assertSucceeds(updateDoc(ref('alice'), { reactions: { bob: '\u{1F5A4}', alice: '\u{1F345}' } }));
     await assertFails(updateDoc(ref('bob'), { reactions: { bob: '\u{1F5A4}', alice: '\u{1F525}' } }));
     await assertFails(updateDoc(ref('bob'), { reactions: { bob: 'lol', alice: '\u{1F345}' } }));
+    // Any one emoji: skin tones, joined emoji, flags and keycaps too; never plain text.
+    for (const e of ['\u{1F622}', '\u2764\uFE0F', '\u{1F469}\u200D\u{1F4BB}', '\u{1F1EE}\u{1F1F3}', '\u{1F44D}\u{1F3FD}', '1\uFE0F\u20E3']) {
+      await assertSucceeds(updateDoc(ref('bob'), { reactions: { bob: e, alice: '\u{1F345}' } }));
+    }
+    await assertFails(updateDoc(ref('bob'), { reactions: { bob: '1', alice: '\u{1F345}' } }));
+    await assertFails(updateDoc(ref('bob'), { reactions: { bob: '\u{1F5A4}a', alice: '\u{1F345}' } }));
+    await assertFails(updateDoc(ref('bob'), { reactions: { bob: '\u{1F5A4}'.repeat(9), alice: '\u{1F345}' } }));
     await assertSucceeds(updateDoc(ref('bob'), { reactions: { alice: '\u{1F345}' } }));
     await assertFails(updateDoc(ref('mallory'), { reactions: { mallory: '\u{1F5A4}' } }));
   });

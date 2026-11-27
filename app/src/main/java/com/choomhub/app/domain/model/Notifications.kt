@@ -12,7 +12,7 @@ enum class NotificationCategory(val key: String, val channelId: String, val labe
     Moods("moods", "moods", "Moods", "When they change their mood"),
     Meetup("meetup", "meetup", "Meetup", "When the next meetup is set, moved or cleared"),
     Space("space", "space", "Space", "When they join, or change what they call you"),
-    Focus("focus", "focus", "Focus room", "When they enter the focus room, nudge you, or leave a jam"),
+    Focus("focus", "focus", "Focus room", "When they nudge you to the focus room or leave a jam"),
     Pet("pet", "pet", "Pet House", "When they need your help with the cat, and when it needs something"),
     Songs("songs", "songs", "Songs", "When they send you a song or rate yours"),
 }
@@ -37,7 +37,6 @@ enum class PushEvent(val wire: String, val collapseKey: String) {
     SnapSent("snap", "snap"),
     SnapReaction("snap_reaction", "snap_reaction"),
     PointsAwarded("points", "points"),
-    FocusEntered("focus_enter", "focus_enter"),
     FocusNudge("focus_nudge", "focus_nudge"),
     JamLeft("jam", "jam"),
     PetHelp("pet_help", "pet_help"),

@@ -13,6 +13,7 @@ import com.choomhub.app.domain.model.GestureResult
 import com.choomhub.app.domain.model.Mood
 import com.choomhub.app.domain.model.MoodOption
 import com.choomhub.app.domain.model.MoodUpdate
+import com.choomhub.app.domain.model.coloured
 import com.choomhub.app.domain.repository.GestureRepository
 import com.choomhub.app.domain.repository.MoodRepository
 import kotlinx.coroutines.flow.Flow
@@ -36,7 +37,8 @@ class LocalMoodRepository @Inject constructor(
             val key = prefs[MOOD]
             val label = prefs[LABEL] ?: Mood.fromKey(key)?.label
             val mine = if (key != null && label != null) MoodUpdate(MoodOption(key, label), prefs[NOTE], prefs[AT]?.let(Instant::ofEpochMilli)) else null
-            CoupleMoods(mine, partner = null)
+            val options = prefs[OPTIONS]?.let(::decode)?.ifEmpty { null } ?: Mood.defaults
+            CoupleMoods(mine, partner = null).coloured(options)
         }
 
     override fun observeOptions(): Flow<List<MoodOption>> = dataStore.data
@@ -64,11 +66,11 @@ class LocalMoodRepository @Inject constructor(
         val OPTIONS = stringPreferencesKey("mood_options")
 
         // Unit/record separators can't be typed into a label, so they're safe delimiters.
-        fun encode(options: List<MoodOption>) = options.joinToString("\u001E") { "${it.key}\u001F${it.label}" }
+        fun encode(options: List<MoodOption>) = options.joinToString("\u001E") { "${it.key}\u001F${it.label}" + (it.colour?.let { c -> "\u001F$c" } ?: "") }
 
         fun decode(text: String) = text.split('\u001E').mapNotNull { row ->
             val parts = row.split('\u001F')
-            if (parts.size == 2 && parts[0].isNotEmpty() && parts[1].isNotEmpty()) MoodOption(parts[0], parts[1]) else null
+            if (parts.size in 2..3 && parts[0].isNotEmpty() && parts[1].isNotEmpty()) MoodOption(parts[0], parts[1], parts.getOrNull(2)?.ifEmpty { null }) else null
         }
     }
 }

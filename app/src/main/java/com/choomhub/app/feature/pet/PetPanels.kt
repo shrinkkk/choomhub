@@ -422,7 +422,7 @@ private fun PettingPanel(ui: PetUi, onAct: (PetAction) -> PetOutcome, onDismiss:
         ResultLine(result)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             listOf("Head", "Back", "Belly").forEachIndexed { i, label ->
-                ChoomHubSecondaryButton(label, { stroke(i, null) }, Modifier.weight(1f).testTag("pet_zone_$i"))
+                ChoomHubSecondaryButton(label, { stroke(i, null) }, Modifier.weight(1f).testTag("pet_zone_$i"), compact = true)
             }
         }
         DoneButton(onDismiss)

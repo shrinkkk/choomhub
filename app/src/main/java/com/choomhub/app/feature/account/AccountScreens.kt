@@ -20,6 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -124,8 +127,12 @@ fun PairingContent(
         ErrorLine(state.error)
 
         Spacer(Modifier.height(spacing.xl))
-        TextButton(onClick = onSignOut, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+        var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
+        TextButton(onClick = { confirmingSignOut = true }, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("pairing_sign_out")) {
             Text("SIGN OUT", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
+        }
+        if (confirmingSignOut) {
+            SignOutDialog(onSignOut, { confirmingSignOut = false }, "You can sign back in any time and carry on from here.")
         }
     }
 }

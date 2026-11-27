@@ -157,16 +157,6 @@ fun ActivitiesScreen(
             }
             Spacer(Modifier.height(spacing.xl))
             ShopCard(shop, onOpenShop)
-            Spacer(Modifier.height(spacing.xl))
-            ChoomHubCard(modifier = Modifier.fillMaxWidth(), tone = CardTone.Calm) {
-                Text("STILL TO COME", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
-                Spacer(Modifier.height(spacing.md))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    listOf("Daily check-ins", "Daily questions", "Achievements", "Mini-games").forEach {
-                        PillBadge(text = it, color = colors.lavender)
-                    }
-                }
-            }
             Spacer(Modifier.height(spacing.xxl))
         }
     }

@@ -18,7 +18,7 @@ data class SnapInfo(
     val thumb: ByteArray?,
     /** Memory Lane collections it's kept in. Kept snaps are never replaced. */
     val collections: List<String>,
-    /** Reactions, one each: yours and theirs (see [SnapRules.REACTIONS]). */
+    /** Reactions, one each: yours and theirs (any emoji, see [SnapRules.isReaction]). */
     val myReaction: String? = null,
     val partnerReaction: String? = null,
 ) {
@@ -44,7 +44,67 @@ sealed interface SnapSendResult {
 
 object SnapRules {
     /** The reactions on offer; the rules and the push Worker accept only these. */
-    val REACTIONS = listOf("\uD83D\uDDA4", "\uD83E\uDD7A", "\uD83D\uDE2D", "\uD83D\uDE02", "\uD83D\uDD25", "\uD83C\uDF45")
+    /** The four quick reactions you start with; each of you can swap them for any emoji. */
+    val QUICK_DEFAULT = listOf("\uD83D\uDDA4", "\uD83D\uDE2D", "\uD83D\uDE22", "\uD83D\uDD25")
+    const val QUICK_COUNT = 4
+
+    /** At most this many UTF-16 units: room for flags, skin tones and joined emoji. */
+    const val MAX_REACTION_LENGTH = 16
+
+    /**
+     * Whether [text] is one emoji: symbols plus the joiners, variation selectors, skin tones
+     * and keycap marks that build them, with at least one picture in it. Mirrors the Worker
+     * and the Firestore rules.
+     */
+    fun isReaction(text: String): Boolean {
+        if (text.isEmpty() || text.length > MAX_REACTION_LENGTH) return false
+        var picture = false
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            when {
+                PICTURES.any { cp in it } || cp == 0x20E3 -> picture = true
+                cp == 0x200D || cp == 0xFE0E || cp == 0xFE0F || cp in 0xE0020..0xE007F -> Unit
+                cp in 0x30..0x39 || cp == '#'.code || cp == '*'.code -> Unit
+                else -> return false
+            }
+            i += Character.charCount(cp)
+        }
+        return picture
+    }
+
+    /** Code points that are emoji pictures (the same list as the rules and the Worker). */
+    private val PICTURES = listOf(
+        0xA9..0xA9,
+        0xAE..0xAE,
+        0x203C..0x203C,
+        0x2049..0x2049,
+        0x2122..0x2122,
+        0x2139..0x2139,
+        0x2194..0x2199,
+        0x21A9..0x21AA,
+        0x231A..0x231B,
+        0x2328..0x2328,
+        0x23CF..0x23CF,
+        0x23E9..0x23F3,
+        0x23F8..0x23FA,
+        0x24C2..0x24C2,
+        0x25AA..0x25AB,
+        0x25B6..0x25B6,
+        0x25C0..0x25C0,
+        0x25FB..0x25FE,
+        0x2600..0x27BF,
+        0x2934..0x2935,
+        0x2B05..0x2B07,
+        0x2B1B..0x2B1C,
+        0x2B50..0x2B50,
+        0x2B55..0x2B55,
+        0x3030..0x3030,
+        0x303D..0x303D,
+        0x3297..0x3297,
+        0x3299..0x3299,
+        0x1F000..0x1FAFF,
+    )
 
     const val MAX_CAPTION = 140
     const val MAX_COLLECTION_NAME = 40
