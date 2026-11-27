@@ -157,18 +157,17 @@ internal val FilmOrange = Color(0xFFFF9838)
  */
 @Composable
 internal fun FilmStamp(text: String, size: androidx.compose.ui.unit.TextUnit, modifier: Modifier = Modifier) {
-    // A little smaller than [size], and squat: each dot is wider than it is tall.
+    // A little smaller than [size]; square dots, the figures set just a touch further apart.
     val height = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() } * 0.62f
-    val cellH = height / 7f
-    val cellW = cellH * 1.45f
-    val width = cellW * text.sumOf { (FilmGlyphs[it]?.first()?.length ?: 3) + 1 }.minus(1).coerceAtLeast(1)
+    val cell = height / 7f
+    val width = cell * (text.sumOf { (FilmGlyphs[it]?.first()?.length ?: 3).toDouble() + FILM_GAP }.toFloat() - FILM_GAP)
     Canvas(
         modifier.size(width, height)
             .semantics { contentDescription = "Taken at $text" }
             .testTag("film_stamp"),
     ) {
         val ch = this.size.height / 7f
-        val cw = ch * 1.45f
+        val cw = ch
         var x = 0f
         text.forEach { glyph ->
             val rows = FilmGlyphs[glyph] ?: List(7) { "   " }
@@ -195,10 +194,13 @@ internal fun FilmStamp(text: String, size: androidx.compose.ui.unit.TextUnit, mo
                     }
                 }
             }
-            x += (rows.first().length + 1) * cw
+            x += (rows.first().length + FILM_GAP) * cw
         }
     }
 }
+
+/** Space between the figures, in dots: a little more than one. */
+private const val FILM_GAP = 1.4f
 
 /** The film stamp's figures, five by seven ('1' is a dot). */
 private val FilmGlyphs: Map<Char, List<String>> = mapOf(
