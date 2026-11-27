@@ -37,6 +37,7 @@ import com.choomhub.app.ui.screenshotDir
 import androidx.compose.runtime.CompositionLocalProvider
 import org.junit.Rule
 import org.junit.Test
+import com.choomhub.app.domain.model.SongKind
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -44,7 +45,7 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(qualifiers = "w1700dp-h1500dp-xxhdpi")
+@Config(qualifiers = "w2200dp-h1500dp-xhdpi")
 class SongDesignPreviewTest {
     @get:Rule val rule = createComposeRule()
 
@@ -103,14 +104,25 @@ class SongDesignPreviewTest {
                         Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Label("5 · Send pop-up: paste a link")
                             InkPanelCard { SendSongContent(SendSongState.Link(), "Jas", {}, {}, {}, {}, {}) }
-                            Label("6 · Not a song link")
-                            InkPanelCard { SendSongContent(SendSongState.Link("https://open.spotify.com/playlist/37i9", "That's a playlist. Share a single song."), "Jas", {}, {}, {}, {}, {}) }
+                            Label("6 · Not a music link")
+                            InkPanelCard { SendSongContent(SendSongState.Link("https://open.spotify.com/artist/0TnOYISbd1XYRBk9myaseg", "That's an artist. Share a song, album or playlist of theirs."), "Jas", {}, {}, {}, {}, {}) }
                         }
                         Column(Modifier.width(380.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Label("7 · Found (also what Share → ChoomHub opens)")
                             InkPanelCard { SendSongContent(SendSongState.Found("Static Bloom", "Kestrel & Co", teal), "Jas", {}, {}, {}, {}, {}) }
                             Label("8 · Looking it up")
                             InkPanelCard { SendSongContent(SendSongState.Looking, "Jas", {}, {}, {}, {}, {}) }
+                            Label("9 · Found a playlist")
+                            InkPanelCard { SendSongContent(SendSongState.Found("Rainy Day Drives", "Jas", violet, SongKind.Playlist), "Jas", {}, {}, {}, {}, {}) }
+                        }
+                        Column(Modifier.width(400.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                            Label("10 · An album, rated")
+                            SongSection(SongUi("Global Warming", "Pitbull", teal, "1h ago", isNew = false, myRating = 9, kind = SongKind.Album), SentSongUi("Rainy Day Drives", null, SongKind.Playlist), "Jas", {}, {}, {})
+                            Label("11 · A playlist, new")
+                            SongSection(SongUi("Rainy Day Drives", "Jas", violet, "5m ago", isNew = true, myRating = null, kind = SongKind.Playlist), SentSongUi("Global Warming", 9, SongKind.Album), "Jas", {}, {}, {})
+                            Label("Notifications")
+                            Notification("Jas sent you an album", "Global Warming · Pitbull")
+                            Notification("Jas rated your playlist 7/10", "Rainy Day Drives")
                         }
                     }
                 }

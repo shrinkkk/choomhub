@@ -1,5 +1,7 @@
 package com.choomhub.app.feature.home.component
 
+import com.choomhub.app.core.designsystem.component.GestureRow
+import com.choomhub.app.core.designsystem.component.OneLineText
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -265,7 +267,7 @@ internal fun LatestSnapSection(
                     modifier = Modifier.weight(1f),
                 )
                 TextButton(onClick = onTakePhoto, modifier = Modifier.testTag("snap_camera")) {
-                    Text("TAKE A SNAP", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                    OneLineText("TAKE A SNAP", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
                 }
             }
         }
@@ -319,13 +321,11 @@ internal fun GestureSection(
     Column(modifier.fillMaxWidth()) {
         SectionHeader(title = "Send something", eyebrow = "gestures")
         Spacer(Modifier.height(ChoomHubTheme.spacing.md))
-        Row(
-            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.sm),
-        ) {
+        GestureRow(AffectionKind.entries.map { it.label }, rowModifier = Modifier.height(IntrinsicSize.Min)) { labelStyle ->
             AffectionKind.entries.forEach { kind ->
                 GestureButton(
                     label = kind.label,
+                    labelStyle = labelStyle,
                     icon = when (kind) {
                         AffectionKind.Hug -> GestureIcons.Hug
                         AffectionKind.ForeheadKiss -> GestureIcons.ForeheadKiss
@@ -538,10 +538,10 @@ private fun PointsForm(
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onCancel) {
-                Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
             TextButton(onClick = submit, modifier = Modifier.testTag("award_give")) {
-                Text(if (takeAway) "TAKE AWAY" else "AWARD", style = MaterialTheme.typography.labelLarge, color = colors.pink)
+                OneLineText(if (takeAway) "TAKE AWAY" else "AWARD", style = MaterialTheme.typography.labelLarge, color = colors.pink)
             }
         }
     }

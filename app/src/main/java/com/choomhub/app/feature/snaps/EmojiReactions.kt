@@ -1,5 +1,9 @@
 package com.choomhub.app.feature.snaps
 
+import com.choomhub.app.core.designsystem.component.OneLineText
+import com.choomhub.app.core.designsystem.icon.PointIcons
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,7 +75,11 @@ private fun ReactionChip(text: String, selected: Boolean, plus: Boolean = false,
         contentAlignment = Alignment.Center,
     ) {
         if (plus) {
-            Text("+", style = MaterialTheme.typography.titleLarge, color = colors.lavender, modifier = Modifier.padding(horizontal = 4.dp))
+            // Same height as an emoji chip, with the thick plus from the points card dead centre.
+            val line = with(LocalDensity.current) { MaterialTheme.typography.titleLarge.lineHeight.toDp() }
+            Box(Modifier.size(line + 8.dp, line), contentAlignment = Alignment.Center) {
+                Icon(PointIcons.Plus, contentDescription = "More reactions", tint = colors.lavender, modifier = Modifier.size(20.dp))
+            }
         } else {
             Text(text, style = MaterialTheme.typography.titleLarge)
         }
@@ -118,7 +126,7 @@ fun ColumnScope.EmojiMenuContent(
                 color = colors.candle,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onDismissTip) { Text("GOT IT", style = MaterialTheme.typography.labelLarge, color = colors.candle) }
+            TextButton(onDismissTip) { OneLineText("GOT IT", style = MaterialTheme.typography.labelLarge, color = colors.candle) }
         }
         Spacer(Modifier.height(spacing.md))
     }
@@ -207,7 +215,7 @@ fun ColumnScope.ReplaceQuickContent(emoji: String, quick: List<String>, onReplac
         }
     }
     Spacer(Modifier.height(spacing.lg))
-    TextButton(onCancel, Modifier.fillMaxWidth()) { Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+    TextButton(onCancel, Modifier.fillMaxWidth()) { OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
 }
 
 /** The emoji menu as a pop-up, switching to "which one does it replace?" after a long-press. */

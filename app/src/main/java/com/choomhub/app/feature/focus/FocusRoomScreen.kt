@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.focus
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -172,16 +173,16 @@ fun FocusRoomScreen(contentPadding: PaddingValues, onLeft: () -> Unit, viewModel
             }
             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = viewModel::toggleSound, modifier = Modifier.testTag("focus_sound")) {
-                    Text(if (soundOn) "♪ FIRE + RAIN: ON" else "♪ FIRE + RAIN: OFF", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
+                    OneLineText(if (soundOn) "♪ FIRE + RAIN: ON" else "♪ FIRE + RAIN: OFF", ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
                 }
                 if (!dndAllowed) {
                     TextButton(onClick = openDndSettings, modifier = Modifier.testTag("focus_dnd_allow")) {
-                        Text("ALLOW MUTING", style = ChoomHubTextStyles.Eyebrow, color = colors.lavender)
+                        OneLineText("ALLOW MUTING", ChoomHubTextStyles.Eyebrow, color = colors.lavender)
                     }
                 }
                 if (ui.loaded && !ui.partnerInRoom) {
                     TextButton(onClick = { viewModel.nudge() }, modifier = Modifier.testTag("focus_nudge")) {
-                        Text("NUDGE ${ui.partnerName.uppercase()} ›", style = ChoomHubTextStyles.Eyebrow, color = colors.pink, maxLines = 1)
+                        OneLineText("NUDGE ${ui.partnerName.uppercase()} ›", ChoomHubTextStyles.Eyebrow, color = colors.pink)
                     }
                 }
             }
@@ -224,7 +225,7 @@ private fun LeaveSummary(summary: com.choomhub.app.domain.model.SessionSummary, 
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             ChoomHubPrimaryButton(text = "Stay", onClick = onStay, modifier = Modifier.fillMaxWidth().testTag("dialog_confirm"))
             TextButton(onClick = onLeave, modifier = Modifier.fillMaxWidth().testTag("dialog_dismissive")) {
-                Text("LEAVE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("LEAVE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
         }
     }
@@ -271,11 +272,11 @@ private fun BreakPicker(onPick: (Int) -> Unit, onDismiss: () -> Unit) {
                 modifier = Modifier.weight(1f).testTag("break_custom"),
             )
             TextButton(onClick = { customMinutes?.let(onPick) }, enabled = customMinutes != null, modifier = Modifier.testTag("break_custom_go")) {
-                Text("START", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                OneLineText("START", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
             }
         }
         TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-            Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+            OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
         }
     }
 }
@@ -296,7 +297,7 @@ private fun BreakOver(overBy: String, onBack: () -> Unit, onExtend: (Int) -> Uni
                 ChoomHubSecondaryButton(text = "+10 min", onClick = { onExtend(10) }, modifier = Modifier.weight(1f).testTag("over_extend_10"))
             }
             TextButton(onClick = onLeave, modifier = Modifier.fillMaxWidth().testTag("over_leave")) {
-                Text("LEAVE THE ROOM", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("LEAVE THE ROOM", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
         }
     }
@@ -346,7 +347,7 @@ private fun JamPanel(
                         onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth().testTag("jam_take_out"),
-                ) { Text("TAKE IT OUT", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+                ) { OneLineText("TAKE IT OUT", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
             }
         } else {
             Text("nothing in here yet", style = ChoomHubTextStyles.Handwritten, color = colors.pink)
@@ -374,7 +375,7 @@ private fun JamPanel(
                 modifier = Modifier.fillMaxWidth().testTag("jam_leave"),
             )
             TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
         }
     }

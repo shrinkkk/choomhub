@@ -140,8 +140,8 @@ class WorldRoomsCaptureTest {
         } + MeetupLog("live", LocalDate.now(), live = true, startedAt = now.minusSeconds(134 * 60), createdAt = now)
         (logs as LocalMeetupLogRepository).meetups.value = list
         (songs as LocalSongRepository).songs.value = SongPair(
-            mine = SharedSong("4uLU6hMCjMI75M1A2tKUQC", "Pink + White", "Frank Ocean", picture(2), Instant.parse("2026-11-20T10:00:00Z"), 9),
-            theirs = SharedSong("7GhIk7Il098yCjg4BQjzvb", "Space Song", "Beach House", picture(5), Instant.parse("2026-11-21T10:00:00Z"), null),
+            mine = SharedSong("4uLU6hMCjMI75M1A2tKUQC", "Pink + White", "Frank Ocean", picture(2), Instant.parse("2026-11-20T10:00:00Z"), 9, com.choomhub.app.domain.model.SongKind.Album),
+            theirs = SharedSong("7GhIk7Il098yCjg4BQjzvb", "Rainy Day Drives", "Wren", picture(5), Instant.parse("2026-11-21T10:00:00Z"), null, com.choomhub.app.domain.model.SongKind.Playlist),
             loaded = true,
         )
     }

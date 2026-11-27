@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.mood
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -127,7 +128,7 @@ fun MoodOptionsContent(
                     modifier = Modifier.weight(1f).testTag("mood_option_input"),
                 )
                 TextButton(onClick = onAdd, modifier = Modifier.testTag("mood_option_add")) {
-                    Text("ADD", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                    OneLineText("ADD", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
                 }
             }
             Spacer(Modifier.height(spacing.lg))
@@ -149,7 +150,7 @@ fun MoodOptionsContent(
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 TextButton(onClick = { confirmRestore = true }, modifier = Modifier.testTag("mood_options_defaults")) {
-                    Text("RESTORE DEFAULTS", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                    OneLineText("RESTORE DEFAULTS", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
                 }
             }
         }

@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.mood
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -130,8 +131,8 @@ fun ColumnScope.MoodColourPickerContent(label: String, selected: String?, onPick
     }
     Spacer(Modifier.height(spacing.md))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton({ onPick(null) }) { Text("DEFAULT", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
-        TextButton(onClose) { Text("DONE", style = MaterialTheme.typography.labelLarge, color = colors.pink) }
+        TextButton({ onPick(null) }) { OneLineText("DEFAULT", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+        TextButton(onClose) { OneLineText("DONE", style = MaterialTheme.typography.labelLarge, color = colors.pink) }
     }
 }
 

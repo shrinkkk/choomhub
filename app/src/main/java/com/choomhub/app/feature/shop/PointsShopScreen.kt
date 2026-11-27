@@ -1,5 +1,7 @@
 package com.choomhub.app.feature.shop
 
+import com.choomhub.app.core.designsystem.component.TabLabel
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -165,12 +167,12 @@ internal fun PointsShopContent(ui: ShopUi, message: String?, contentPadding: Pad
                 Row(verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
                         Text("YOU HAVE", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
-                        Text("${ui.myPoints}", style = MaterialTheme.typography.displaySmall, color = colors.candle, modifier = Modifier.testTag("shop_my_points"))
+                        Text("${ui.myPoints}", style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "lnum"), color = colors.candle, modifier = Modifier.testTag("shop_my_points"))
                         Text(ui.myPointsLabel, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(ui.partnerName.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = colors.textFaint)
-                        Text("${ui.partnerPoints}", style = MaterialTheme.typography.headlineSmall, color = colors.textSecondary)
+                        Text("${ui.partnerPoints}", style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "lnum"), color = colors.textSecondary)
                         Text(ui.partnerPointsLabel, style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
                     }
                 }
@@ -213,12 +215,7 @@ private fun TabChip(label: String, selected: Boolean, badge: Int, modifier: Modi
             .padding(vertical = ChoomHubTheme.spacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            if (badge > 0) "$label · $badge" else label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (selected) colors.pink else colors.textSecondary,
-            maxLines = 1,
-        )
+        TabLabel(label, badge, if (selected) colors.pink else colors.textSecondary)
     }
 }
 
@@ -269,7 +266,7 @@ private fun ShopTabContent(ui: ShopUi, actions: ShopActions, open: (ShopDialog) 
                         onClick = { open(ShopDialog.Options(reward)) },
                         enabled = pending == null,
                         modifier = Modifier.testTag("reward_edit_${reward.id}"),
-                    ) { Text("EDIT", style = MaterialTheme.typography.labelLarge, color = if (pending == null) colors.textSecondary else colors.textFaint) }
+                    ) { OneLineText("EDIT", style = MaterialTheme.typography.labelLarge, color = if (pending == null) colors.textSecondary else colors.textFaint) }
                     ChoomHubPrimaryButton("Buy", { open(ShopDialog.Buy(reward)) }, Modifier.testTag("buy_${reward.id}"), enabled = ui.myPoints >= reward.price)
                 }
                 if (pending != null) {
@@ -330,14 +327,14 @@ private fun ProposalButtons(p: ShopProposal, ui: ShopUi, actions: ShopActions) {
         if (p.byMe) {
             Text("Waiting for ${ui.partnerName}", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, modifier = Modifier.weight(1f))
             TextButton({ actions.dismiss(p) }, Modifier.testTag("proposal_withdraw_${p.id}")) {
-                Text("TAKE BACK", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("TAKE BACK", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
         } else {
             TextButton({ actions.dismiss(p) }, Modifier.testTag("proposal_decline_${p.id}")) {
-                Text("NO", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("NO", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
             TextButton({ actions.accept(p) }, Modifier.testTag("proposal_accept_${p.id}")) {
-                Text("AGREE", style = MaterialTheme.typography.labelLarge, color = colors.pink)
+                OneLineText("AGREE", style = MaterialTheme.typography.labelLarge, color = colors.pink)
             }
         }
     }
@@ -362,7 +359,7 @@ private fun YoursTab(ui: ShopUi, open: (ShopDialog) -> Unit) {
         ready.forEach { p ->
             PurchaseRow(p, "Bought for ${p.price}") {
                 TextButton({ open(ShopDialog.GiveBack(p)) }, Modifier.testTag("give_back_${p.id}")) {
-                    Text("GIVE BACK", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
+                    OneLineText("GIVE BACK", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
                 }
                 ChoomHubPrimaryButton("Use it", { open(ShopDialog.Use(p)) }, Modifier.testTag("use_${p.id}"))
             }
@@ -532,7 +529,7 @@ private fun PriceDialog(reward: Reward, partner: String, onSubmit: (String) -> S
         )
         Spacer(Modifier.height(spacing.lg))
         ChoomHubPrimaryButton("Suggest", submit, Modifier.fillMaxWidth().testTag("dialog_confirm"))
-        TextButton(onClose, Modifier.fillMaxWidth()) { Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+        TextButton(onClose, Modifier.fillMaxWidth()) { OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
     }
 }
 
@@ -570,6 +567,6 @@ private fun SuggestDialog(partner: String, onSubmit: (String, String) -> String?
         )
         Spacer(Modifier.height(spacing.lg))
         ChoomHubPrimaryButton("Suggest", submit, Modifier.fillMaxWidth().testTag("dialog_confirm"), enabled = name.isNotBlank() && price.isNotBlank())
-        TextButton(onClose, Modifier.fillMaxWidth()) { Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+        TextButton(onClose, Modifier.fillMaxWidth()) { OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
     }
 }

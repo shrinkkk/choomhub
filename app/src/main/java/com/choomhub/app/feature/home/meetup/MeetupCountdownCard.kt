@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.home.meetup
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -134,14 +135,14 @@ fun MeetupCountdownCard(
             )
             else -> Row(horizontalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.xs)) {
                 TextButton(onClick = { picking = true }, modifier = Modifier.testTag("meetup_reschedule")) {
-                    Text(
+                    OneLineText(
                         if (state is CountdownState.Happening) "PLAN THE NEXT ONE" else "RESCHEDULE",
                         style = MaterialTheme.typography.labelLarge,
                         color = colors.lavender,
                     )
                 }
                 TextButton(onClick = { clearStep = 1 }, modifier = Modifier.testTag("meetup_clear")) {
-                    Text("CLEAR", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                    OneLineText("CLEAR", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
                 }
             }
         }
@@ -258,10 +259,10 @@ private fun ScheduleMeetupDialogs(
                     dateState.selectedDateMillis?.let {
                         pickedDate = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                     }
-                }) { Text("NEXT", style = MaterialTheme.typography.labelLarge, color = colors.lavender) }
+                }) { OneLineText("NEXT", style = MaterialTheme.typography.labelLarge, color = colors.lavender) }
             },
             dismissButton = {
-                TextButton(onClick = onDone) { Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+                TextButton(onClick = onDone) { OneLineText("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
             },
             colors = DatePickerDefaults.colors(containerColor = colors.surfaceElevated),
         ) {
@@ -295,11 +296,11 @@ private fun ScheduleMeetupDialogs(
                 TextButton(onClick = {
                     error = onSchedule(date, LocalTime.of(timeState.hour, timeState.minute))
                     if (error == null) onDone()
-                }) { Text("SAVE", style = MaterialTheme.typography.labelLarge, color = colors.lavender) }
+                }) { OneLineText("SAVE", style = MaterialTheme.typography.labelLarge, color = colors.lavender) }
             },
             dismissButton = {
                 TextButton(onClick = { pickedDate = null }) {
-                    Text("BACK", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                    OneLineText("BACK", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
                 }
             },
         )

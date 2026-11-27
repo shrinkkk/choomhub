@@ -27,10 +27,12 @@ class SongRulesTest {
     }
 
     @Test
-    fun `only songs can be sent`() {
+    fun `songs, albums and playlists can be sent, nothing else`() {
         assertNull(SongRules.refusal("track"))
-        assertTrue(SongRules.refusal("playlist")!!.contains("playlist"))
-        assertTrue(SongRules.refusal("album")!!.contains("album"))
+        assertNull(SongRules.refusal("playlist"))
+        assertNull(SongRules.refusal("album"))
+        assertTrue(SongRules.refusal("artist")!!.contains("artist"))
+        assertTrue(SongRules.refusal("episode")!!.contains("podcast"))
         assertTrue(SongRules.isTrackId("4uLU6hMCjMI75M1A2tKUQC"))
         assertTrue(!SongRules.isTrackId("short"))
     }
@@ -41,5 +43,26 @@ class SongRulesTest {
         assertNull(SongRules.artistFromDescription(null))
         assertEquals("Velvet Hours · The Paper Moths", SongRules.describe("Velvet Hours", "The Paper Moths"))
         assertEquals("Velvet Hours", SongRules.describe("Velvet Hours", null))
+    }
+
+    @Test
+    fun `albums and playlists open as themselves`() {
+        assertEquals("https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC", SongRules.playUrl("4uLU6hMCjMI75M1A2tKUQC"))
+        assertEquals("https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy", SongRules.playUrl("4aawyAB9vmqN3uQ7FjRGTy", SongKind.Album))
+        assertEquals("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", SongRules.playUrl("37i9dQZF1DXcBWIGoYBM5M", SongKind.Playlist))
+        assertEquals(SongKind.Playlist, SongKind.fromWire("playlist"))
+        assertEquals(SongKind.Track, SongKind.fromWire(null))
+        assertEquals("an album", SongKind.Album.withArticle)
+    }
+
+    @Test
+    fun `who made it comes from the embed page`() {
+        // Trimmed from Spotify's embed page: the entity first, then its tracks (with their own subtitles).
+        val album = """{"type":"album","name":"Global Warming","uri":"spotify:album:4aawyAB9vmqN3uQ7FjRGTy","id":"4aawyAB9vmqN3uQ7FjRGTy","title":"Global Warming","subtitle":"Pitbull","isPreRelease":false},{"subtitle":"Pitbull, Sensato"}"""
+        assertEquals("Pitbull", SongRules.makerFromEmbed(album, SongKind.Album, "4aawyAB9vmqN3uQ7FjRGTy"))
+        val playlist = """"uri":"spotify:playlist:37i9dQZF1DXcBWIGoYBM5M","id":"37i9dQZF1DXcBWIGoYBM5M","title":"Today\u2019s \"Top\" Hits","subtitle":"Jas \u0026 Shri","authors":null"""
+        assertEquals("Jas & Shri", SongRules.makerFromEmbed(playlist, SongKind.Playlist, "37i9dQZF1DXcBWIGoYBM5M"))
+        assertNull(SongRules.makerFromEmbed(playlist, SongKind.Album, "37i9dQZF1DXcBWIGoYBM5M"))
+        assertNull(SongRules.makerFromEmbed("<html></html>", SongKind.Playlist, "37i9dQZF1DXcBWIGoYBM5M"))
     }
 }

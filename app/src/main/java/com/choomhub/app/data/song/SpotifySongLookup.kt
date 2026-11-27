@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.core.graphics.scale
 import com.choomhub.app.domain.model.SongDraft
+import com.choomhub.app.domain.model.SongKind
 import com.choomhub.app.domain.model.SongRules
 import com.choomhub.app.domain.repository.SongLookup
 import com.choomhub.app.domain.repository.SongLookupException
@@ -19,14 +20,15 @@ import javax.inject.Inject
 
 /**
  * Looks a link up with Spotify's public oEmbed endpoint (no account or key needed): the title,
- * the cover, and (from its embed address) whether it's a song and its id. Short spotify.link
- * links work too. The artist comes from the song page's preview text, if it's there.
+ * the cover, and (from its embed address) whether it's a song, an album or a playlist, and its
+ * id. Short spotify.link links work too. A song's artist comes from its page's preview text; an
+ * album's artist or a playlist's owner from its embed page.
  */
 class SpotifySongLookup @Inject constructor() : SongLookup {
 
     override suspend fun lookup(link: String): Result<SongDraft> = withContext(Dispatchers.IO) {
         runCatching {
-            val url = SongRules.findLink(link) ?: throw SongLookupException("That isn't a Spotify song link.")
+            val url = SongRules.findLink(link) ?: throw SongLookupException("That isn't a Spotify song, album or playlist link.")
             // A link we can read straight away: say so before going online.
             SongRules.parse(url)?.let { (kind, _) -> SongRules.refusal(kind)?.let { throw SongLookupException(it) } }
             val web = if (url.startsWith("spotify:")) {
@@ -44,10 +46,11 @@ class SpotifySongLookup @Inject constructor() : SongLookup {
                 ?: throw SongLookupException("Spotify didn't recognise that link.")
             SongRules.refusal(kind)?.let { throw SongLookupException(it) }
             if (!SongRules.isTrackId(id)) throw SongLookupException("Spotify didn't recognise that link.")
-            val title = json.optString("title").trim().take(SongRules.MAX_TITLE).ifEmpty { "A song" }
+            val what = SongKind.fromWire(kind)
+            val title = json.optString("title").trim().take(SongRules.MAX_TITLE).ifEmpty { "A ${what.label}" }
             val cover = json.optString("thumbnail_url").takeIf { it.startsWith("https://") }?.let { runCatching { coverJpeg(it) }.getOrNull() }
-            val artist = runCatching { artist(id) }.getOrNull()
-            SongDraft(id, title, artist, cover)
+            val artist = runCatching { if (what == SongKind.Track) artist(id) else maker(id, what) }.getOrNull()
+            SongDraft(id, title, artist, cover, what)
         }
     }
 
@@ -56,6 +59,10 @@ class SpotifySongLookup @Inject constructor() : SongLookup {
         val description = Regex("""<meta property="og:description" content="([^"]*)"""").find(page)?.groupValues?.get(1)
         return SongRules.artistFromDescription(description?.let(::unescape))
     }
+
+    /** The album's artist or the playlist's owner, from the embed page. */
+    private fun maker(id: String, kind: SongKind): String? =
+        SongRules.makerFromEmbed(get("https://open.spotify.com/embed/${kind.wire}/$id", maxBytes = 400_000), kind, id)
 
     private fun unescape(s: String) = s.replace("&amp;", "&").replace("&#x27;", "'").replace("&#39;", "'").replace("&quot;", "\"")
 

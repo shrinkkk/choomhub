@@ -18,8 +18,8 @@ interface SongRepository {
     /** Every song either of you has sent, newest first (the record shelf). */
     fun observeShelf(): Flow<List<com.choomhub.app.domain.model.ShelfSong>> = observeSongs().map { pair ->
         listOfNotNull(
-            pair.mine?.let { com.choomhub.app.domain.model.ShelfSong("me:${it.key}", it.trackId, it.title, it.artist, it.cover, true, it.sentAt, it.rating) },
-            pair.theirs?.let { com.choomhub.app.domain.model.ShelfSong("them:${it.key}", it.trackId, it.title, it.artist, it.cover, false, it.sentAt, it.rating) },
+            pair.mine?.let { com.choomhub.app.domain.model.ShelfSong("me:${it.key}", it.trackId, it.title, it.artist, it.cover, true, it.sentAt, it.rating, it.kind) },
+            pair.theirs?.let { com.choomhub.app.domain.model.ShelfSong("them:${it.key}", it.trackId, it.title, it.artist, it.cover, false, it.sentAt, it.rating, it.kind) },
         ).sortedByDescending { it.sentAt }
     }
 }

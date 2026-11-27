@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.song
 
+import com.choomhub.app.domain.model.SongKind
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -60,6 +61,7 @@ import com.choomhub.app.core.designsystem.component.CardTone
 import com.choomhub.app.core.designsystem.component.ChoomHubCard
 import com.choomhub.app.core.designsystem.component.ChoomHubPrimaryButton
 import com.choomhub.app.core.designsystem.component.ChoomHubTextField
+import com.choomhub.app.core.designsystem.component.OneLineText
 import com.choomhub.app.core.designsystem.component.PillBadge
 import com.choomhub.app.core.designsystem.component.SectionHeader
 import com.choomhub.app.core.designsystem.theme.ChoomHubTextStyles
@@ -82,10 +84,12 @@ data class SongUi(
     val isNew: Boolean,
     /** What you rated it, 1-10. */
     val myRating: Int?,
+    /** A song, an album or a playlist (artist is then who made the playlist). */
+    val kind: SongKind = SongKind.Track,
 )
 
-/** The song you sent them, and what they made of it. */
-data class SentSongUi(val title: String, val rating: Int?)
+/** The song (album, playlist) you sent them, and what they made of it. */
+data class SentSongUi(val title: String, val rating: Int?, val kind: SongKind = SongKind.Track)
 
 private val StampRed = Color(0xFFE0453A)
 private val Vinyl = Color(0xFF0C0A0E)
@@ -106,7 +110,7 @@ fun SongSection(
     val them = partnerName ?: "them"
     Column(modifier.fillMaxWidth()) {
         SectionHeader(
-            title = "Latest song",
+            title = "Latest ${song?.kind?.label ?: "song"}",
             eyebrow = if (song != null) "from $them" else "songs",
             trailing = if (song?.isNew == true) {
                 { PillBadge(text = "new", color = colors.pink, showDot = true) }
@@ -127,7 +131,7 @@ fun SongSection(
                     Column(Modifier.weight(1f)) {
                         Text("No song from $them yet", style = MaterialTheme.typography.titleMedium, color = colors.textMain)
                         Text(
-                            "Each of you has one song at a time. Sending a new one replaces your last.",
+                            "Each of you has one at a time: a song, an album or a playlist. Sending a new one replaces your last.",
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.textSecondary,
                         )
@@ -135,12 +139,13 @@ fun SongSection(
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Sleeve(song.cover, song.myRating, Modifier.size(132.dp).testTag("song_cover"))
-                    Spacer(Modifier.width(spacing.lg + 14.dp))
+                    Sleeve(song.cover, song.myRating, Modifier.size(132.dp).testTag("song_cover"), song.kind)
+                    Spacer(Modifier.width(spacing.lg + if (song.kind == SongKind.Album) 26.dp else 14.dp))
                     Column(Modifier.weight(1f)) {
+                        if (song.kind != SongKind.Track) KindTag(song.kind)
                         Text(song.title, style = MaterialTheme.typography.titleMedium, color = colors.textMain, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (song.artist != null) {
-                            Text(song.artist, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(makerLine(song.kind, song.artist), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Text("sent ${song.sentLabel}", style = MaterialTheme.typography.labelSmall, color = colors.textFaint)
                         Spacer(Modifier.height(spacing.md))
@@ -163,8 +168,8 @@ fun SongSection(
                 Text(
                     text = when {
                         sent == null -> "Send one from Spotify: Share → ChoomHub"
-                        sent.rating == null -> "You sent “${sent.title}” · not rated yet"
-                        else -> "You sent “${sent.title}” · $them gave it ${sent.rating}/10"
+                        sent.rating == null -> "You sent ${sentWhat(sent)} · not rated yet"
+                        else -> "You sent ${sentWhat(sent)} · $them gave it ${sent.rating}/10"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (sent?.rating != null) colors.candle else colors.textSecondary,
@@ -173,27 +178,48 @@ fun SongSection(
                     modifier = Modifier.weight(1f).testTag("song_sent_line"),
                 )
                 TextButton(onClick = onSend, modifier = Modifier.testTag("song_send")) {
-                    Text("SEND A SONG", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                    OneLineText("SEND MUSIC", MaterialTheme.typography.labelLarge, color = colors.lavender)
                 }
             }
         }
     }
 }
 
-/** The album cover on its sleeve, with a record peeking out, and the rating stamped on it. */
+/** "ALBUM" or "PLAYLIST", over the title. */
 @Composable
-internal fun Sleeve(cover: ImageBitmap?, rating: Int?, modifier: Modifier) {
+internal fun KindTag(kind: SongKind, modifier: Modifier = Modifier) {
+    Text(kind.label.uppercase(), style = ChoomHubTextStyles.Eyebrow, color = ChoomHubTheme.colors.candle, maxLines = 1, modifier = modifier.testTag("song_kind"))
+}
+
+/** The line under the title: the artist, or "by" whoever made the playlist. */
+internal fun makerLine(kind: SongKind, artist: String): String = if (kind == SongKind.Playlist) "by $artist" else artist
+
+private fun sentWhat(sent: SentSongUi): String = if (sent.kind == SongKind.Track) "“${sent.title}”" else "the ${sent.kind.label} “${sent.title}”"
+
+private val SleeveBack = Color(0xFF2B2433)
+
+/**
+ * The cover on its sleeve, with a record peeking out, and the rating stamped on it. An album has
+ * two records out (a double LP); a playlist is a little stack of sleeves, like a mixtape pile.
+ */
+@Composable
+internal fun Sleeve(cover: ImageBitmap?, rating: Int?, modifier: Modifier, kind: SongKind = SongKind.Track) {
     val colors = ChoomHubTheme.colors
     Box(modifier) {
+        // The second record of an album, further out behind the first.
+        if (kind == SongKind.Album) Disc(Modifier.fillMaxSize().offset(x = 32.dp).padding(5.dp), colors.candle.copy(alpha = 0.85f), dim = true)
         // The record, slid half out to the right.
-        Canvas(Modifier.fillMaxSize().offset(x = 14.dp).padding(4.dp)) {
-            val r = size.minDimension / 2f
-            drawCircle(Vinyl, r, center)
-            drawCircle(colors.lavender.copy(alpha = 0.28f), r - 0.5f, center, style = Stroke(1.5f))
-            for (i in 1..4) drawCircle(Color.White.copy(alpha = 0.05f), r * (0.45f + i * 0.12f), center, style = Stroke(1f))
-            drawArc(Color.White.copy(alpha = 0.08f), -60f, 50f, false, Offset(center.x - r * 0.8f, center.y - r * 0.8f), Size(r * 1.6f, r * 1.6f), style = Stroke(2f))
-            drawCircle(StampRed.copy(alpha = 0.85f), r * 0.28f, center)
-            drawCircle(Vinyl, r * 0.05f, center)
+        Disc(Modifier.fillMaxSize().offset(x = 14.dp).padding(4.dp), StampRed.copy(alpha = 0.85f))
+        if (kind == SongKind.Playlist) {
+            // Two more sleeves under this one, fanned a little.
+            listOf(-7f to (-5).dp, 5f to (-9).dp).forEach { (angle, dy) ->
+                Box(
+                    Modifier.fillMaxSize().offset(x = (-4).dp, y = dy).rotate(angle)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(SleeveBack)
+                        .border(1.dp, colors.lavender.copy(alpha = 0.3f), RoundedCornerShape(3.dp)),
+                )
+            }
         }
         Box(
             Modifier
@@ -224,6 +250,21 @@ internal fun Sleeve(cover: ImageBitmap?, rating: Int?, modifier: Modifier) {
     }
 }
 
+/** A vinyl record with its paper label. */
+@Composable
+private fun Disc(modifier: Modifier, label: Color, dim: Boolean = false) {
+    val colors = ChoomHubTheme.colors
+    Canvas(modifier) {
+        val r = size.minDimension / 2f
+        drawCircle(if (dim) Color(0xFF1A1620) else Vinyl, r, center)
+        drawCircle(colors.lavender.copy(alpha = if (dim) 0.4f else 0.28f), r - 0.5f, center, style = Stroke(1.5f))
+        for (i in 1..4) drawCircle(Color.White.copy(alpha = 0.05f), r * (0.45f + i * 0.12f), center, style = Stroke(1f))
+        drawArc(Color.White.copy(alpha = 0.08f), -60f, 50f, false, Offset(center.x - r * 0.8f, center.y - r * 0.8f), Size(r * 1.6f, r * 1.6f), style = Stroke(2f))
+        drawCircle(label, r * 0.28f, center)
+        drawCircle(Vinyl, r * 0.05f, center)
+    }
+}
+
 /** A rubber stamp: "8/10" in a double ring, pressed on at an angle. */
 @Composable
 internal fun RatingStamp(rating: Int, modifier: Modifier, stampSize: androidx.compose.ui.unit.Dp = 62.dp) {
@@ -243,7 +284,9 @@ internal fun RatingStamp(rating: Int, modifier: Modifier, stampSize: androidx.co
 }
 
 @Composable
-private fun PlayButton(onPlay: () -> Unit) {
+private fun PlayButton(onPlay: () -> Unit) = androidx.compose.foundation.layout.BoxWithConstraints {
+    // On a narrow phone the words beside the cover get little room: just "PLAY" then.
+    val label = if (maxWidth < 176.dp) "PLAY" else "PLAY ON SPOTIFY"
     val colors = ChoomHubTheme.colors
     Row(
         Modifier
@@ -265,7 +308,7 @@ private fun PlayButton(onPlay: () -> Unit) {
             drawPath(p, colors.bone)
         }
         Spacer(Modifier.width(8.dp))
-        Text("PLAY ON SPOTIFY", style = MaterialTheme.typography.labelLarge, color = colors.night)
+        OneLineText(label, MaterialTheme.typography.labelLarge, color = colors.night)
     }
 }
 
@@ -304,7 +347,7 @@ sealed interface SendSongState {
     data object Looking : SendSongState
 
     /** Found it: what's about to be sent. */
-    data class Found(val title: String, val artist: String?, val cover: ImageBitmap?) : SendSongState
+    data class Found(val title: String, val artist: String?, val cover: ImageBitmap?, val kind: SongKind = SongKind.Track) : SendSongState
 }
 
 /** The cat, in headphones, nodding along to something. */
@@ -369,7 +412,7 @@ fun ColumnScope.SendSongContent(
     val spacing = ChoomHubTheme.spacing
     VibingCat(Modifier.size(120.dp))
     Spacer(Modifier.height(spacing.sm))
-    Text("Send a song", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
+    Text("Send music", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
     Text("it replaces the last one you sent", style = ChoomHubTextStyles.Handwritten, color = colors.pink, textAlign = TextAlign.Center)
     Spacer(Modifier.height(spacing.lg))
     when (state) {
@@ -378,7 +421,7 @@ fun ColumnScope.SendSongContent(
                 value = state.text,
                 onValueChange = onLinkChange,
                 label = "Spotify link",
-                supportingText = state.error ?: "Or in Spotify: Share → ChoomHub",
+                supportingText = state.error ?: "A song, an album or a playlist. Or in Spotify: Share → ChoomHub",
                 isError = state.error != null,
                 onDone = onFind,
                 modifier = Modifier.fillMaxWidth().testTag("song_link"),
@@ -404,19 +447,20 @@ fun ColumnScope.SendSongContent(
                 }
                 Spacer(Modifier.width(spacing.md))
                 Column(Modifier.weight(1f)) {
+                    if (state.kind != SongKind.Track) KindTag(state.kind)
                     Text(state.title, style = MaterialTheme.typography.titleSmall, color = colors.textMain, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (state.artist != null) Text(state.artist, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary, maxLines = 1)
+                    if (state.artist != null) Text(makerLine(state.kind, state.artist), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Spacer(Modifier.height(spacing.lg))
             ChoomHubPrimaryButton("Send to $partnerName", onSend, Modifier.fillMaxWidth().testTag("song_confirm"))
             TextButton(onDifferent, Modifier.fillMaxWidth()) {
-                Text("A DIFFERENT SONG", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("SOMETHING ELSE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
         }
     }
     TextButton(onClose, Modifier.fillMaxWidth()) {
-        Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+        OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
     }
 }
 

@@ -19,7 +19,7 @@ open class LocalSongRepository @Inject constructor() : SongRepository {
     override fun observeSongs(): Flow<SongPair> = songs
 
     override suspend fun send(song: SongDraft) {
-        songs.update { it.copy(mine = SharedSong(song.trackId, song.title, song.artist, song.cover, Instant.now(), rating = null)) }
+        songs.update { it.copy(mine = SharedSong(song.trackId, song.title, song.artist, song.cover, Instant.now(), rating = null, kind = song.kind)) }
     }
 
     override suspend fun rate(rating: Int) {

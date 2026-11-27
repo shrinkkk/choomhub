@@ -1,5 +1,9 @@
 package com.choomhub.app.feature.bounty
 
+import com.choomhub.app.core.designsystem.component.OneLineText
+import com.choomhub.app.core.designsystem.icon.PointIcons
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
@@ -209,9 +214,9 @@ fun ColumnScope.PostBountyContent(
     Spacer(Modifier.height(spacing.md))
     Text("REWARD", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
-        Step("−") { onReward((reward - 1).coerceAtLeast(1)) }
+        Step(PointIcons.Minus, "Less") { onReward((reward - 1).coerceAtLeast(1)) }
         Text("$reward", style = MaterialTheme.typography.displaySmall, color = colors.candle)
-        Step("+") { onReward((reward + 1).coerceAtMost(20)) }
+        Step(PointIcons.Plus, "More") { onReward((reward + 1).coerceAtMost(20)) }
     }
     Text("points, paid when you agree it's done", style = MaterialTheme.typography.bodySmall, color = colors.textFaint)
     Spacer(Modifier.height(spacing.md))
@@ -231,16 +236,16 @@ fun ColumnScope.PostBountyContent(
     }
     Spacer(Modifier.height(spacing.lg))
     ChoomHubPrimaryButton("Pin it up", onPost, Modifier.fillMaxWidth(), enabled = task.isNotBlank())
-    TextButton(onClose, Modifier.fillMaxWidth()) { Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+    TextButton(onClose, Modifier.fillMaxWidth()) { OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
 }
 
 @Composable
-private fun Step(text: String, onClick: () -> Unit) {
+private fun Step(icon: ImageVector, label: String, onClick: () -> Unit) {
     val colors = ChoomHubTheme.colors
     Box(
-        Modifier.size(44.dp).border(1.dp, colors.lavender.copy(alpha = 0.5f), CircleShape).clickable(role = Role.Button, onClick = onClick),
+        Modifier.size(44.dp).clip(CircleShape).border(1.dp, colors.lavender.copy(alpha = 0.5f), CircleShape).clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = MaterialTheme.typography.headlineSmall, color = colors.textMain) }
+    ) { Icon(icon, contentDescription = label, tint = colors.textMain, modifier = Modifier.size(20.dp)) }
 }
 
 /** A hanging plank button for the board ("Post a bounty"). */

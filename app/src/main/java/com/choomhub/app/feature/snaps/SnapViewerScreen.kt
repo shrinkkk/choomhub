@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.snaps
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -260,7 +261,7 @@ internal fun KeepPicker(
                 modifier = Modifier.weight(1f).testTag("snap_new_collection"),
             )
             TextButton(onClick = onCreate, modifier = Modifier.testTag("snap_new_collection_add")) {
-                Text("ADD", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                OneLineText("ADD", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
             }
         }
         Spacer(Modifier.height(spacing.md))

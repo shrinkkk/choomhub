@@ -1,5 +1,7 @@
 package com.choomhub.app.feature.bounty
 
+import com.choomhub.app.core.designsystem.component.TabLabel
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -188,7 +190,7 @@ internal fun BountyBoardContent(
             Spacer(Modifier.height(16.dp))
             ChoomHubPrimaryButton("Pay ${b.reward} points", { onPay(b); paying = null }, Modifier.fillMaxWidth().testTag("dialog_confirm"))
             TextButton({ onNotYet(b); paying = null }, Modifier.fillMaxWidth()) {
-                Text("NOT YET", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("NOT YET", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
         }
     }
@@ -212,10 +214,10 @@ internal fun BountyBoardContent(
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
-                    BoardTab.ForMe to "For you · ${ui.forMe.size}",
-                    BoardTab.ForThem to "For ${ui.partner} · ${ui.forThem.size}",
-                    BoardTab.Done to "Paid",
-                ).forEach { (t, label) ->
+                    Triple(BoardTab.ForMe, "For you", ui.forMe.size),
+                    Triple(BoardTab.ForThem, "For ${ui.partner}", ui.forThem.size),
+                    Triple(BoardTab.Done, "Paid", 0),
+                ).forEach { (t, label, count) ->
                     val on = t == tab
                     Box(
                         Modifier
@@ -226,7 +228,7 @@ internal fun BountyBoardContent(
                             .padding(vertical = 8.dp)
                             .testTag("bounty_tab_${t.name}"),
                         contentAlignment = Alignment.Center,
-                    ) { Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) colors.pink else colors.textSecondary, maxLines = 1) }
+                    ) { TabLabel(label, count, if (on) colors.pink else colors.textSecondary) }
                 }
             }
             Spacer(Modifier.height(20.dp))

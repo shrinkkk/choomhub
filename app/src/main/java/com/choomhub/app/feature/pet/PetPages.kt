@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.pet
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,7 +91,7 @@ private fun ShopTab(label: String, selected: Boolean, modifier: Modifier, onClic
             .padding(vertical = ChoomHubTheme.spacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) colors.pink else colors.textSecondary, maxLines = 1, softWrap = false)
+        OneLineText(label, MaterialTheme.typography.labelLarge, color = if (selected) colors.pink else colors.textSecondary, modifier = Modifier.padding(horizontal = 4.dp))
     }
 }
 

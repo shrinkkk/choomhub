@@ -503,6 +503,8 @@ describe('focus room', () => {
     await assertFails(setDoc(doc(db('alice'), 'couples/c1/records/r2'), { ...rec, by: 'bob' }));
     await assertFails(updateDoc(doc(db('alice'), 'couples/c1/records/r1'), { rating: 9, ratedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(db('bob'), 'couples/c1/records/r1'), { rating: 9, ratedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples/c1/records/r3'), { ...rec, kind: 'playlist' }));
+    await assertFails(setDoc(doc(db('alice'), 'couples/c1/records/r4'), { ...rec, kind: 'artist' }));
   });
 
   test('the pet: shared, but coins and bond are your own and coins never go negative', async () => {
@@ -796,5 +798,14 @@ describe('songs', () => {
     await assertFails(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 8, ratedAt: serverTimestamp(), title: 'x' }));
     await assertSucceeds(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 8, ratedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 9, ratedAt: serverTimestamp() }));
+  });
+
+  test('an album or a playlist goes the same way; nothing else does', async () => {
+    await paired();
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ kind: 'album', trackId: '4aawyAB9vmqN3uQ7FjRGTy' })));
+    await assertSucceeds(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ kind: 'playlist', trackId: '37i9dQZF1DXcBWIGoYBM5M' })));
+    await assertSucceeds(updateDoc(doc(db('bob'), 'couples', 'c1', 'songs', 'alice'), { rating: 6, ratedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ kind: 'episode' })));
+    await assertFails(setDoc(doc(db('alice'), 'couples', 'c1', 'songs', 'alice'), song({ kind: 3 })));
   });
 });

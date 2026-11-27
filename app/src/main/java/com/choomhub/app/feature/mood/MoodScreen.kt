@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.mood
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -115,7 +116,7 @@ fun MoodContent(
             ChoomHubPrimaryButton(text = "Save", onClick = onSave, modifier = Modifier.fillMaxWidth().testTag("mood_save"))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 TextButton(onClick = onCancel) {
-                    Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                    OneLineText("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
                 }
             }
         }

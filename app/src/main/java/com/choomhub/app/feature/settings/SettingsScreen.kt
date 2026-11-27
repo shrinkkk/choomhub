@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.settings
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -102,7 +103,7 @@ fun SettingsScreen(contentPadding: PaddingValues, onEditMoods: () -> Unit = {}, 
         onShareCode = { code -> context.shareInviteCode(code) },
         onNewCode = viewModel::newInviteCode,
         onSignOut = viewModel::signOut,
-        focusPoints = { FocusPointsGroup() },
+        focusPoints = { FocusPointsRow() },
         notifications = notifications,
         canPostNotifications = canPost,
         onNotificationPermission = {
@@ -203,18 +204,17 @@ fun SettingsContent(
                 )
             }
 
-            SettingsGroup("Moods") {
+            // Everything the two of you can tune lives here; new settings go in this group too.
+            SettingsGroup("Customise", eyebrow = "shared by both of you", modifier = Modifier.testTag("settings_customise")) {
                 SettingsRow(
                     title = "Mood list",
-                    value = "Add your own, remove any. Shared by both of you.",
+                    value = "Add your own, remove any, pick their colours.",
                     badge = "edit",
                     onClick = onEditMoods,
-                    divider = false,
                     modifier = Modifier.testTag("settings_mood_list"),
                 )
+                focusPoints()
             }
-
-            focusPoints()
 
             SettingsGroup("Notifications") {
                 NotificationSettings(
@@ -434,10 +434,10 @@ private fun InlineRename(
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onClose) {
-                Text("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+                OneLineText("CANCEL", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
             }
             TextButton(onClick = save, modifier = Modifier.testTag("rename_save")) {
-                Text("SAVE", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
+                OneLineText("SAVE", style = MaterialTheme.typography.labelLarge, color = colors.lavender)
             }
         }
     }
@@ -445,9 +445,9 @@ private fun InlineRename(
 }
 
 @Composable
-internal fun SettingsGroup(title: String, content: @Composable () -> Unit) {
-    Column {
-        SectionHeader(title = title)
+internal fun SettingsGroup(title: String, modifier: Modifier = Modifier, eyebrow: String? = null, content: @Composable () -> Unit) {
+    Column(modifier) {
+        SectionHeader(title = title, eyebrow = eyebrow)
         Spacer(Modifier.height(ChoomHubTheme.spacing.sm))
         ChoomHubCard(
             modifier = Modifier.fillMaxWidth(),

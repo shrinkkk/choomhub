@@ -133,6 +133,8 @@ fun PillBadge(
             text = text.uppercase(),
             style = MaterialTheme.typography.labelSmall,
             color = color,
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }

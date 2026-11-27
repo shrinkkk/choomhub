@@ -25,7 +25,7 @@ rules_version = '2';
 //   couples/{coupleId}/focusTotals/{uid} -> { totalMs, weekMs, weekStart, pointHours, togetherMs?, togetherHours? }  focus hours so far
 //   couples/{coupleId}/shared/focusRate -> { rate, proposed?, proposedBy?, at }  points per focus hour, agreed by both
 //   couples/{coupleId}/bounties/{id}   -> { task, reward 1-20, due, by, status: open|claimed|paid, at, claimedAt?, paidAt? }
-//   couples/{coupleId}/records/{id}    -> { trackId, title, artist?, cover?, by, sentAt, rating?, ratedAt? }  the record shelf
+//   couples/{coupleId}/records/{id}    -> { trackId, kind?, title, artist?, cover?, by, sentAt, rating?, ratedAt? }  the record shelf (trackId is the album's or playlist's id for those)
 //   couples/{coupleId}/meetups/{id}    -> { date, minutes?, live, startedAt?, place?, lat?, lon?, note?, did, first?, photos, thumbs, by, createdAt, updatedBy, updatedAt }
 //   couples/{coupleId}/meetups/{id}/photos/{pid} -> { data, by, at }
 //   couples/{coupleId}/shared/jam      -> { url, by, at }  a music jam link left in the record player
@@ -35,7 +35,7 @@ rules_version = '2';
 //   couples/{coupleId}/rewardProposals/{id} -> { kind: add|price|remove, rewardId?, name?, price?, by, at }  shop changes waiting for a yes
 //   couples/{coupleId}/rewards/{id}    -> { name?, price?, custom, removed, proposal }  shop changes both agreed to
 //   couples/{coupleId}/purchases/{id}  -> { rewardId, name, price, by, at, state, usedAt?, doneAt? }  what's been bought
-//   couples/{coupleId}/songs/{member}  -> { trackId, title, artist?, cover?, sentAt, rating?, ratedAt? }  the song each of you last sent
+//   couples/{coupleId}/songs/{member}  -> { trackId, kind?, title, artist?, cover?, sentAt, rating?, ratedAt? }  the song (or album, or playlist) each of you last sent
 // Everything not matched below is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -596,9 +596,10 @@ service cloud.firestore {
       match /songs/{sender} {
         allow read: if isMember(coupleId);
         allow create, update: if isMember(coupleId) && sender == self()
-          && request.resource.data.keys().hasOnly(['trackId', 'title', 'artist', 'cover', 'sentAt', 'recordId'])
+          && request.resource.data.keys().hasOnly(['trackId', 'kind', 'title', 'artist', 'cover', 'sentAt', 'recordId'])
           && (request.resource.data.get('recordId', null) == null || (request.resource.data.recordId is string && request.resource.data.recordId.size() <= 40))
           && request.resource.data.trackId is string && request.resource.data.trackId.matches('^[A-Za-z0-9]{22}$')
+          && request.resource.data.get('kind', 'track') in ['track', 'album', 'playlist']
           && request.resource.data.title is string
           && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
           && (request.resource.data.get('artist', null) == null
@@ -618,9 +619,10 @@ service cloud.firestore {
       match /records/{rid} {
         allow read: if isMember(coupleId);
         allow create: if isMember(coupleId)
-          && request.resource.data.keys().hasOnly(['trackId', 'title', 'artist', 'cover', 'sentAt', 'by'])
+          && request.resource.data.keys().hasOnly(['trackId', 'kind', 'title', 'artist', 'cover', 'sentAt', 'by'])
           && request.resource.data.by == self()
           && request.resource.data.trackId is string && request.resource.data.trackId.matches('^[A-Za-z0-9]{22}$')
+          && request.resource.data.get('kind', 'track') in ['track', 'album', 'playlist']
           && request.resource.data.title is string
           && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
           && (request.resource.data.get('artist', null) == null

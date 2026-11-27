@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.pet
 
+import com.choomhub.app.core.designsystem.component.GestureRow
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -235,11 +236,14 @@ private fun PetRoom(ui: PetUi, message: PetMessage?, onAct: (PetAction) -> PetOu
         Triple("Care", PetIcons.Cross) { onPanel(PetPanel.Care) },
         Triple("Wardrobe", PetIcons.Hanger) { onPage(PetPage.Wardrobe) },
     )
+    // Every care and page button shares one label size.
+    val allLabels = actions.map { it.first } + PetPage.entries.map { it.title }
     actions.chunked(4).forEach { row ->
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        GestureRow(allLabels, tiles = 4) { labelStyle ->
             row.forEach { (label, icon, onClick) ->
                 GestureButton(
                     label = label,
+                    labelStyle = labelStyle,
                     icon = icon,
                     tint = if (label == "Care" && careDue) colors.tomato else colors.lavender,
                     onClick = onClick,
@@ -257,7 +261,7 @@ private fun PetRoom(ui: PetUi, message: PetMessage?, onAct: (PetAction) -> PetOu
         BondLine(ui.partnerName, pet.partnerBond)
     }
     Spacer(Modifier.height(spacing.md))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    GestureRow(listOf("Feed", "Water", "Litter", "Pet", "Brush", "Play", "Care", "Wardrobe") + PetPage.entries.map { it.title }, tiles = 4) { labelStyle ->
         listOf(
             Triple(PetPage.Shop, PetIcons.Bag, null),
             Triple(PetPage.Diary, PetIcons.Book, ui.diary.size.takeIf { it > 0 }),
@@ -265,7 +269,9 @@ private fun PetRoom(ui: PetUi, message: PetMessage?, onAct: (PetAction) -> PetOu
             Triple(PetPage.Trophies, PetIcons.Trophy, PetRules.TROPHIES.count { it.unlocked(pet, ui.now) }.takeIf { it > 0 }),
         ).forEach { (p, icon, count) ->
             GestureButton(
-                label = if (count != null) "${p.title} · $count" else p.title,
+                label = p.title,
+                count = count,
+                labelStyle = labelStyle,
                 icon = icon,
                 tint = colors.pink,
                 onClick = { onPage(p) },

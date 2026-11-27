@@ -1,5 +1,17 @@
 package com.choomhub.app.core.designsystem.component
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -13,6 +25,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -67,7 +80,7 @@ fun ChoomHubPrimaryButton(
         ),
     ) {
         leading?.invoke(this)
-        Text(text, style = MaterialTheme.typography.labelLarge)
+        OneLineText(text, MaterialTheme.typography.labelLarge, color = LocalContentColor.current)
     }
 }
 
@@ -89,7 +102,7 @@ fun ChoomHubSecondaryButton(
         border = BorderStroke(1.dp, ChoomHubTheme.colors.outline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = ChoomHubTheme.colors.lavender),
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, maxLines = if (compact) 1 else Int.MAX_VALUE, softWrap = !compact)
+        OneLineText(text, MaterialTheme.typography.labelLarge, color = LocalContentColor.current)
     }
 }
 
@@ -104,6 +117,10 @@ fun GestureButton(
     tint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** A small number on the icon's corner (how many gifts, trophies...), kept out of the label. */
+    count: Int? = null,
+    /** From [GestureRow], so every tile in a row has the same size label. */
+    labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -127,13 +144,43 @@ fun GestureButton(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(ChoomHubTheme.spacing.sm, Alignment.Top),
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
-        Text(
+        Box {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
+            if (count != null) CountBadge(count, Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-6).dp))
+        }
+        OneLineText(
             text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
+            style = labelStyle,
             color = ChoomHubTheme.colors.textSecondary,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            modifier = Modifier.padding(horizontal = 4.dp),
         )
+    }
+}
+
+/**
+ * A row of [tiles] [GestureButton]s sharing one label size: the largest (down to 72%) at which
+ * every one of [labels] fits on one line in a tile, so one long name doesn't end up smaller than
+ * the rest. Pass the same [labels] to rows that should match each other.
+ */
+@Composable
+fun GestureRow(labels: List<String>, modifier: Modifier = Modifier, tiles: Int = labels.size, gap: Dp = ChoomHubTheme.spacing.sm, rowModifier: Modifier = Modifier, content: @Composable RowScope.(TextStyle) -> Unit) {
+    val base = MaterialTheme.typography.labelSmall
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val n = tiles.coerceAtLeast(1)
+        // The tile, less its border and the label's own side padding.
+        val inner = (maxWidth - gap * (n - 1)) / n - 10.dp
+        val style = remember(labels, inner, base) {
+            val room = with(density) { inner.toPx() }
+            val size = if (base.fontSize.isSpecified) base.fontSize else 11.sp
+            val scale = generateSequence(1f) { it - 0.04f }.takeWhile { it >= 0.72f }.firstOrNull { k ->
+                val st = base.copy(fontSize = size * k)
+                labels.all { measurer.measure(it.uppercase(), st, maxLines = 1, softWrap = false).size.width <= room }
+            } ?: 0.72f
+            base.copy(fontSize = size * scale)
+        }
+        Row(rowModifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) { content(style) }
     }
 }

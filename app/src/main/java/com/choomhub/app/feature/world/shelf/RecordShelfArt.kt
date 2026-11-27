@@ -1,5 +1,7 @@
 package com.choomhub.app.feature.world.shelf
 
+import androidx.compose.foundation.border
+import com.choomhub.app.domain.model.SongKind
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -53,7 +55,7 @@ private val TagPaper = Color(0xFFE6DED0)
 private val TagInk = Color(0xFF2A2230)
 
 /** A record on the shelf, as the shelf needs to know it. */
-data class ShelfRecord(val id: String, val title: String, val artist: String, val from: String, val rating: Int?, val cover: ImageBitmap?)
+data class ShelfRecord(val id: String, val title: String, val artist: String, val from: String, val rating: Int?, val cover: ImageBitmap?, val kind: SongKind = SongKind.Track)
 
 /** A plank with a lit front edge, its shadow on the wall, and brass brackets. */
 @Composable
@@ -92,13 +94,15 @@ private fun DrawScope.grain(at: Offset, s: Size) {
 fun ShelvedRecord(record: ShelfRecord, width: Dp, tilt: Float, modifier: Modifier = Modifier) {
     Box(modifier.size(width + 12.dp, width * 1.18f), contentAlignment = Alignment.BottomCenter) {
         Box(Modifier.size(width).rotate(tilt)) {
+            // An album has a second disc, further up and to the side (a double LP).
+            if (record.kind == SongKind.Album) ShelfDisc(Modifier.size(width).offset(x = width * 0.16f, y = -width * 0.22f).padding(width * 0.08f), Brass.copy(alpha = 0.85f))
             // The disc, slid up out of the sleeve.
-            Canvas(Modifier.size(width).offset(y = -width * 0.18f).padding(width * 0.04f)) {
-                val r = size.minDimension / 2f
-                drawCircle(Vinyl, r, center)
-                for (i in 1..4) drawCircle(Color.White.copy(alpha = 0.06f), r * (0.45f + i * 0.12f), center, style = Stroke(1f))
-                drawArc(Color.White.copy(alpha = 0.1f), -150f, 60f, false, Offset(center.x - r * 0.8f, center.y - r * 0.8f), Size(r * 1.6f, r * 1.6f), style = Stroke(2f))
-                drawCircle(Label.copy(alpha = 0.85f), r * 0.28f, center)
+            ShelfDisc(Modifier.size(width).offset(y = -width * 0.18f).padding(width * 0.04f), Label.copy(alpha = 0.85f))
+            // A playlist leans on two more sleeves, like a pile of mixtapes.
+            if (record.kind == SongKind.Playlist) {
+                listOf(-6f to -width * 0.05f, 4f to -width * 0.09f).forEach { (angle, dy) ->
+                    Box(Modifier.size(width).offset(x = -width * 0.03f, y = dy).rotate(angle).clip(RoundedCornerShape(2.dp)).background(Color(0xFF2B2433)).border(1.dp, TagPaper.copy(alpha = 0.18f), RoundedCornerShape(2.dp)))
+                }
             }
             Box(
                 Modifier
@@ -119,6 +123,17 @@ fun ShelvedRecord(record: ShelfRecord, width: Dp, tilt: Float, modifier: Modifie
     }
 }
 
+@Composable
+private fun ShelfDisc(modifier: Modifier, label: Color) {
+    Canvas(modifier) {
+        val r = size.minDimension / 2f
+        drawCircle(Vinyl, r, center)
+        for (i in 1..4) drawCircle(Color.White.copy(alpha = 0.06f), r * (0.45f + i * 0.12f), center, style = Stroke(1f))
+        drawArc(Color.White.copy(alpha = 0.1f), -150f, 60f, false, Offset(center.x - r * 0.8f, center.y - r * 0.8f), Size(r * 1.6f, r * 1.6f), style = Stroke(2f))
+        drawCircle(label, r * 0.28f, center)
+    }
+}
+
 /** The paper tag hung under the shelf on a thread: song, artist, who sent it, and play. */
 @Composable
 fun RecordTag(record: ShelfRecord, width: Dp, tilt: Float, modifier: Modifier = Modifier) {
@@ -133,7 +148,17 @@ fun RecordTag(record: ShelfRecord, width: Dp, tilt: Float, modifier: Modifier = 
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(record.title, color = TagInk, maxLines = 1, overflow = TextOverflow.Ellipsis, style = ChoomHubTextStyles.Handwritten.copy(fontSize = 17.sp, lineHeight = 18.sp))
-            Text(record.artist, color = TagInk.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+            if (record.kind != SongKind.Track) {
+                Text(record.kind.label.uppercase(), color = Color(0xFF8A6A2E), style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 8.sp), maxLines = 1)
+            }
+            Text(
+                if (record.kind == SongKind.Playlist && record.artist.isNotEmpty()) "by ${record.artist}" else record.artist,
+                color = TagInk.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
             Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("FROM ${record.from.uppercase()}", color = Color(0xFF9A3B52), style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 9.sp))
                 Canvas(Modifier.size(14.dp)) {

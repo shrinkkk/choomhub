@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.world.cabinet
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import android.Manifest
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -276,7 +277,7 @@ internal fun DatePanel(initial: LocalDate, onPick: (LocalDate) -> Unit, onDismis
         ChoomHubPrimaryButton("Use this date", {
             state.selectedDateMillis?.let { onPick(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
         }, Modifier.fillMaxWidth().testTag("date_ok"), enabled = state.selectedDateMillis != null)
-        TextButton(onDismiss, Modifier.fillMaxWidth()) { Text("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+        TextButton(onDismiss, Modifier.fillMaxWidth()) { OneLineText("NEVER MIND", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
     }
 }
 
@@ -338,9 +339,9 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
                     ChoomHubSecondaryButton("Later →", { viewModel.movePhoto(pid, 1) }, Modifier.weight(1f).testTag("photo_later"), enabled = index < meetup.photos.lastIndex)
                 }
                 TextButton({ viewModel.removePhoto(pid); photoMenu = null }, Modifier.fillMaxWidth().testTag("photo_remove")) {
-                    Text("TAKE IT OUT", style = MaterialTheme.typography.labelLarge, color = colors.tomato)
+                    OneLineText("TAKE IT OUT", style = MaterialTheme.typography.labelLarge, color = colors.tomato)
                 }
-                TextButton({ photoMenu = null }, Modifier.fillMaxWidth()) { Text("DONE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+                TextButton({ photoMenu = null }, Modifier.fillMaxWidth()) { OneLineText("DONE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
             }
         }
     }
@@ -459,7 +460,7 @@ fun MeetupScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewModel: M
         ChoomHubPrimaryButton("Pin it in the cabinet", { viewModel.pinned(); onBack() }, Modifier.fillMaxWidth().testTag("meetup_done"))
         Text("Only the date is needed. Everything saves as you go, and either of you can change it later.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
         TextButton({ confirmDelete = true }, Modifier.fillMaxWidth().testTag("meetup_delete")) {
-            Text("TAKE IT OUT OF THE CABINET", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
+            OneLineText("TAKE IT OUT OF THE CABINET", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
         }
     }
 }
@@ -513,7 +514,7 @@ private fun MinutesField(minutes: Int?, onChange: (Int?) -> Unit) {
             keyboardType = KeyboardType.Number, onDone = ::push,
             modifier = Modifier.weight(1f).testTag("meetup_minutes"),
         )
-        TextButton(::push, Modifier.testTag("meetup_time_save")) { Text("SET", style = MaterialTheme.typography.labelLarge, color = colors.lavender) }
+        TextButton(::push, Modifier.testTag("meetup_time_save")) { OneLineText("SET", style = MaterialTheme.typography.labelLarge, color = colors.lavender) }
     }
     if (minutes != null) Text("Set to ${MeetupRules.duration(minutes)}", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, modifier = Modifier.padding(top = 4.dp))
 }

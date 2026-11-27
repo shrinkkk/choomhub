@@ -10,6 +10,7 @@ import com.choomhub.app.data.song.HeardSongs
 import com.choomhub.app.data.song.SongInbox
 import com.choomhub.app.domain.model.PushEvent
 import com.choomhub.app.domain.model.SharedSong
+import com.choomhub.app.domain.model.SongKind
 import com.choomhub.app.domain.model.SongDraft
 import com.choomhub.app.domain.model.SongRules
 import com.choomhub.app.domain.repository.Notifier
@@ -73,9 +74,10 @@ class SongViewModel @Inject constructor(
                     sentLabel = TimeLabels.relative(s.sentAt ?: now, now, clock.zone),
                     isNew = s.rating == null && heardKey != s.key,
                     myRating = s.rating,
+                    kind = s.kind,
                 )
             },
-            sent = pair.mine?.let { SentSongUi(it.title, it.rating) },
+            sent = pair.mine?.let { SentSongUi(it.title, it.rating, it.kind) },
             partnerName = names.partnerName,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SongHomeUi())
@@ -103,7 +105,7 @@ class SongViewModel @Inject constructor(
     fun play(): String? {
         val song = latest ?: return null
         viewModelScope.launch { heard.markHeard(song.key) }
-        return SongRules.playUrl(song.trackId)
+        return SongRules.playUrl(song.trackId, song.kind)
     }
 
     fun rate(rating: Int) {
@@ -113,7 +115,7 @@ class SongViewModel @Inject constructor(
             songs.rate(rating)
             heard.markHeard(song.key)
         }
-        notifier.notifyPartner(PushEvent.SongRated, detail = song.title, kind = rating.toString())
+        notifier.notifyPartner(PushEvent.SongRated, detail = song.title, kind = if (song.kind == SongKind.Track) "$rating" else "${song.kind.wire}:$rating")
     }
 
     fun openSend() {
@@ -140,7 +142,7 @@ class SongViewModel @Inject constructor(
                 onSuccess = { draft ->
                     found = draft
                     val cover = draft.cover?.let { b -> runCatching { BitmapFactory.decodeByteArray(b, 0, b.size)?.asImageBitmap() }.getOrNull() }
-                    _sending.value = SendSongState.Found(draft.title, draft.artist, cover)
+                    _sending.value = SendSongState.Found(draft.title, draft.artist, cover, draft.kind)
                 },
                 onFailure = { _sending.value = SendSongState.Link(text, it.message ?: "Couldn't look that up.") },
             )
@@ -155,7 +157,7 @@ class SongViewModel @Inject constructor(
     fun send() {
         val draft = found ?: return
         viewModelScope.launch { songs.send(draft) }
-        notifier.notifyPartner(PushEvent.SongSent, detail = SongRules.describe(draft.title, draft.artist))
+        notifier.notifyPartner(PushEvent.SongSent, detail = SongRules.describe(draft.title, draft.artist), kind = draft.kind.takeIf { it != SongKind.Track }?.wire)
         found = null
         _sending.value = null
     }

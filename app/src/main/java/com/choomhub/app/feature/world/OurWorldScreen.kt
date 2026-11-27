@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.world
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -225,7 +226,7 @@ private fun LaneHeader(onNew: () -> Unit) {
             Text("Memory Lane", style = MaterialTheme.typography.headlineMedium, color = colors.textMain)
         }
         TextButton(onClick = onNew, modifier = Modifier.testTag("collection_new")) {
-            Text("+ NEW", style = ChoomHubTextStyles.Eyebrow.copy(fontSize = 12.sp), color = colors.pink)
+            OneLineText("+ NEW", ChoomHubTextStyles.Eyebrow.copy(fontSize = 12.sp), color = colors.pink)
         }
     }
 }

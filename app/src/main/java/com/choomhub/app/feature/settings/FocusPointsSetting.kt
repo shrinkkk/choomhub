@@ -1,5 +1,9 @@
 package com.choomhub.app.feature.settings
 
+import com.choomhub.app.core.designsystem.component.OneLineText
+import com.choomhub.app.core.designsystem.icon.PointIcons
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -87,29 +91,27 @@ class FocusPointsViewModel @Inject constructor(
     fun takeBack() = viewModelScope.launch { focus.takeBackRate() }
 }
 
-/** The settings group: a row that opens the focus-points pop-up. */
+/** The Customise row that opens the focus-points pop-up. */
 @Composable
-fun FocusPointsGroup(viewModel: FocusPointsViewModel = hiltViewModel()) {
+fun FocusPointsRow(viewModel: FocusPointsViewModel = hiltViewModel()) {
     val rate by viewModel.rate.collectAsStateWithLifecycle()
     val partner by viewModel.partner.collectAsStateWithLifecycle()
     var open by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable(rate.rate) { mutableIntStateOf(rate.rate) }
-    SettingsGroup("Focus points") {
-        SettingsRow(
-            title = "Points per focus hour",
-            value = when {
-                rate.proposed != null && !rate.proposedByMe -> "$partner suggested ${rate.proposed}. Tap to answer."
-                rate.proposed != null -> "You suggested ${rate.proposed}; waiting for $partner."
-                rate.rate == 0 -> "Off"
-                else -> "${rate.rate} an hour, ${rate.rate * 2} for together time"
-            },
-            badge = if (rate.proposed != null && !rate.proposedByMe) "answer" else "change",
-            badgeColor = if (rate.proposed != null && !rate.proposedByMe) ChoomHubTheme.colors.candle else ChoomHubTheme.colors.lavender,
-            divider = false,
-            onClick = { open = true },
-            modifier = Modifier.testTag("settings_focus_points"),
-        )
-    }
+    SettingsRow(
+        title = "Focus points",
+        value = when {
+            rate.proposed != null && !rate.proposedByMe -> "$partner suggested ${rate.proposed}. Tap to answer."
+            rate.proposed != null -> "You suggested ${rate.proposed}; waiting for $partner."
+            rate.rate == 0 -> "Off"
+            else -> "${rate.rate} an hour, ${rate.rate * 2} for together time"
+        },
+        badge = if (rate.proposed != null && !rate.proposedByMe) "answer" else "change",
+        badgeColor = if (rate.proposed != null && !rate.proposedByMe) ChoomHubTheme.colors.candle else ChoomHubTheme.colors.lavender,
+        divider = false,
+        onClick = { open = true },
+        modifier = Modifier.testTag("settings_focus_points"),
+    )
     if (open) {
         InkPanel({ open = false }, Modifier.testTag("focus_points_panel")) {
             FocusPointsContent(
@@ -153,16 +155,16 @@ fun ColumnScope.FocusPointsContent(
         RulesBox(pending.rate)
         Spacer(Modifier.height(spacing.lg))
         ChoomHubPrimaryButton("Agree", onAgree, Modifier.fillMaxWidth().testTag("focus_rate_agree"))
-        TextButton(onDecline, Modifier.fillMaxWidth()) { Text("NO, KEEP $current", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+        TextButton(onDecline, Modifier.fillMaxWidth()) { OneLineText("NO, KEEP $current", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
         return
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
-        StepButton("−", enabled = draft > 0 && pending == null) { onDraft(draft - 1) }
+        StepButton(PointIcons.Minus, "Less", enabled = draft > 0 && pending == null) { onDraft(draft - 1) }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("$draft", style = MaterialTheme.typography.displayMedium, color = if (draft == 0) colors.textFaint else colors.candle, modifier = Modifier.testTag("focus_rate_value"))
             Text(if (draft == 0) "OFF" else "PER HOUR", style = ChoomHubTextStyles.Eyebrow, color = colors.textSecondary)
         }
-        StepButton("+", enabled = draft < 10 && pending == null) { onDraft(draft + 1) }
+        StepButton(PointIcons.Plus, "More", enabled = draft < 10 && pending == null) { onDraft(draft + 1) }
     }
     Spacer(Modifier.height(spacing.lg))
     RulesBox(draft)
@@ -170,14 +172,14 @@ fun ColumnScope.FocusPointsContent(
     when {
         pending != null -> {
             Text("You suggested ${pending.rate}. Waiting for $partner to agree.", style = MaterialTheme.typography.bodySmall, color = colors.textSecondary, textAlign = TextAlign.Center)
-            TextButton(onDecline, Modifier.fillMaxWidth()) { Text("TAKE IT BACK", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+            TextButton(onDecline, Modifier.fillMaxWidth()) { OneLineText("TAKE IT BACK", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
         }
         else -> {
             ChoomHubPrimaryButton("Suggest $draft", onSuggest, Modifier.fillMaxWidth().testTag("focus_rate_suggest"), enabled = draft != current)
             Text("Changes once $partner agrees.", style = MaterialTheme.typography.bodySmall, color = colors.textFaint, modifier = Modifier.padding(top = spacing.xs))
         }
     }
-    TextButton(onClose, Modifier.fillMaxWidth()) { Text("CLOSE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+    TextButton(onClose, Modifier.fillMaxWidth()) { OneLineText("CLOSE", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
 }
 
 @Composable
@@ -203,7 +205,7 @@ private fun RulesBox(rate: Int) {
 }
 
 @Composable
-private fun StepButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+private fun StepButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
     val colors = ChoomHubTheme.colors
     Box(
         Modifier
@@ -212,5 +214,5 @@ private fun StepButton(text: String, enabled: Boolean, onClick: () -> Unit) {
             .border(1.dp, colors.lavender.copy(alpha = if (enabled) 0.5f else 0.12f), CircleShape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = MaterialTheme.typography.headlineSmall, color = if (enabled) colors.textMain else colors.textFaint) }
+    ) { Icon(icon, contentDescription = label, tint = if (enabled) colors.textMain else colors.textFaint, modifier = Modifier.size(20.dp)) }
 }

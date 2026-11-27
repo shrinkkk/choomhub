@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.account
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -129,7 +130,7 @@ fun PairingContent(
         Spacer(Modifier.height(spacing.xl))
         var confirmingSignOut by rememberSaveable { mutableStateOf(false) }
         TextButton(onClick = { confirmingSignOut = true }, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("pairing_sign_out")) {
-            Text("SIGN OUT", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
+            OneLineText("SIGN OUT", style = MaterialTheme.typography.labelLarge, color = colors.textFaint)
         }
         if (confirmingSignOut) {
             SignOutDialog(onSignOut, { confirmingSignOut = false }, "You can sign back in any time and carry on from here.")

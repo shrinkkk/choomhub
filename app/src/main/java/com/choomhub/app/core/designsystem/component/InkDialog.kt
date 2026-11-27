@@ -104,7 +104,7 @@ private fun InkPanelHeading(title: String, whisper: String?, art: @Composable ()
 @Composable
 private fun InkQuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     TextButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
-        Text(text.uppercase(), style = MaterialTheme.typography.labelLarge, color = ChoomHubTheme.colors.textSecondary)
+        OneLineText(text.uppercase(), style = MaterialTheme.typography.labelLarge, color = ChoomHubTheme.colors.textSecondary)
     }
 }
 

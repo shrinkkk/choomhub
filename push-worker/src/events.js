@@ -36,6 +36,10 @@ export function isEmoji(text) {
   return picture;
 }
 
+/** What can be sent besides a single song; must match SongKind in the app. */
+const MusicKinds = ['album', 'playlist'];
+const Ratings = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].flatMap((r) => [r, ...MusicKinds.map((k) => `${k}:${r}`)]);
+
 /** Gesture kinds the app may name; must match AffectionKind in the app. */
 export const Gestures = Object.freeze(['hug', 'forehead_kiss', 'head_pats', 'tomato']);
 
@@ -70,8 +74,10 @@ export const Events = Object.freeze({
   jam: { category: 'focus', channel: Channels.focus, tag: 'jam', toSelf: false, takesDetail: false },
   pet_help: { category: 'pet', channel: Channels.pet, tag: 'pet_help', toSelf: false, takesDetail: true, kinds: ['vet', 'bath'] },
   pet_named: { category: 'pet', channel: Channels.pet, tag: 'pet_named', toSelf: false, takesDetail: true },
-  song: { category: 'songs', channel: Channels.songs, tag: 'song', toSelf: false, takesDetail: true },
-  song_rated: { category: 'songs', channel: Channels.songs, tag: 'song_rated', toSelf: false, takesDetail: true, kinds: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] },
+  // kind: 'album' or 'playlist' when it isn't a single song (no kind means a song).
+  song: { category: 'songs', channel: Channels.songs, tag: 'song', toSelf: false, takesDetail: true, kinds: MusicKinds, kindOptional: true },
+  // kind: the rating, '8', or 'album:8' / 'playlist:8'.
+  song_rated: { category: 'songs', channel: Channels.songs, tag: 'song_rated', toSelf: false, takesDetail: true, kinds: Ratings },
   shop: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: ShopKinds },
   focus_rate: { category: 'points', channel: Channels.points, tag: 'focus_rate', toSelf: false, takesDetail: true, kinds: ['suggest', 'agreed', 'declined'] },
   bounty: { category: 'points', channel: Channels.points, tag: null, toSelf: false, takesDetail: true, kinds: ['posted', 'claimed', 'paid', 'not_yet'] },
@@ -105,11 +111,19 @@ export function parseRequest(body) {
     cleanKind = typeof kind === 'string' ? clean(kind, MAX_MOOD_LABEL) : '';
     if (!cleanKind) return null;
   } else if (spec.kinds) {
+    if (spec.kindOptional && (kind === undefined || kind === null)) return { event, detail: spec.takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '', kind: null };
     if (typeof kind !== 'string' || !spec.kinds.includes(kind)) return null;
     cleanKind = kind;
   }
   const cleanDetail = spec.takesDetail && typeof detail === 'string' ? clean(detail, MAX_DETAIL) : '';
   return { event, detail: cleanDetail, kind: cleanKind };
+}
+
+/** "a song", "an album", "a playlist" (or without the article). */
+function musicNoun(kind, article) {
+  const noun = MusicKinds.includes(kind) ? kind : 'song';
+  if (!article) return noun;
+  return (noun === 'album' ? 'an ' : 'a ') + noun;
 }
 
 function clean(text, max) {
@@ -164,9 +178,11 @@ export function compose(event, ctx) {
     case 'focus_nudge':
       return { title: `${who} wants you in the focus room`, body: "There's a desk waiting for you." };
     case 'song':
-      return { title: `${who} sent you a song`, body: ctx.detail || 'Open ChoomHub to play it.' };
-    case 'song_rated':
-      return { title: `${who} rated your song ${ctx.kind}/10`, body: ctx.detail || 'Open ChoomHub to see it.' };
+      return { title: `${who} sent you ${musicNoun(ctx.kind, true)}`, body: ctx.detail || 'Open ChoomHub to play it.' };
+    case 'song_rated': {
+      const [what, rating] = String(ctx.kind || '').includes(':') ? String(ctx.kind).split(':') : [null, ctx.kind];
+      return { title: `${who} rated your ${musicNoun(what, false)} ${rating}/10`, body: ctx.detail || 'Open ChoomHub to see it.' };
+    }
     case 'shop': {
       const body = ctx.detail || 'Open the points shop to see it.';
       const titles = {

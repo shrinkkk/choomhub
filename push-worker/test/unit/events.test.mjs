@@ -126,6 +126,18 @@ test('songs: sending one, and the rating it got', () => {
   assert.equal(fcmMessage('f', 'song', compose('song', {})).message.android.notification.channel_id, 'songs');
 });
 
+test('songs: albums and playlists say so', () => {
+  assert.deepEqual(parseRequest({ event: 'song', kind: 'album', detail: 'Global Warming · Pitbull' }), { event: 'song', detail: 'Global Warming · Pitbull', kind: 'album' });
+  assert.equal(parseRequest({ event: 'song', kind: 'artist' }), null);
+  assert.equal(compose('song', { senderName: 'Jas', kind: 'album' }).title, 'Jas sent you an album');
+  assert.equal(compose('song', { senderName: 'Jas', kind: 'playlist' }).title, 'Jas sent you a playlist');
+  assert.equal(compose('song', { senderName: 'Jas' }).title, 'Jas sent you a song');
+  assert.equal(parseRequest({ event: 'song_rated', kind: 'playlist:7' }).kind, 'playlist:7');
+  assert.equal(parseRequest({ event: 'song_rated', kind: 'playlist:11' }), null);
+  assert.equal(compose('song_rated', { senderName: 'Jas', kind: 'playlist:7', detail: 'Mix' }).title, 'Jas rated your playlist 7/10');
+  assert.equal(compose('song_rated', { senderName: 'Jas', kind: '7' }).title, 'Jas rated your song 7/10');
+});
+
 test('focus rate, bounties, collection deletes and meetup logs', () => {
   assert.deepEqual(parseRequest({ event: 'focus_rate', kind: 'suggest', detail: '3' }), { event: 'focus_rate', detail: '3', kind: 'suggest' });
   assert.equal(parseRequest({ event: 'focus_rate', kind: 'maybe', detail: '3' }), null);

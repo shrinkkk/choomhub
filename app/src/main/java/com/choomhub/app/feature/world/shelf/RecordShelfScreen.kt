@@ -87,7 +87,7 @@ fun RecordShelfScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewMod
     val songs = shelf.orEmpty()
     val records = remember(songs, names) {
         songs.associate { s ->
-            s.key to ShelfRecord(s.key, s.title, s.artist.orEmpty(), if (s.fromMe) "You" else partner, s.rating, s.coverBitmap())
+            s.key to ShelfRecord(s.key, s.title, s.artist.orEmpty(), if (s.fromMe) "You" else partner, s.rating, s.coverBitmap(), s.kind)
         }
     }
     var filter by rememberSaveable { mutableStateOf(ShelfFilter.All) }
@@ -95,7 +95,7 @@ fun RecordShelfScreen(contentPadding: PaddingValues, onBack: () -> Unit, viewMod
     val play: (ShelfRecord) -> Unit = { r ->
         songs.firstOrNull { it.key == r.id }?.let { s ->
             try {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SongRules.playUrl(s.trackId))))
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SongRules.playUrl(s.trackId, s.kind))))
             } catch (_: ActivityNotFoundException) {
                 // No browser and no Spotify: nothing sensible to open.
             }
@@ -147,7 +147,7 @@ fun RecordShelfContent(
                     ) { Icon(PetIcons.Back, contentDescription = "Back", tint = colors.textSecondary) }
                     Column(Modifier.weight(1f).padding(start = 4.dp)) {
                         Text("RECORD SHELF", style = ChoomHubTextStyles.Eyebrow, color = colors.candle)
-                        Text("Every song you've sent each other", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+                        Text("Every song, album and playlist you've sent", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
                     }
                 }
             }
@@ -171,7 +171,7 @@ fun RecordShelfContent(
                         if (i == 0) {
                             Text(
                                 when {
-                                    records.isEmpty() && filter == ShelfFilter.All -> "Nothing on the shelf yet. Every song you send each other lands here."
+                                    records.isEmpty() && filter == ShelfFilter.All -> "Nothing on the shelf yet. Every song, album and playlist you send each other lands here."
                                     records.isEmpty() -> "Nothing from ${if (filter == ShelfFilter.Mine) "you" else partner} yet."
                                     else -> "room for more"
                                 },

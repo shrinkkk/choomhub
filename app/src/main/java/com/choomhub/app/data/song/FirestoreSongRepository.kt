@@ -7,6 +7,7 @@ import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.Source
 import com.choomhub.app.domain.model.ShelfSong
 import com.choomhub.app.domain.model.SongDraft
+import com.choomhub.app.domain.model.SongKind
 import com.choomhub.app.domain.model.SongPair
 import com.choomhub.app.domain.model.SpaceState
 import com.choomhub.app.domain.model.coupleIdOrNull
@@ -57,6 +58,7 @@ class FirestoreSongRepository @Inject constructor(
         val record = records(coupleId).document()
         val fields = buildMap {
             put("trackId", song.trackId)
+            if (song.kind != SongKind.Track) put("kind", song.kind.wire)
             put("title", song.title)
             if (song.artist != null) put("artist", song.artist)
             if (song.cover != null) put("cover", Blob.fromBytes(song.cover))
@@ -90,11 +92,11 @@ class FirestoreSongRepository @Inject constructor(
         combine(records(coupleId).observe(), observeSongs()) { recs, pair ->
             val fromRecords = recs?.documents.orEmpty().mapNotNull { doc ->
                 val s = songFrom(doc) ?: return@mapNotNull null
-                ShelfSong(doc.id, s.trackId, s.title, s.artist, s.cover, doc.getString("by") == me, s.sentAt, s.rating)
+                ShelfSong(doc.id, s.trackId, s.title, s.artist, s.cover, doc.getString("by") == me, s.sentAt, s.rating, s.kind)
             }
             val current = listOfNotNull(
-                pair.mine?.let { ShelfSong("song:me", it.trackId, it.title, it.artist, it.cover, true, it.sentAt, it.rating) },
-                pair.theirs?.let { ShelfSong("song:them", it.trackId, it.title, it.artist, it.cover, false, it.sentAt, it.rating) },
+                pair.mine?.let { ShelfSong("song:me", it.trackId, it.title, it.artist, it.cover, true, it.sentAt, it.rating, it.kind) },
+                pair.theirs?.let { ShelfSong("song:them", it.trackId, it.title, it.artist, it.cover, false, it.sentAt, it.rating, it.kind) },
             ).filter { c -> fromRecords.none { r -> r.fromMe == c.fromMe && r.trackId == c.trackId && sameMoment(r.sentAt, c.sentAt) } }
             (fromRecords + current).sortedByDescending { it.sentAt }
         }
@@ -116,6 +118,7 @@ class FirestoreSongRepository @Inject constructor(
                 cover = doc.getBlob("cover")?.toBytes(),
                 sentAt = doc.getTimestamp("sentAt", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)?.toDate()?.toInstant(),
                 rating = doc.getLong("rating")?.toInt(),
+                kind = SongKind.fromWire(doc.getString("kind")),
             )
         }
     }

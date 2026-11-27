@@ -1,5 +1,6 @@
 package com.choomhub.app.feature.activities
 
+import com.choomhub.app.core.designsystem.component.OneLineText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -247,7 +248,7 @@ private fun GoInDialog(card: FocusCardUi, onGoIn: () -> Unit, onDismiss: () -> U
         )
         Spacer(Modifier.height(16.dp))
         ChoomHubPrimaryButton("Go in", onGoIn, Modifier.fillMaxWidth().testTag("focus_go_in"))
-        TextButton(onDismiss, Modifier.fillMaxWidth()) { Text("NOT NOW", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
+        TextButton(onDismiss, Modifier.fillMaxWidth()) { OneLineText("NOT NOW", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary) }
     }
 }
 
